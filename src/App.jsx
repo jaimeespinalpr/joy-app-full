@@ -8,7 +8,9 @@ import {
   Clock3,
   Lock,
   LogOut,
+  Maximize2,
   MessageSquareText,
+  Minimize2,
   Minus,
   Play,
   Plus,
@@ -237,6 +239,10 @@ function calculatePoints(attempts) {
   if (attempts === 1) return 3
   if (attempts === 2) return 1
   return 0
+}
+
+function countRemainingOriginalQuestions(queueItems) {
+  return queueItems.reduce((count, item) => count + (item.isRetry ? 0 : 1), 0)
 }
 
 function getGrade(percentage) {
@@ -576,6 +582,9 @@ function ResultsList({ results, loading }) {
                   <span>{result.subjectName}</span>
                   <span className="dot" />
                   <span>{result.testName}</span>
+                  {result.attemptStatus === 'abandoned' && (
+                    <span className="badge badge-soon">Abandonada</span>
+                  )}
                 </div>
                 <small>{formatDateTime(result.createdAtMs)}</small>
               </div>
@@ -696,23 +705,42 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
   const coinTimerRef = useRef(null)
+  const finishInProgressRef = useRef(false)
 
   useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
 
   function clearTimers() {
-    if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-    if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-    if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+    if (clearFeedbackTimerRef.current) {
+      window.clearTimeout(clearFeedbackTimerRef.current)
+      clearFeedbackTimerRef.current = null
+    }
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
   }
 
   function setupQuestion(question) {
@@ -721,9 +749,41 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     setFeedback(null)
   }
 
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('No se pudo activar fullscreen:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('No se pudo salir de fullscreen:', error)
+    }
+  }
+
+  function handleBackToTests() {
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
   function startGame() {
     clearTimers()
+    finishInProgressRef.current = false
     playSound('start', soundEnabled)
+    void enterFullscreenMode()
     const initialQueue = generateMultiplicationQuestions(INITIAL_QUESTION_COUNT)
     setQueue(initialQueue)
     setTotalScore(0)
@@ -736,8 +796,25 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     setPhase('playing')
   }
 
-  async function finishGame(finalScore, finalPerfectCount) {
-    playSound('win', soundEnabled)
+  async function finishGame(finalScore, finalPerfectCount, options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    const completionMode = options.completionMode ?? 'completed'
+    const queueSnapshot = options.queueSnapshot ?? []
+    const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
+    const remainingOriginalCount =
+      options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
+    const answeredOriginalCount = INITIAL_QUESTION_COUNT - remainingOriginalCount
+
+    clearTimers()
+    setShowCoinAnimation(false)
+
+    if (completionMode === 'completed') {
+      playSound('win', soundEnabled)
+    } else {
+      playSound('bump', soundEnabled)
+    }
 
     const maxScore = INITIAL_QUESTION_COUNT * 5
     const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
@@ -754,18 +831,31 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
       grade: gradeInfo.grade,
       perfectOriginalCount: finalPerfectCount,
       questionCount: INITIAL_QUESTION_COUNT,
+      answeredOriginalCount,
+      remainingOriginalCount,
+      remainingQueueCount,
+      attemptStatus: completionMode,
+      isAbandoned: completionMode === 'abandoned',
       finishedAtMs: Date.now(),
     }
 
     setLastResult(summary)
     setPhase('finished')
     setSaveStatus('saving')
-    setSaveMessage('Guardando resultado...')
+    setSaveMessage(
+      completionMode === 'abandoned'
+        ? 'Guardando resultado parcial (preguntas restantes = 0 pts)...'
+        : 'Guardando resultado...',
+    )
 
     try {
       await onSaveResult(summary)
       setSaveStatus('saved')
-      setSaveMessage('Resultado guardado en Firebase.')
+      setSaveMessage(
+        completionMode === 'abandoned'
+          ? 'Prueba abandonada: progreso y puntaje guardados en Firebase.'
+          : 'Resultado guardado en Firebase.',
+      )
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
@@ -820,7 +910,10 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
           setQueue([])
           setCurrentOptions([])
           setFeedback(null)
-          void finishGame(nextScore, nextPerfectOriginalCount)
+          void finishGame(nextScore, nextPerfectOriginalCount, {
+            completionMode: 'completed',
+            queueSnapshot: [],
+          })
           return
         }
 
@@ -846,9 +939,37 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     }, 420)
   }
 
+  function handleAbandonTest() {
+    if (phase !== 'playing') return
+    if (feedback === 'correct') return
+    if (!queue.length) return
+    if (finishInProgressRef.current) return
+
+    const confirmed = window.confirm(
+      'Si abandonas la prueba ahora, se guardará el puntaje actual y las preguntas restantes contarán como 0 puntos. ¿Deseas continuar?',
+    )
+
+    if (!confirmed) return
+
+    const queueSnapshot = [...queue]
+    void finishGame(totalScore, perfectOriginalCount, {
+      completionMode: 'abandoned',
+      queueSnapshot,
+    })
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+
+    await enterFullscreenMode()
+  }
+
   if (phase === 'intro') {
     return (
-      <section className="game-shell intro">
+      <section className={`game-shell intro ${isFullscreen ? 'is-fullscreen' : ''}`}>
         <div className="game-intro-card">
           <div className="game-intro-badge">
             <Calculator size={16} />
@@ -879,7 +1000,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
               <Play size={18} />
               <span>Comenzar prueba</span>
             </button>
-            <button type="button" className="btn btn-ghost" onClick={onBack}>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
               <ArrowLeft size={16} />
               <span>Volver a tipos de prueba</span>
             </button>
@@ -908,15 +1029,20 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
       questionCount: INITIAL_QUESTION_COUNT,
     }
     const gradeInfo = getGrade(summary.percentage)
+    const isAbandoned = summary.attemptStatus === 'abandoned'
 
     return (
-      <section className="game-shell">
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
         <div className="results-card">
           <div className={`results-trophy ${gradeInfo.color}`}>
-            <Trophy size={34} />
+            {isAbandoned ? <CircleAlert size={34} /> : <Trophy size={34} />}
           </div>
           <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
-          <p className="results-message">{gradeInfo.message}</p>
+          <p className="results-message">
+            {isAbandoned
+              ? 'Prueba abandonada. Se guardó el avance con el puntaje actual.'
+              : gradeInfo.message}
+          </p>
 
           <div className="score-panel">
             <div className="score-labels">
@@ -930,7 +1056,11 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
             </div>
             <div className="score-meta">
               <span>{summary.percentage}%</span>
-              <span>{summary.perfectOriginalCount} perfectas (de 25)</span>
+              <span>
+                {isAbandoned
+                  ? `${summary.answeredOriginalCount ?? 0} de 25 preguntas base respondidas`
+                  : `${summary.perfectOriginalCount} perfectas (de 25)`}
+              </span>
             </div>
           </div>
 
@@ -958,7 +1088,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
               <RotateCcw size={16} />
               <span>Jugar de nuevo</span>
             </button>
-            <button type="button" className="btn btn-ghost" onClick={onBack}>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
               <ArrowLeft size={16} />
               <span>Volver a tipos de prueba</span>
             </button>
@@ -973,7 +1103,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
   const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
-    <section className="game-shell">
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
       <CoinBurst visible={showCoinAnimation} />
 
       <div className="game-topbar">
@@ -997,14 +1127,30 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
           <button
             type="button"
             className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Salir de pantalla grande' : 'Pantalla grande'}
+            title={isFullscreen ? 'Salir de pantalla grande' : 'Pantalla grande'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
             onClick={() => setSoundEnabled((value) => !value)}
             aria-label={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
             title={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
-          <button type="button" className="btn btn-ghost icon-only" onClick={onBack} title="Salir">
-            <ArrowLeft size={18} />
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleAbandonTest}
+            disabled={saveStatus === 'saving' || feedback === 'correct'}
+            title="Guardar resultado parcial y salir de la prueba"
+          >
+            <ArrowLeft size={16} />
+            <span>Abandonar</span>
           </button>
         </div>
       </div>
@@ -1296,4 +1442,3 @@ function App() {
 }
 
 export default App
-
