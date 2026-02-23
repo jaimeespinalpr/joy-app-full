@@ -323,6 +323,57 @@ function formatDateTime(ms) {
   }
 }
 
+function exerciseKeyFromQuestion(question) {
+  return `${question.n1}x${question.n2}`
+}
+
+function exerciseRecordFromQuestion(question) {
+  return {
+    key: exerciseKeyFromQuestion(question),
+    n1: question.n1,
+    n2: question.n2,
+    answer: question.answer,
+    label: `${question.n1} x ${question.n2} = ${question.answer}`,
+  }
+}
+
+function mergeExerciseRecords(...lists) {
+  const seen = new Set()
+  const merged = []
+
+  lists.flat().forEach((item) => {
+    if (!item?.key) return
+    if (seen.has(item.key)) return
+    seen.add(item.key)
+    merged.push(item)
+  })
+
+  return merged
+}
+
+function getPendingOriginalExercises(queueItems) {
+  return mergeExerciseRecords(
+    queueItems
+      .filter((item) => !item.isRetry)
+      .map((item) => exerciseRecordFromQuestion(item)),
+  )
+}
+
+function getPersonalMultiplicationRecords(results) {
+  return results
+    .filter(
+      (result) =>
+        result.subjectId === 'math' &&
+        result.testId === 'multiplication' &&
+        result.attemptStatus !== 'abandoned',
+    )
+    .sort((a, b) => {
+      if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore
+      if (b.percentage !== a.percentage) return b.percentage - a.percentage
+      return (a.createdAtMs ?? 0) - (b.createdAtMs ?? 0)
+    })
+}
+
 function mapFirebaseError(error, context) {
   const code = error?.code ?? ''
 
@@ -611,6 +662,60 @@ function ResultsList({ results, loading }) {
   )
 }
 
+function RecordsPanel({ results }) {
+  const records = getPersonalMultiplicationRecords(results)
+  const highScore = records[0] ?? null
+  const topFive = records.slice(0, 5)
+
+  return (
+    <section className="panel-card">
+      <div className="panel-card-header">
+        <div>
+          <h2>Records / High Score</h2>
+          <p>Ranking del estudiante en Matematicas &gt; Multiplicacion.</p>
+        </div>
+      </div>
+
+      {!highScore ? (
+        <div className="empty-state">
+          <Trophy size={20} />
+          <p>Completa una prueba para crear tu primer record.</p>
+        </div>
+      ) : (
+        <div className="records-layout">
+          <div className="record-highlight">
+            <div className="record-highlight-header">
+              <Trophy size={18} />
+              <span>High Score</span>
+            </div>
+            <strong>{highScore.totalScore} pts</strong>
+            <div className="record-highlight-meta">
+              <span>{highScore.percentage}%</span>
+              <span>{highScore.grade}</span>
+              <span>{formatDateTime(highScore.createdAtMs)}</span>
+            </div>
+          </div>
+
+          <div className="leaderboard-list">
+            {topFive.map((record, index) => (
+              <div key={record.id} className="leaderboard-row">
+                <div className="rank-pill">#{index + 1}</div>
+                <div className="leaderboard-main">
+                  <strong>{record.totalScore} pts</strong>
+                  <small>
+                    {record.percentage}% · {record.grade}
+                  </small>
+                </div>
+                <small className="leaderboard-date">{formatDateTime(record.createdAtMs)}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject }) {
   return (
     <div className="page-stack">
@@ -652,6 +757,7 @@ function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject })
       </section>
 
       <ResultsList results={results} loading={resultsLoading} />
+      <RecordsPanel results={results} />
     </div>
   )
 }
@@ -714,12 +820,14 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
   const [saveMessage, setSaveMessage] = useState('')
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [reviewExercises, setReviewExercises] = useState([])
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
   const coinTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
+  const reviewExercisesRef = useRef([])
 
   useEffect(() => {
     function syncFullscreenState() {
@@ -762,6 +870,16 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     setCurrentOptions(question.options.map((value) => ({ value, isHidden: false })))
     setAttemptsOnCurrent(0)
     setFeedback(null)
+  }
+
+  function addReviewExercise(question) {
+    if (!question || question.isRetry) return
+
+    const nextList = mergeExerciseRecords(reviewExercisesRef.current, [
+      exerciseRecordFromQuestion(question),
+    ])
+    reviewExercisesRef.current = nextList
+    setReviewExercises(nextList)
   }
 
   async function enterFullscreenMode() {
@@ -810,6 +928,8 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
+    reviewExercisesRef.current = []
+    setReviewExercises([])
     setupQuestion(initialQueue[0])
     setPhase('playing')
   }
@@ -824,6 +944,11 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     const remainingOriginalCount =
       options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
     const answeredOriginalCount = INITIAL_QUESTION_COUNT - remainingOriginalCount
+    const pendingExercises = completionMode === 'abandoned' ? getPendingOriginalExercises(queueSnapshot) : []
+    const reviewExercisesSummary = mergeExerciseRecords(
+      reviewExercisesRef.current,
+      options.extraReviewExercises ?? [],
+    )
 
     clearTimers()
     setShowCoinAnimation(false)
@@ -854,6 +979,8 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
       remainingQueueCount,
       attemptStatus: completionMode,
       isAbandoned: completionMode === 'abandoned',
+      reviewExercises: reviewExercisesSummary,
+      pendingExercises,
       finishedAtMs: Date.now(),
     }
 
@@ -891,6 +1018,10 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
+
+      if (attemptsOnCurrent > 0) {
+        addReviewExercise(currentQuestion)
+      }
 
       setTotalScore(nextScore)
       setFeedback('correct')
@@ -970,9 +1101,15 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     if (!confirmed) return
 
     const queueSnapshot = [...queue]
+    const currentQuestion = queue[0]
+    const extraReviewExercises =
+      currentQuestion && !currentQuestion.isRetry && attemptsOnCurrent > 0
+        ? [exerciseRecordFromQuestion(currentQuestion)]
+        : []
     void finishGame(totalScore, perfectOriginalCount, {
       completionMode: 'abandoned',
       queueSnapshot,
+      extraReviewExercises,
     })
   }
 
@@ -993,9 +1130,13 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
       grade: 'F',
       perfectOriginalCount,
       questionCount: INITIAL_QUESTION_COUNT,
+      reviewExercises,
+      pendingExercises: [],
     }
     const gradeInfo = getGrade(summary.percentage)
     const isAbandoned = summary.attemptStatus === 'abandoned'
+    const reviewList = summary.reviewExercises ?? []
+    const pendingList = summary.pendingExercises ?? []
 
     return (
       <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
@@ -1028,6 +1169,50 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
                   : `${summary.perfectOriginalCount} perfectas (de 25)`}
               </span>
             </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Ejercicios para estudiar</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">
+                  {isAbandoned
+                    ? 'Aun no hay ejercicios fallados registrados en este intento.'
+                    : 'Excelente: no hubo ejercicios fallados en esta prueba.'}
+                </p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((exercise) => (
+                    <span key={exercise.key} className="exercise-tag">
+                      {exercise.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isAbandoned && (
+              <div className="study-card">
+                <div className="study-card-header">
+                  <Clock3 size={16} />
+                  <h3>Pendientes al abandonar</h3>
+                </div>
+                {pendingList.length === 0 ? (
+                  <p className="study-empty">No quedaron preguntas base pendientes.</p>
+                ) : (
+                  <div className="exercise-tags">
+                    {pendingList.map((exercise) => (
+                      <span key={exercise.key} className="exercise-tag pending">
+                        {exercise.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div

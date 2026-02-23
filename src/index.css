@@ -699,6 +699,86 @@ button {
   gap: 0.6rem;
 }
 
+.records-layout {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.record-highlight {
+  border-radius: 16px;
+  padding: 0.9rem;
+  background:
+    radial-gradient(circle at 85% 15%, rgba(255, 203, 110, 0.22), transparent 35%),
+    #f8fbff;
+  border: 1px solid rgba(31, 46, 101, 0.08);
+}
+
+.record-highlight-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b37a11;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.record-highlight strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #17214b;
+  font-size: 1.55rem;
+}
+
+.record-highlight-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+  color: #65729b;
+  font-size: 0.84rem;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(31, 46, 104, 0.07);
+  padding: 0.65rem 0.75rem;
+}
+
+.rank-pill {
+  min-width: 42px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(66, 101, 240, 0.1);
+  color: #3550ce;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+}
+
+.leaderboard-main strong {
+  display: block;
+  color: #1b2452;
+}
+
+.leaderboard-main small {
+  color: #68749e;
+}
+
+.leaderboard-date {
+  color: #7480a7;
+  text-align: right;
+}
+
 .result-row {
   display: flex;
   justify-content: space-between;
@@ -1207,6 +1287,62 @@ button {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
+}
+
+.study-panels {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.study-card {
+  border-radius: 16px;
+  background: #f8fbff;
+  border: 1px solid rgba(24, 39, 95, 0.07);
+  padding: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.study-card-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #25367b;
+}
+
+.study-card-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.study-empty {
+  margin: 0;
+  color: #66739d;
+  font-size: 0.9rem;
+}
+
+.exercise-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.exercise-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.38rem 0.65rem;
+  background: white;
+  border: 1px solid rgba(31, 46, 104, 0.09);
+  color: #1e285b;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.exercise-tag.pending {
+  background: rgba(255, 189, 87, 0.1);
+  border-color: rgba(255, 189, 87, 0.22);
+  color: #9e640e;
 }
 
 @keyframes spin {
