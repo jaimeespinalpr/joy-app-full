@@ -48,24 +48,24 @@ const APP_DOMAIN = 'joyapp.student'
 const SUBJECTS = [
   {
     id: 'math',
-    name: 'Matematicas',
-    description: 'Practica operaciones, retos y problemas paso a paso.',
+    name: 'Math',
+    description: 'Practice operations, challenges, and step-by-step problems.',
     colorClass: 'subject-math',
     icon: Calculator,
     available: true,
   },
   {
     id: 'reading',
-    name: 'Lectura',
-    description: 'Comprension, vocabulario y mini retos de lectura.',
+    name: 'Reading',
+    description: 'Comprehension, vocabulary, and mini reading challenges.',
     colorClass: 'subject-reading',
     icon: BookOpen,
     available: false,
   },
   {
     id: 'language',
-    name: 'Lenguaje',
-    description: 'Ortografia, silabas y expresion escrita.',
+    name: 'Language Arts',
+    description: 'Spelling, syllables, and written expression.',
     colorClass: 'subject-language',
     icon: MessageSquareText,
     available: false,
@@ -76,32 +76,32 @@ const TESTS_BY_SUBJECT = {
   math: [
     {
       id: 'multiplication',
-      name: 'Multiplicacion',
-      description: 'Multiplicaciones para 3er grado con puntaje y refuerzo.',
+      name: 'Multiplication',
+      description: '3rd grade multiplication with scoring and reinforcement.',
       available: true,
       accentClass: 'test-multiplication',
       icon: X,
     },
     {
       id: 'addition',
-      name: 'Suma',
-      description: 'Proximamente: sumas por niveles y rapidez mental.',
+      name: 'Addition',
+      description: 'Coming soon: leveled addition and mental math speed.',
       available: false,
       accentClass: 'test-addition',
       icon: Plus,
     },
     {
       id: 'subtraction',
-      name: 'Resta',
-      description: 'Proximamente: restas con y sin llevadas.',
+      name: 'Subtraction',
+      description: 'Coming soon: subtraction with and without borrowing.',
       available: false,
       accentClass: 'test-subtraction',
       icon: Minus,
     },
     {
       id: 'word-problems',
-      name: 'Problemas Verbales',
-      description: 'Proximamente: lectura y resolucion de situaciones.',
+      name: 'Word Problems',
+      description: 'Coming soon: reading and solving real-life situations.',
       available: false,
       accentClass: 'test-word',
       icon: MessageSquareText,
@@ -127,7 +127,7 @@ function initAudio() {
 
     return true
   } catch (error) {
-    console.warn('Audio no disponible en este momento:', error)
+    console.warn('Audio is not available right now:', error)
     return false
   }
 }
@@ -195,7 +195,7 @@ function playSound(type, enabled) {
       osc.stop(now + 0.66)
     }
   } catch (error) {
-    console.warn('No se pudo reproducir sonido:', error)
+    console.warn('Could not play sound:', error)
   }
 }
 
@@ -255,21 +255,21 @@ function countRemainingOriginalQuestions(queueItems) {
 
 function getGrade(percentage) {
   if (percentage >= 97) {
-    return { grade: 'A+', color: 'grade-aplus', message: 'Perfecto. Trabajo excelente.' }
+    return { grade: 'A+', color: 'grade-aplus', message: 'Perfect. Excellent work.' }
   }
   if (percentage >= 90) {
-    return { grade: 'A', color: 'grade-a', message: 'Muy buen trabajo. Sigue asi.' }
+    return { grade: 'A', color: 'grade-a', message: 'Great job. Keep going.' }
   }
   if (percentage >= 80) {
-    return { grade: 'B', color: 'grade-b', message: 'Buen trabajo. Vas por buen camino.' }
+    return { grade: 'B', color: 'grade-b', message: 'Good work. You are on the right track.' }
   }
   if (percentage >= 70) {
-    return { grade: 'C', color: 'grade-c', message: 'Bien. Con practica mejoras rapido.' }
+    return { grade: 'C', color: 'grade-c', message: 'Nice. With practice you improve fast.' }
   }
   if (percentage >= 60) {
-    return { grade: 'D', color: 'grade-d', message: 'Casi. Vamos por otra ronda.' }
+    return { grade: 'D', color: 'grade-d', message: 'Almost there. Let us try another round.' }
   }
-  return { grade: 'F', color: 'grade-f', message: 'Necesita practica. Intentalo otra vez.' }
+  return { grade: 'F', color: 'grade-f', message: 'Needs practice. Try again.' }
 }
 
 function normalizeAlias(alias) {
@@ -314,7 +314,7 @@ function toResultRecord(docSnapshot) {
 
 function formatDateTime(ms) {
   try {
-    return new Intl.DateTimeFormat('es-US', {
+    return new Intl.DateTimeFormat('en-US', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(ms))
@@ -374,6 +374,14 @@ function getPersonalMultiplicationRecords(results) {
     })
 }
 
+function getResultDisplayLabels(result) {
+  const subjectName = getSubjectById(result.subjectId)?.name ?? result.subjectName ?? 'Subject'
+  const testName =
+    getTestById(result.subjectId, result.testId)?.name ?? result.testName ?? 'Test'
+
+  return { subjectName, testName }
+}
+
 function getStudentDisplayName(studentProfile, currentUser) {
   const alias = studentProfile?.alias?.trim()
   if (alias) return alias
@@ -381,7 +389,7 @@ function getStudentDisplayName(studentProfile, currentUser) {
   const emailPrefix = currentUser?.email?.split('@')?.[0]?.trim()
   if (emailPrefix) return emailPrefix
 
-  return 'Estudiante'
+  return 'Student'
 }
 
 function mapFirebaseError(error, context) {
@@ -389,37 +397,37 @@ function mapFirebaseError(error, context) {
 
   if (context === 'register') {
     if (code === 'auth/email-already-in-use') {
-      return 'Ese apodo ya existe. Usa otro apodo.'
+      return 'That nickname already exists. Use a different nickname.'
     }
     if (code === 'auth/weak-password') {
-      return 'La contrasena debe tener al menos 6 caracteres.'
+      return 'The password must be at least 6 characters.'
     }
   }
 
   if (context === 'login') {
     if (code === 'auth/invalid-credential' || code === 'auth/user-not-found') {
-      return 'Apodo o contrasena incorrectos.'
+      return 'Nickname or password is incorrect.'
     }
     if (code === 'auth/too-many-requests') {
-      return 'Demasiados intentos. Espera unos minutos.'
+      return 'Too many attempts. Please wait a few minutes.'
     }
   }
 
   if (code === 'permission-denied') {
-    return 'Firebase bloqueo esta accion. Revisa las reglas de Firestore.'
+    return 'Firebase blocked this action. Check your Firestore rules.'
   }
 
-  return 'Ocurrio un error. Intenta nuevamente.'
+  return 'An error occurred. Please try again.'
 }
 
 function LoadingScreen() {
   return (
     <div className="screen-center">
-      <div className="loading-card">
-        <div className="spinner" aria-hidden="true" />
-        <p>Cargando Joy App...</p>
+        <div className="loading-card">
+          <div className="spinner" aria-hidden="true" />
+        <p>Loading Joy App...</p>
+        </div>
       </div>
-    </div>
   )
 }
 
@@ -430,7 +438,7 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [localError, setLocalError] = useState('')
 
-  const submitLabel = mode === 'login' ? 'Entrar' : 'Crear cuenta'
+  const submitLabel = mode === 'login' ? 'Sign in' : 'Create account'
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -439,17 +447,17 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
     const cleanAlias = alias.trim()
 
     if (cleanAlias.length < 2) {
-      setLocalError('Escribe un apodo de al menos 2 letras.')
+      setLocalError('Enter a nickname with at least 2 letters.')
       return
     }
 
     if (password.length < 6) {
-      setLocalError('La contrasena debe tener al menos 6 caracteres.')
+      setLocalError('The password must be at least 6 characters.')
       return
     }
 
     if (mode === 'register' && password !== confirmPassword) {
-      setLocalError('Las contrasenas no coinciden.')
+      setLocalError('Passwords do not match.')
       return
     }
 
@@ -469,8 +477,8 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
         <div className="auth-bubble bubble-3" />
         <div className="auth-card-preview">
           <Sparkles size={22} />
-          <p>Aprende por materias</p>
-          <small>Selecciona Matematicas y luego Multiplicacion</small>
+          <p>Learn by subject</p>
+          <small>Select Math and then Multiplication</small>
         </div>
       </div>
 
@@ -480,13 +488,13 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
             <Sparkles size={16} />
             <span>Joy App Full</span>
           </div>
-          <h1>Aprender con color y retos</h1>
+          <h1>Learn with color and challenges</h1>
           <p>
-            Registro sencillo para estudiantes. Usa un apodo y contrasena para guardar resultados.
+            Simple student sign-up. Use a nickname and password to save results.
           </p>
         </div>
 
-        <div className="auth-mode-toggle" role="tablist" aria-label="Modo de acceso">
+        <div className="auth-mode-toggle" role="tablist" aria-label="Access mode">
           <button
             type="button"
             className={mode === 'login' ? 'is-active' : ''}
@@ -495,7 +503,7 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
               setLocalError('')
             }}
           >
-            Entrar
+            Sign in
           </button>
           <button
             type="button"
@@ -505,18 +513,18 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
               setLocalError('')
             }}
           >
-            Registrarse
+            Sign up
           </button>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
-            <span>Apodo del estudiante</span>
+            <span>Student nickname</span>
             <div className="input-wrap">
               <User size={16} />
               <input
                 type="text"
-                placeholder="Ej: Jaime123"
+                placeholder="Ex: Jaime123"
                 value={alias}
                 onChange={(event) => setAlias(event.target.value)}
                 autoComplete="username"
@@ -525,12 +533,12 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
           </label>
 
           <label>
-            <span>Contrasena</span>
+            <span>Password</span>
             <div className="input-wrap">
               <Lock size={16} />
               <input
                 type="password"
-                placeholder="Minimo 6 caracteres"
+                placeholder="Minimum 6 characters"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -540,12 +548,12 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
 
           {mode === 'register' && (
             <label>
-              <span>Confirmar contrasena</span>
+              <span>Confirm password</span>
               <div className="input-wrap">
                 <Lock size={16} />
                 <input
                   type="password"
-                  placeholder="Repite la contrasena"
+                  placeholder="Repeat the password"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   autoComplete="new-password"
@@ -562,12 +570,12 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
           )}
 
           <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>
-            {busy ? 'Procesando...' : submitLabel}
+            {busy ? 'Processing...' : submitLabel}
           </button>
         </form>
 
         <p className="auth-help">
-          Nota: el apodo se convierte internamente en un acceso de Firebase (email tecnico).
+          Note: the nickname is internally converted into a Firebase login (technical email).
         </p>
       </div>
     </div>
@@ -589,7 +597,7 @@ function SubjectCard({ subject, onSelect }) {
           <Icon size={22} />
         </div>
         <span className={`badge ${subject.available ? 'badge-live' : 'badge-soon'}`}>
-          {subject.available ? 'Disponible' : 'Proximamente'}
+          {subject.available ? 'Available' : 'Coming soon'}
         </span>
       </div>
       <h3>{subject.name}</h3>
@@ -616,7 +624,7 @@ function TestCard({ test, onSelect }) {
         <p>{test.description}</p>
       </div>
       <span className={`badge ${test.available ? 'badge-live' : 'badge-soon'}`}>
-        {test.available ? 'Iniciar' : 'Proximamente'}
+        {test.available ? 'Start' : 'Coming soon'}
       </span>
     </button>
   )
@@ -627,32 +635,35 @@ function ResultsList({ results, loading }) {
     <section className="panel-card">
       <div className="panel-card-header">
         <div>
-          <h2>Historial de pruebas</h2>
-          <p>Se guarda automaticamente cada vez que el estudiante termina una prueba.</p>
+          <h2>Test history</h2>
+          <p>It saves automatically each time the student finishes a test.</p>
         </div>
       </div>
 
       {loading ? (
         <div className="empty-state compact">
           <div className="spinner small" aria-hidden="true" />
-          <p>Cargando resultados...</p>
+          <p>Loading results...</p>
         </div>
       ) : results.length === 0 ? (
         <div className="empty-state">
           <Clock3 size={22} />
-          <p>Aun no hay resultados guardados.</p>
+          <p>No saved results yet.</p>
         </div>
       ) : (
         <div className="results-list">
-          {results.map((result) => (
-            <div key={result.id} className="result-row">
+          {results.map((result) => {
+            const labels = getResultDisplayLabels(result)
+
+            return (
+              <div key={result.id} className="result-row">
               <div className="result-main">
                 <div className="result-title">
-                  <span>{result.subjectName}</span>
+                  <span>{labels.subjectName}</span>
                   <span className="dot" />
-                  <span>{result.testName}</span>
+                  <span>{labels.testName}</span>
                   {result.attemptStatus === 'abandoned' && (
-                    <span className="badge badge-soon">Abandonada</span>
+                    <span className="badge badge-soon">Abandoned</span>
                   )}
                 </div>
                 <small>{formatDateTime(result.createdAtMs)}</small>
@@ -665,7 +676,8 @@ function ResultsList({ results, loading }) {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </section>
@@ -682,14 +694,14 @@ function RecordsPanel({ results }) {
       <div className="panel-card-header">
         <div>
           <h2>Records / High Score</h2>
-          <p>Ranking del estudiante en Matematicas &gt; Multiplicacion.</p>
+          <p>Student ranking in Math &gt; Multiplication.</p>
         </div>
       </div>
 
       {!highScore ? (
         <div className="empty-state">
           <Trophy size={20} />
-          <p>Completa una prueba para crear tu primer record.</p>
+          <p>Complete a test to create your first record.</p>
         </div>
       ) : (
         <div className="records-layout">
@@ -733,20 +745,20 @@ function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject })
         <div>
           <div className="brand-pill">
             <Sparkles size={16} />
-            <span>Panel del Estudiante</span>
+            <span>Student Dashboard</span>
           </div>
-          <h1>Hola, {studentProfile?.alias ?? 'Estudiante'}</h1>
+          <h1>Hello, {studentProfile?.alias ?? 'Student'}</h1>
           <p>
-            Primero selecciona una materia. Luego eliges el tipo de prueba dentro de esa materia.
+            First select a subject. Then choose the test type inside that subject.
           </p>
         </div>
         <div className="hero-stats">
           <div className="mini-stat">
-            <span>Total pruebas</span>
+            <span>Total tests</span>
             <strong>{results.length}</strong>
           </div>
           <div className="mini-stat">
-            <span>Ultima nota</span>
+            <span>Last grade</span>
             <strong>{results[0]?.grade ?? '-'}</strong>
           </div>
         </div>
@@ -755,8 +767,8 @@ function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject })
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
-            <h2>Materias</h2>
-            <p>Elige una materia para ver sus tipos de prueba.</p>
+            <h2>Subjects</h2>
+            <p>Choose a subject to see its test types.</p>
           </div>
         </div>
         <div className="subject-grid">
@@ -781,18 +793,18 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
         <div>
           <button type="button" className="btn btn-ghost back-inline" onClick={onBack}>
             <ArrowLeft size={16} />
-            <span>Volver a materias</span>
+            <span>Back to subjects</span>
           </button>
           <h1>{subject.name}</h1>
-          <p>Selecciona el tipo de prueba. Empezamos con multiplicacion y luego agregamos mas.</p>
+          <p>Select the test type. We start with multiplication and add more later.</p>
         </div>
       </section>
 
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
-            <h2>Tipos de prueba</h2>
-            <p>Dentro de {subject.name}, el estudiante debe elegir una opcion antes de comenzar.</p>
+            <h2>Test types</h2>
+            <p>Inside {subject.name}, the student must choose an option before starting.</p>
           </div>
         </div>
         <div className="tests-grid">
@@ -900,7 +912,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
     try {
       await document.documentElement.requestFullscreen()
     } catch (error) {
-      console.warn('No se pudo activar fullscreen:', error)
+      console.warn('Could not enter fullscreen mode:', error)
     }
   }
 
@@ -911,7 +923,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
     try {
       await document.exitFullscreen()
     } catch (error) {
-      console.warn('No se pudo salir de fullscreen:', error)
+      console.warn('Could not exit fullscreen mode:', error)
     }
   }
 
@@ -975,9 +987,9 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
 
     const summary = {
       subjectId: 'math',
-      subjectName: 'Matematicas',
+      subjectName: 'Math',
       testId: 'multiplication',
-      testName: 'Multiplicacion',
+      testName: 'Multiplication',
       totalScore: finalScore,
       maxScore,
       percentage,
@@ -999,8 +1011,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
     setSaveStatus('saving')
     setSaveMessage(
       completionMode === 'abandoned'
-        ? 'Guardando resultado parcial (preguntas restantes = 0 pts)...'
-        : 'Guardando resultado...',
+        ? 'Saving partial result (remaining questions = 0 pts)...'
+        : 'Saving result...',
     )
 
     try {
@@ -1008,8 +1020,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
       setSaveStatus('saved')
       setSaveMessage(
         completionMode === 'abandoned'
-          ? 'Prueba abandonada: progreso y puntaje guardados en Firebase.'
-          : 'Resultado guardado en Firebase.',
+          ? 'Test abandoned: progress and score saved to Firebase.'
+          : 'Result saved to Firebase.',
       )
     } catch (error) {
       setSaveStatus('error')
@@ -1105,7 +1117,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
     if (finishInProgressRef.current) return
 
     const confirmed = window.confirm(
-      'Si abandonas la prueba ahora, se guardará el puntaje actual y las preguntas restantes contarán como 0 puntos. ¿Deseas continuar?',
+      'If you leave the test now, your current score will be saved and all remaining questions will count as 0 points. Do you want to continue?',
     )
 
     if (!confirmed) return
@@ -1157,13 +1169,13 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
           <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
           <p className="results-message">
             {isAbandoned
-              ? 'Prueba abandonada. Se guardó el avance con el puntaje actual.'
+              ? 'Test abandoned. Progress was saved with the current score.'
               : gradeInfo.message}
           </p>
 
           <div className="score-panel">
             <div className="score-labels">
-              <span>Puntaje final</span>
+              <span>Final score</span>
               <strong>
                 {summary.totalScore} / {summary.maxScore} pts
               </strong>
@@ -1175,8 +1187,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
               <span>{summary.percentage}%</span>
               <span>
                 {isAbandoned
-                  ? `${summary.answeredOriginalCount ?? 0} de 25 preguntas base respondidas`
-                  : `${summary.perfectOriginalCount} perfectas (de 25)`}
+                  ? `${summary.answeredOriginalCount ?? 0} of 25 base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of 25)`}
               </span>
             </div>
           </div>
@@ -1185,13 +1197,13 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
             <div className="study-card">
               <div className="study-card-header">
                 <BookOpen size={16} />
-                <h3>Ejercicios para estudiar</h3>
+                <h3>Exercises to study</h3>
               </div>
               {reviewList.length === 0 ? (
                 <p className="study-empty">
                   {isAbandoned
-                    ? 'Aun no hay ejercicios fallados registrados en este intento.'
-                    : 'Excelente: no hubo ejercicios fallados en esta prueba.'}
+                    ? 'No missed exercises have been recorded in this attempt yet.'
+                    : 'Excellent: there were no missed exercises in this test.'}
                 </p>
               ) : (
                 <div className="exercise-tags">
@@ -1208,10 +1220,10 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
               <div className="study-card">
                 <div className="study-card-header">
                   <Clock3 size={16} />
-                  <h3>Pendientes al abandonar</h3>
+                  <h3>Pending when abandoned</h3>
                 </div>
                 {pendingList.length === 0 ? (
-                  <p className="study-empty">No quedaron preguntas base pendientes.</p>
+                  <p className="study-empty">No base questions were left pending.</p>
                 ) : (
                   <div className="exercise-tags">
                     {pendingList.map((exercise) => (
@@ -1241,17 +1253,17 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
             ) : (
               <Clock3 size={16} />
             )}
-            <span>{saveMessage || 'Resultado listo.'}</span>
+            <span>{saveMessage || 'Result ready.'}</span>
           </div>
 
           <div className="results-actions">
             <button type="button" className="btn btn-primary" onClick={startGame}>
               <RotateCcw size={16} />
-              <span>Jugar de nuevo</span>
+              <span>Play again</span>
             </button>
             <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
               <ArrowLeft size={16} />
-              <span>Volver a tipos de prueba</span>
+              <span>Back to test types</span>
             </button>
           </div>
         </div>
@@ -1269,20 +1281,20 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
 
       <div className="game-topbar">
         <div className="hud-pill">
-          <span className="hud-label">Puntos</span>
+          <span className="hud-label">Points</span>
           <strong>x{String(totalScore).padStart(3, '0')}</strong>
         </div>
 
         <div className="hud-progress">
           <div className="hud-row">
-            <span>Hola, {studentName || 'Estudiante'}</span>
+            <span>Hello, {studentName || 'Student'}</span>
             <span>{progressPercentage}%</span>
           </div>
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
           </div>
           <small>
-            Mundo Matematico 1 · Preguntas en cola: {queue.length}
+            Math World 1 · Questions in queue: {queue.length}
           </small>
         </div>
 
@@ -1291,8 +1303,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
             type="button"
             className="btn btn-ghost icon-only"
             onClick={() => void handleFullscreenToggle()}
-            aria-label={isFullscreen ? 'Salir de pantalla grande' : 'Pantalla grande'}
-            title={isFullscreen ? 'Salir de pantalla grande' : 'Pantalla grande'}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
           >
             {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
@@ -1300,8 +1312,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
             type="button"
             className="btn btn-ghost icon-only"
             onClick={() => setSoundEnabled((value) => !value)}
-            aria-label={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
-            title={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
+            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
@@ -1310,17 +1322,17 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
             className="btn btn-danger-soft"
             onClick={handleAbandonTest}
             disabled={saveStatus === 'saving' || feedback === 'correct'}
-            title="Guardar resultado parcial y salir de la prueba"
+            title="Save partial result and leave the test"
           >
             <ArrowLeft size={16} />
-            <span>Abandonar</span>
+            <span>Leave test</span>
           </button>
         </div>
       </div>
 
       {currentQuestion ? (
         <div className="game-board">
-          <div className="stars-row" aria-label="Puntos posibles en esta pregunta">
+          <div className="stars-row" aria-label="Possible points for this question">
             {Array.from({ length: 5 }, (_, index) => (
               <Star
                 key={index}
@@ -1333,9 +1345,9 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
 
           <div className="question-meta">
             {currentQuestion.isRetry ? (
-              <span className="badge badge-soon">Reforzamiento (0 pts)</span>
+              <span className="badge badge-soon">Reinforcement (0 pts)</span>
             ) : (
-              <span className="badge badge-live">Pregunta con puntaje</span>
+              <span className="badge badge-live">Scored question</span>
             )}
           </div>
 
@@ -1363,7 +1375,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
         <div className="game-board">
           <div className="empty-state">
             <div className="spinner" aria-hidden="true" />
-            <p>Cargando prueba...</p>
+            <p>Loading test...</p>
           </div>
         </div>
       )}
@@ -1393,7 +1405,7 @@ function App() {
       if (profileSnapshot.exists()) {
         setStudentProfile(profileSnapshot.data())
       } else {
-        const fallbackAlias = user.email?.split('@')[0] ?? 'Estudiante'
+        const fallbackAlias = user.email?.split('@')[0] ?? 'Student'
         setStudentProfile({ alias: fallbackAlias })
       }
 
@@ -1438,7 +1450,7 @@ function App() {
       const email = aliasToEmail(alias)
 
       if (!email) {
-        setAuthError('Ese apodo no es valido.')
+        setAuthError('That nickname is not valid.')
         return
       }
 
@@ -1468,7 +1480,7 @@ function App() {
       const email = aliasToEmail(alias)
 
       if (!email) {
-        setAuthError('Ese apodo no es valido.')
+        setAuthError('That nickname is not valid.')
         return
       }
 
@@ -1558,7 +1570,7 @@ function App() {
           </div>
           <div>
             <strong>Joy App Full</strong>
-            <small>Aprendizaje por materias</small>
+            <small>Subject-based learning</small>
           </div>
         </button>
 
@@ -1569,7 +1581,7 @@ function App() {
           </div>
           <button type="button" className="btn btn-ghost" onClick={handleLogout}>
             <LogOut size={16} />
-            <span>Salir</span>
+            <span>Sign out</span>
           </button>
         </div>
       </header>
@@ -1608,9 +1620,9 @@ function App() {
           <section className="panel-card">
             <div className="empty-state">
               <CircleAlert size={20} />
-              <p>No se encontro la prueba seleccionada.</p>
+              <p>The selected test could not be found.</p>
               <button type="button" className="btn btn-primary" onClick={goToDashboard}>
-                Volver al inicio
+                Back to home
               </button>
             </div>
           </section>
