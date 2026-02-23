@@ -44,7 +44,7 @@ import { auth, db } from './firebase'
 import { READING_STORY_BANKS } from './readingStories'
 
 const INITIAL_QUESTION_COUNT = 25
-const WORD_PROBLEM_QUESTION_COUNT = 15
+const WORD_PROBLEM_QUESTION_COUNT = 8
 const WORD_PROBLEM_VOICE_LANG = 'en-US'
 const GLOBAL_RESULTS_COLLECTION = 'publicResults'
 const APP_DOMAIN = 'joyapp.student'
