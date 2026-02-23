@@ -1,0 +1,143 @@
+:root {
+  --bg-top: #fff7d6;
+  --bg-bottom: #d8f3ff;
+  --ink: #1b1f3a;
+  --card: #ffffffcc;
+  --accent: #ff7a59;
+  --accent-2: #28c2b8;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Trebuchet MS", "Comic Sans MS", sans-serif;
+  color: var(--ink);
+  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  min-height: 100vh;
+}
+
+.page {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  gap: 24px;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 10% 10%, #ffffff 0 10%, transparent 11%),
+    radial-gradient(circle at 92% 18%, #ffd6a5 0 12%, transparent 13%),
+    radial-gradient(circle at 85% 80%, #c7f9cc 0 14%, transparent 15%),
+    #ffffffa6;
+  border: 3px solid #ffffff;
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: #665;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 12px 0 0;
+  max-width: 60ch;
+  font-size: 1.05rem;
+}
+
+.actions {
+  margin-top: 20px;
+}
+
+button {
+  border: 0;
+  background: linear-gradient(135deg, var(--accent), #ffb347);
+  color: white;
+  font-weight: 700;
+  padding: 12px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(255, 122, 89, 0.35);
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:focus-visible {
+  outline: 3px solid var(--accent-2);
+  outline-offset: 3px;
+}
+
+.message {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  display: inline-block;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--card);
+  border: 2px solid #ffffff;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.card p {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .page {
+    padding: 16px;
+  }
+
+  .hero {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+
+  button {
+    transition: none;
+  }
+}
+
