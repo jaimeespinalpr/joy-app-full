@@ -44,6 +44,7 @@ import { auth, db } from './firebase'
 import { READING_STORY_BANKS } from './readingStories'
 
 const INITIAL_QUESTION_COUNT = 25
+const GLOBAL_RESULTS_COLLECTION = 'publicResults'
 const APP_DOMAIN = 'joyapp.student'
 
 const SUBJECTS = [
@@ -876,6 +877,44 @@ function toResultRecord(docSnapshot) {
   }
 }
 
+function sortResultsByNewest(results) {
+  return [...results].sort((a, b) => (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0))
+}
+
+function upsertResultRecord(list, nextRecord) {
+  const nextId = nextRecord?.id
+  if (!nextId) return sortResultsByNewest(list)
+
+  const withoutCurrent = list.filter((item) => item.id !== nextId)
+  return sortResultsByNewest([nextRecord, ...withoutCurrent])
+}
+
+function mergeResultRecordLists(...lists) {
+  const byId = new Map()
+  for (const item of lists.flat()) {
+    if (!item?.id) continue
+    byId.set(item.id, item)
+  }
+  return sortResultsByNewest(Array.from(byId.values()))
+}
+
+function getPublicResultDocId(userId, sourceResultId) {
+  return `public_${userId}_${sourceResultId}`
+}
+
+function toPublicResultPayload(resultRecord, userId, sourceResultId) {
+  const { id: _ignoredLocalId, createdAt, ...rest } = resultRecord
+  return {
+    ...rest,
+    sourceUserId: userId,
+    sourceResultId,
+    visibility: 'public',
+    updatedAtMs: Date.now(),
+    createdAtMs: resultRecord.createdAtMs ?? Date.now(),
+    createdAt: serverTimestamp(),
+  }
+}
+
 function formatDateTime(ms) {
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -1201,8 +1240,8 @@ function ResultsList({ results, loading }) {
     <section className="panel-card">
       <div className="panel-card-header">
         <div>
-          <h2>Test history</h2>
-          <p>It saves automatically each time the student finishes a test.</p>
+          <h2>Global Test History</h2>
+          <p>Completed and abandoned tests from all students (updated automatically).</p>
         </div>
       </div>
 
@@ -1232,7 +1271,9 @@ function ResultsList({ results, loading }) {
                     <span className="badge badge-soon">Abandoned</span>
                   )}
                 </div>
-                <small>{formatDateTime(result.createdAtMs)}</small>
+                <small>
+                  {getSavedStudentName(result)} · {formatDateTime(result.createdAtMs)}
+                </small>
               </div>
               <div className="result-score">
                 <span className={`grade-chip ${getGrade(result.percentage).color}`}>{result.grade}</span>
@@ -1260,15 +1301,15 @@ function RecordsPanel({ results }) {
     <section className="panel-card">
       <div className="panel-card-header">
         <div>
-          <h2>Records / High Score</h2>
-          <p>Saved scores from completed tests (with student name and score).</p>
+          <h2>Global Leaderboard / High Score</h2>
+          <p>Completed tests from all students (name + score).</p>
         </div>
       </div>
 
       {!highScore ? (
         <div className="empty-state">
           <Trophy size={20} />
-          <p>Complete a test to create your first record.</p>
+          <p>Complete a test to create the first global record.</p>
         </div>
       ) : (
         <div className="records-layout">
@@ -1316,7 +1357,14 @@ function RecordsPanel({ results }) {
   )
 }
 
-function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject }) {
+function Dashboard({
+  studentProfile,
+  personalResults,
+  globalResults,
+  personalResultsLoading,
+  globalResultsLoading,
+  onSelectSubject,
+}) {
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -1332,12 +1380,16 @@ function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject })
         </div>
         <div className="hero-stats">
           <div className="mini-stat">
-            <span>Total tests</span>
-            <strong>{results.length}</strong>
+            <span>Your tests</span>
+            <strong>{personalResults.length}</strong>
           </div>
           <div className="mini-stat">
-            <span>Last grade</span>
-            <strong>{results[0]?.grade ?? '-'}</strong>
+            <span>Your last grade</span>
+            <strong>{personalResults[0]?.grade ?? '-'}</strong>
+          </div>
+          <div className="mini-stat">
+            <span>Global tests</span>
+            <strong>{globalResults.length}</strong>
           </div>
         </div>
       </section>
@@ -1356,8 +1408,8 @@ function Dashboard({ studentProfile, results, resultsLoading, onSelectSubject })
         </div>
       </section>
 
-      <ResultsList results={results} loading={resultsLoading} />
-      <RecordsPanel results={results} />
+      <ResultsList results={globalResults} loading={globalResultsLoading || personalResultsLoading} />
+      <RecordsPanel results={globalResults} />
     </div>
   )
 }
@@ -3215,14 +3267,52 @@ function App() {
   const [studentProfile, setStudentProfile] = useState(null)
   const [authBusy, setAuthBusy] = useState(false)
   const [authError, setAuthError] = useState('')
-  const [resultsLoading, setResultsLoading] = useState(false)
-  const [results, setResults] = useState([])
+  const [personalResultsLoading, setPersonalResultsLoading] = useState(false)
+  const [globalResultsLoading, setGlobalResultsLoading] = useState(false)
+  const [personalResults, setPersonalResults] = useState([])
+  const [globalResults, setGlobalResults] = useState([])
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
 
+  async function loadGlobalResults() {
+    setGlobalResultsLoading(true)
+
+    try {
+      const globalResultsRef = collection(db, GLOBAL_RESULTS_COLLECTION)
+      const globalQuery = query(globalResultsRef, orderBy('createdAtMs', 'desc'), limit(100))
+      const snapshot = await getDocs(globalQuery)
+      setGlobalResults(snapshot.docs.map(toResultRecord))
+    } catch (error) {
+      console.error('Error loading global results:', error)
+      setGlobalResults([])
+    } finally {
+      setGlobalResultsLoading(false)
+    }
+  }
+
+  async function mirrorResultsToPublicCollection(userId, resultRecords) {
+    if (!userId || !resultRecords?.length) return
+
+    const writes = resultRecords.map(async (record) => {
+      const sourceResultId = record.sourceResultId || record.id
+      if (!sourceResultId) return
+
+      const publicDocId = getPublicResultDocId(userId, sourceResultId)
+      const publicPayload = toPublicResultPayload(record, userId, sourceResultId)
+
+      try {
+        await setDoc(doc(db, GLOBAL_RESULTS_COLLECTION, publicDocId), publicPayload, { merge: true })
+      } catch (error) {
+        console.warn('Could not mirror result to global collection:', error)
+      }
+    })
+
+    await Promise.allSettled(writes)
+  }
+
   async function loadStudentData(user) {
-    setResultsLoading(true)
+    setPersonalResultsLoading(true)
 
     try {
       const profileRef = doc(db, 'students', user.uid)
@@ -3241,12 +3331,16 @@ function App() {
         setStudentProfile({ alias: fallbackAlias })
       }
 
-      setResults(resultSnapshot.docs.map(toResultRecord))
+      const nextPersonalResults = resultSnapshot.docs.map(toResultRecord)
+      setPersonalResults(nextPersonalResults)
+      void mirrorResultsToPublicCollection(user.uid, nextPersonalResults).then(() => {
+        void loadGlobalResults()
+      })
     } catch (error) {
       console.error('Error loading student data:', error)
-      setResults([])
+      setPersonalResults([])
     } finally {
-      setResultsLoading(false)
+      setPersonalResultsLoading(false)
     }
   }
 
@@ -3256,7 +3350,8 @@ function App() {
 
       if (!user) {
         setStudentProfile(null)
-        setResults([])
+        setPersonalResults([])
+        setGlobalResults([])
         setScreen('dashboard')
         setSelectedSubjectId(null)
         setSelectedTestId(null)
@@ -3266,6 +3361,7 @@ function App() {
 
       setAuthReady(true)
       void loadStudentData(user)
+      void loadGlobalResults()
     })
 
     return unsubscribe
@@ -3348,7 +3444,19 @@ function App() {
     const docRef = await addDoc(collection(db, 'students', currentUser.uid, 'results'), payload)
     const savedRecord = { id: docRef.id, ...payload }
 
-    setResults((previous) => [savedRecord, ...previous].sort((a, b) => b.createdAtMs - a.createdAtMs))
+    setPersonalResults((previous) => upsertResultRecord(previous, savedRecord))
+
+    const publicRecordId = getPublicResultDocId(currentUser.uid, docRef.id)
+    const publicRecordPayload = toPublicResultPayload(savedRecord, currentUser.uid, docRef.id)
+
+    try {
+      await setDoc(doc(db, GLOBAL_RESULTS_COLLECTION, publicRecordId), publicRecordPayload, { merge: true })
+      const publicRecord = { id: publicRecordId, ...publicRecordPayload }
+      setGlobalResults((previous) => upsertResultRecord(previous, publicRecord))
+    } catch (error) {
+      console.warn('Could not save public result record:', error)
+    }
+
     return savedRecord
   }
 
@@ -3428,8 +3536,10 @@ function App() {
                 ? { ...studentProfile, alias: studentDisplayName }
                 : { alias: studentDisplayName }
             }
-            results={results}
-            resultsLoading={resultsLoading}
+            personalResults={personalResults}
+            globalResults={globalResults}
+            personalResultsLoading={personalResultsLoading}
+            globalResultsLoading={globalResultsLoading}
             onSelectSubject={openSubject}
           />
         )}
