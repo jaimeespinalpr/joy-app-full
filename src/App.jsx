@@ -1156,7 +1156,7 @@ function stopSpeechPlayback() {
   window.speechSynthesis.cancel()
 }
 
-function getPreferredSpeechVoice(voiceLang) {
+function getPreferredSpeechVoice(voiceLang, options = {}) {
   if (typeof window === 'undefined' || !window.speechSynthesis) return null
 
   const voices = window.speechSynthesis.getVoices?.() ?? []
@@ -1173,6 +1173,7 @@ function getPreferredSpeechVoice(voiceLang) {
 
   const pool = matches.length ? matches : voices
 
+  const preferGoogle = options.preferGoogle ?? false
   const scored = pool
     .map((voice) => {
       const name = String(voice.name || '').toLowerCase()
@@ -1184,6 +1185,7 @@ function getPreferredSpeechVoice(voiceLang) {
       else if (requestedBase && lang === requestedBase) score += 20
 
       if (name.includes('google')) score += 60
+      if (preferGoogle && name.includes('google')) score += 120
       if (name.includes('natural')) score += 30
       if (name.includes('enhanced')) score += 20
       if (name.includes('premium')) score += 18
@@ -1251,15 +1253,29 @@ function speakTextSequence(texts, voiceLang, enabled, options = {}) {
   const UtteranceCtor = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance
   if (!UtteranceCtor) return false
 
-  const { cancelFirst = true, onDone, runTokenRef, runToken } = options
+  const {
+    cancelFirst = true,
+    onDone,
+    runTokenRef,
+    runToken,
+    rate,
+    pitch,
+    volume,
+    pauseMs,
+    preferGoogle,
+  } = options
 
   try {
     if (cancelFirst) {
       window.speechSynthesis.cancel()
     }
 
-    const preferredVoice = getPreferredSpeechVoice(voiceLang)
+    const preferredVoice = getPreferredSpeechVoice(voiceLang, { preferGoogle })
     const localRunToken = runToken ?? Symbol('speech-seq')
+    const utteranceRate = Number.isFinite(rate) ? rate : voiceLang.startsWith('es') ? 0.86 : 0.88
+    const utterancePitch = Number.isFinite(pitch) ? pitch : 1
+    const utteranceVolume = Number.isFinite(volume) ? volume : 1
+    const pauseDelay = Number.isFinite(pauseMs) ? pauseMs : 120
 
     const speakNext = (index) => {
       if (runTokenRef && runTokenRef.current !== localRunToken) return
@@ -1277,12 +1293,12 @@ function speakTextSequence(texts, voiceLang, enabled, options = {}) {
         utterance.lang = voiceLang
       }
 
-      utterance.rate = voiceLang.startsWith('es') ? 0.86 : 0.88
-      utterance.pitch = 1
-      utterance.volume = 1
+      utterance.rate = utteranceRate
+      utterance.pitch = utterancePitch
+      utterance.volume = utteranceVolume
       utterance.onend = () => {
         if (runTokenRef && runTokenRef.current !== localRunToken) return
-        window.setTimeout(() => speakNext(index + 1), 120)
+        window.setTimeout(() => speakNext(index + 1), pauseDelay)
       }
       utterance.onerror = () => {
         if (runTokenRef && runTokenRef.current !== localRunToken) return
@@ -2640,23 +2656,33 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
 
   function speakProblemNarration(question, enabledOverride = soundEnabled) {
     if (!question) return false
+    const storyLines = splitStoryTextIntoSentences(question.storyText)
+    const promptLines = splitStoryTextIntoSentences(question.questionPrompt)
+    const segments = [...storyLines, 'Question.', ...promptLines]
     return speakTextSequence(
-      [question.storyText, question.questionPrompt],
+      segments,
       WORD_PROBLEM_VOICE_LANG,
       enabledOverride,
       {
       cancelFirst: true,
       runTokenRef: speechSequenceTokenRef,
+      preferGoogle: true,
+      rate: 0.79,
+      pauseMs: 220,
       },
     )
   }
 
   function speakExplanationNarration(question, options = {}, enabledOverride = soundEnabled) {
     if (!question?.explanation) return false
-    return speakTextSequence([question.explanation], WORD_PROBLEM_VOICE_LANG, enabledOverride, {
+    const explanationLines = splitStoryTextIntoSentences(question.explanation)
+    return speakTextSequence(explanationLines, WORD_PROBLEM_VOICE_LANG, enabledOverride, {
       cancelFirst: options.cancelFirst ?? true,
       runTokenRef: speechSequenceTokenRef,
       onDone: options.onDone,
+      preferGoogle: true,
+      rate: 0.8,
+      pauseMs: 180,
     })
   }
 
