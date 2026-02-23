@@ -374,6 +374,16 @@ function getPersonalMultiplicationRecords(results) {
     })
 }
 
+function getStudentDisplayName(studentProfile, currentUser) {
+  const alias = studentProfile?.alias?.trim()
+  if (alias) return alias
+
+  const emailPrefix = currentUser?.email?.split('@')?.[0]?.trim()
+  if (emailPrefix) return emailPrefix
+
+  return 'Estudiante'
+}
+
 function mapFirebaseError(error, context) {
   const code = error?.code ?? ''
 
@@ -806,7 +816,7 @@ function CoinBurst({ visible }) {
   )
 }
 
-function MultiplicationChallenge({ onBack, onSaveResult }) {
+function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
@@ -1265,13 +1275,15 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
 
         <div className="hud-progress">
           <div className="hud-row">
-            <span>Mundo Matematico 1</span>
+            <span>Hola, {studentName || 'Estudiante'}</span>
             <span>{progressPercentage}%</span>
           </div>
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
           </div>
-          <small>Preguntas en cola: {queue.length}</small>
+          <small>
+            Mundo Matematico 1 · Preguntas en cola: {queue.length}
+          </small>
         </div>
 
         <div className="hud-actions">
@@ -1484,7 +1496,7 @@ function App() {
 
     const payload = {
       ...summary,
-      studentAlias: studentProfile?.alias ?? 'Estudiante',
+      studentAlias: getStudentDisplayName(studentProfile, currentUser),
       createdAtMs: Date.now(),
       createdAt: serverTimestamp(),
     }
@@ -1535,6 +1547,7 @@ function App() {
 
   const selectedSubject = getSubjectById(selectedSubjectId)
   const selectedTest = selectedSubject ? getTestById(selectedSubject.id, selectedTestId) : null
+  const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
 
   return (
     <div className="app-shell">
@@ -1552,7 +1565,7 @@ function App() {
         <div className="nav-user">
           <div className="user-chip">
             <User size={16} />
-            <span>{studentProfile?.alias ?? 'Estudiante'}</span>
+            <span>{studentDisplayName}</span>
           </div>
           <button type="button" className="btn btn-ghost" onClick={handleLogout}>
             <LogOut size={16} />
@@ -1564,7 +1577,11 @@ function App() {
       <main className="app-main">
         {screen === 'dashboard' && (
           <Dashboard
-            studentProfile={studentProfile}
+            studentProfile={
+              studentProfile
+                ? { ...studentProfile, alias: studentDisplayName }
+                : { alias: studentDisplayName }
+            }
             results={results}
             resultsLoading={resultsLoading}
             onSelectSubject={openSubject}
@@ -1580,7 +1597,11 @@ function App() {
         )}
 
         {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
-          <MultiplicationChallenge onBack={goToSubjectMenu} onSaveResult={saveAssessmentResult} />
+          <MultiplicationChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+          />
         )}
 
         {screen === 'test' && (!selectedSubject || !selectedTest) && (
