@@ -944,6 +944,67 @@ function speakDictationWord(word, voiceLang, enabled) {
   }
 }
 
+function speakTextSequence(texts, voiceLang, enabled, options = {}) {
+  if (!enabled) return false
+  if (typeof window === 'undefined' || !window.speechSynthesis) return false
+
+  const sequence = texts.map((item) => String(item ?? '').trim()).filter(Boolean)
+  if (!sequence.length) return false
+
+  warmSpeechVoices()
+
+  const UtteranceCtor = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance
+  if (!UtteranceCtor) return false
+
+  const { cancelFirst = true, onDone, runTokenRef, runToken } = options
+
+  try {
+    if (cancelFirst) {
+      window.speechSynthesis.cancel()
+    }
+
+    const preferredVoice = getPreferredSpeechVoice(voiceLang)
+    const localRunToken = runToken ?? Symbol('speech-seq')
+
+    const speakNext = (index) => {
+      if (runTokenRef && runTokenRef.current !== localRunToken) return
+
+      if (index >= sequence.length) {
+        onDone?.()
+        return
+      }
+
+      const utterance = new UtteranceCtor(sequence[index])
+      if (preferredVoice) {
+        utterance.voice = preferredVoice
+        utterance.lang = preferredVoice.lang || voiceLang
+      } else {
+        utterance.lang = voiceLang
+      }
+
+      utterance.rate = voiceLang.startsWith('es') ? 0.86 : 0.88
+      utterance.pitch = 1
+      utterance.volume = 1
+      utterance.onend = () => {
+        if (runTokenRef && runTokenRef.current !== localRunToken) return
+        window.setTimeout(() => speakNext(index + 1), 120)
+      }
+      utterance.onerror = () => {
+        if (runTokenRef && runTokenRef.current !== localRunToken) return
+        onDone?.()
+      }
+      window.speechSynthesis.speak(utterance)
+    }
+
+    if (runTokenRef) runTokenRef.current = localRunToken
+    speakNext(0)
+    return true
+  } catch (error) {
+    console.warn('Could not play speech sequence:', error)
+    return false
+  }
+}
+
 function calculatePoints(attempts) {
   if (attempts === 0) return 5
   if (attempts === 1) return 3
@@ -2863,6 +2924,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
   const reviewWordsRef = useRef([])
+  const speechSequenceTokenRef = useRef(Symbol('spelling-speech-seq'))
+  const reviewAutoplayDoneRef = useRef(false)
 
   useEffect(() => {
     function syncFullscreenState() {
@@ -2877,6 +2940,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
+      speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
       stopSpeechPlayback()
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
@@ -2905,6 +2969,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
       window.clearTimeout(speechTimerRef.current)
       speechTimerRef.current = null
     }
+    speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
   }
 
   function speakCurrentWord(question) {
@@ -2961,6 +3026,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
   function handleBackToTests() {
     void (async () => {
+      speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
       stopSpeechPlayback()
       await exitFullscreenMode()
       onBack()
@@ -2970,6 +3036,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   function startGame(options = {}) {
     const shouldPlayStartSound = options.playStartSound ?? true
     clearTimers()
+    speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
     stopSpeechPlayback()
     finishInProgressRef.current = false
     if (shouldPlayStartSound) {
@@ -2985,6 +3052,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     setSaveMessage('')
     setLastResult(null)
     reviewWordsRef.current = []
+    reviewAutoplayDoneRef.current = false
     setReviewWords([])
     setupQuestion(initialQueue[0])
     setPhase('playing')
@@ -3007,6 +3075,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     )
 
     clearTimers()
+    speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
     stopSpeechPlayback()
     setShowCoinAnimation(false)
 
@@ -3080,6 +3149,15 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       playSound('coin', soundEnabled)
+      if (isPastTenseMode) {
+        if (speechTimerRef.current) {
+          window.clearTimeout(speechTimerRef.current)
+        }
+        speechTimerRef.current = window.setTimeout(() => {
+          speakDictationWord(currentQuestion.answer, config.voiceLang, soundEnabled)
+          speechTimerRef.current = null
+        }, 90)
+      }
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
@@ -3195,6 +3273,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     setSoundEnabled((value) => {
       const next = !value
       if (!next) {
+        speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
         if (speechTimerRef.current) {
           window.clearTimeout(speechTimerRef.current)
           speechTimerRef.current = null
@@ -3205,7 +3284,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
           window.clearTimeout(speechTimerRef.current)
         }
         speechTimerRef.current = window.setTimeout(() => {
-          speakDictationWord(queue[0].word, config.voiceLang, true)
+          speakCurrentWord(queue[0])
+          speechTimerRef.current = null
         }, 80)
       }
       return next
@@ -3215,6 +3295,49 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   function handleReplayWord() {
     speakCurrentWord(queue[0])
   }
+
+  function playPastTenseReviewAudio(items, options = {}) {
+    if (!isPastTenseMode) return false
+
+    const lines = []
+    items.forEach((item) => {
+      if (item?.baseWord) lines.push(item.baseWord)
+      if (item?.word) lines.push(item.word)
+    })
+
+    return speakTextSequence(lines, config.voiceLang, soundEnabled, {
+      cancelFirst: options.cancelFirst ?? true,
+      runTokenRef: speechSequenceTokenRef,
+      onDone: options.onDone,
+    })
+  }
+
+  useEffect(() => {
+    if (!isPastTenseMode) return
+    if (phase !== 'finished') return
+    if (reviewAutoplayDoneRef.current) return
+
+    const reviewList = (lastResult?.reviewExercises ?? reviewWords).filter((item) => item?.baseWord && item?.word)
+    if (!reviewList.length) return
+
+    reviewAutoplayDoneRef.current = true
+
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+
+    speechTimerRef.current = window.setTimeout(() => {
+      playPastTenseReviewAudio(reviewList, { cancelFirst: true })
+    }, 950)
+
+    return () => {
+      if (speechTimerRef.current) {
+        window.clearTimeout(speechTimerRef.current)
+        speechTimerRef.current = null
+      }
+    }
+  }, [isPastTenseMode, phase, lastResult, reviewWords, soundEnabled])
 
   if (phase === 'finished') {
     const summary = lastResult ?? {
@@ -3278,13 +3401,32 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
                     : 'Excellent: there were no missed words in this test.'}
                 </p>
               ) : (
-                <div className="exercise-tags">
-                  {reviewList.map((item) => (
-                    <span key={item.key} className="exercise-tag">
-                      {item.label}
-                    </span>
-                  ))}
-                </div>
+                <>
+                  <div className="exercise-tags">
+                    {reviewList.map((item) => (
+                      <span key={item.key} className="exercise-tag">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                  {isPastTenseMode && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost review-audio-btn"
+                      onClick={() => {
+                        reviewAutoplayDoneRef.current = true
+                        void playPastTenseReviewAudio(reviewList)
+                      }}
+                      disabled={!soundEnabled}
+                      title={soundEnabled ? 'Play missed verbs (base and past)' : 'Enable sound first'}
+                    >
+                      <Volume2 size={16} />
+                      <span>
+                        {soundEnabled ? 'Play missed verbs (base + past)' : 'Sound is muted'}
+                      </span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
