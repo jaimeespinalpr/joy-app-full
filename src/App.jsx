@@ -139,7 +139,7 @@ const TESTS_BY_SUBJECT = {
     {
       id: 'spelling-english',
       name: 'English',
-      description: 'Listen to a word and choose the correct spelling.',
+      description: 'Choose the correct past tense form of a verb.',
       available: true,
       accentClass: 'test-language',
       icon: Volume2,
@@ -235,83 +235,98 @@ const SPELLING_TEST_CONFIGS = {
     testName: 'English',
     languageLabel: 'English',
     voiceLang: 'en-US',
+    mode: 'past-tense',
     words: [
-      'cat',
-      'dog',
-      'fish',
-      'bird',
-      'duck',
-      'horse',
-      'mouse',
-      'house',
-      'home',
-      'table',
-      'chair',
-      'book',
-      'pencil',
-      'school',
-      'friend',
-      'apple',
-      'grape',
-      'banana',
-      'orange',
-      'bread',
-      'milk',
-      'cheese',
-      'water',
-      'soup',
-      'sun',
-      'moon',
-      'star',
-      'cloud',
-      'rain',
-      'wind',
-      'beach',
-      'sand',
-      'tree',
-      'leaf',
-      'flower',
-      'stone',
-      'door',
-      'window',
-      'shirt',
-      'shoe',
-      'hat',
-      'red',
-      'blue',
-      'green',
-      'yellow',
-      'black',
-      'white',
-      'big',
-      'small',
-      'happy',
-      'sad',
-      'fast',
-      'slow',
-      'jump',
-      'run',
+      'change',
       'play',
-      'sing',
-      'dance',
+      'jump',
+      'wash',
+      'clean',
+      'open',
+      'close',
+      'help',
+      'paint',
+      'talk',
+      'walk',
+      'watch',
+      'start',
+      'visit',
+      'listen',
+      'cook',
+      'laugh',
       'smile',
-      'light',
-      'train',
-      'plane',
-      'truck',
-      'bread',
-      'cookie',
-      'garden',
-      'paper',
-      'pillow',
-      'rocket',
-      'winter',
+      'ask',
+      'call',
+      'stop',
+      'plan',
+      'drop',
+      'shop',
+      'slip',
+      'trip',
+      'clap',
+      'grab',
+      'skip',
+      'nod',
+      'hug',
+      'jog',
+      'drag',
+      'plug',
+      'beg',
+      'pat',
+      'tap',
+      'hop',
+      'rub',
+      'rip',
+      'step',
+      'chat',
+      'drip',
+      'clip',
+      'pack',
+      'kick',
+      'push',
+      'pull',
+      'look',
+      'need',
+      'want',
+      'learn',
+      'rain',
+      'snow',
+      'rest',
+      'share',
+      'brush',
+      'dance',
+      'move',
+      'live',
     ],
   },
 }
 
 const READING_QUESTION_COUNT = 5
 const readingStoryDecksByTest = {}
+const ENGLISH_READING_FILLER_SENTENCES = [
+  'The characters noticed small details around them as the story continued.',
+  'They paid attention and tried to make good choices.',
+  'Everything happened in a calm and simple way that was easy to follow.',
+  'A small problem appeared, but they handled it step by step.',
+  'They listened carefully and helped each other when needed.',
+  'By the end, they had learned something useful from the experience.',
+  'The day felt special because of the little moments they shared.',
+  'They were careful, patient, and worked together.',
+  'Each new moment helped them understand what to do next.',
+  'It was a good reminder to pay attention and be kind.',
+]
+const SPANISH_READING_FILLER_SENTENCES = [
+  'Los personajes notaron pequenos detalles mientras la historia continuaba.',
+  'Ellos prestaron atencion e intentaron tomar buenas decisiones.',
+  'Todo paso de una forma tranquila y facil de entender.',
+  'Aparecio un problema pequeno, pero lo resolvieron paso a paso.',
+  'Escucharon con cuidado y se ayudaron cuando fue necesario.',
+  'Al final, aprendieron algo util de la experiencia.',
+  'El dia se sintio especial por los momentos sencillos que compartieron.',
+  'Fueron pacientes, cuidadosos y trabajaron juntos.',
+  'Cada momento nuevo les ayudo a entender que hacer despues.',
+  'Fue un buen recordatorio para prestar atencion y ser amables.',
+]
 
 const READING_TEST_CONFIGS = {
   'reading-english': {
@@ -633,8 +648,100 @@ function generateSpellingOptions(correctWord, languageId) {
   return shuffleArray(Array.from(options)).slice(0, 4)
 }
 
+function isLikelyCvcVerbForPast(baseWord) {
+  const word = String(baseWord ?? '').toLowerCase()
+  if (word.length < 3) return false
+  const vowels = new Set(['a', 'e', 'i', 'o', 'u'])
+  const last = word[word.length - 1]
+  const middle = word[word.length - 2]
+  const before = word[word.length - 3]
+  if (['w', 'x', 'y'].includes(last)) return false
+  return !vowels.has(last) && vowels.has(middle) && !vowels.has(before)
+}
+
+function toRegularEnglishPastTense(baseWord) {
+  const word = String(baseWord ?? '').toLowerCase()
+  if (!word) return ''
+
+  if (word.endsWith('e')) {
+    return `${word}d`
+  }
+
+  if (word.endsWith('y')) {
+    const beforeY = word[word.length - 2] ?? ''
+    if (!['a', 'e', 'i', 'o', 'u'].includes(beforeY)) {
+      return `${word.slice(0, -1)}ied`
+    }
+  }
+
+  if (isLikelyCvcVerbForPast(word)) {
+    const last = word[word.length - 1]
+    return `${word}${last}ed`
+  }
+
+  return `${word}ed`
+}
+
+function generatePastTenseOptions(baseWord) {
+  const word = String(baseWord ?? '').toLowerCase()
+  const answer = toRegularEnglishPastTense(word)
+  const options = new Set([answer])
+
+  const candidates = [
+    `${word}ed`,
+    `${word}d`,
+    word,
+    word.endsWith('e') ? `${word}ed` : `${word}ing`,
+    answer.endsWith('ed') ? `${answer}ed` : `${answer}d`,
+  ]
+
+  if (isLikelyCvcVerbForPast(word)) {
+    const last = word[word.length - 1]
+    candidates.push(`${word}${last}d`)
+    candidates.push(`${word}ing`)
+  }
+
+  if (word.endsWith('e')) {
+    candidates.push(`${word.slice(0, -1)}ed`)
+  }
+
+  if (word.endsWith('y')) {
+    candidates.push(`${word}ed`)
+    candidates.push(`${word.slice(0, -1)}yed`)
+  }
+
+  for (const candidate of shuffleArray(candidates)) {
+    if (options.size >= 4) break
+    if (candidate && candidate !== answer) {
+      options.add(candidate)
+    }
+  }
+
+  while (options.size < 4) {
+    const fallback = mutateSpellingWord(answer, 'spelling-english')[options.size] ?? `${answer}${options.size}`
+    if (fallback !== answer) options.add(fallback)
+  }
+
+  return { answer, options: shuffleArray(Array.from(options)).slice(0, 4) }
+}
+
 function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT) {
   const words = getWordSequence(testConfig.words, count)
+
+  if (testConfig.mode === 'past-tense') {
+    return words.map((word, index) => {
+      const pastTense = generatePastTenseOptions(word)
+      return {
+        id: `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        word,
+        baseWord: word,
+        promptWord: word,
+        answer: pastTense.answer,
+        options: pastTense.options,
+        isRetry: false,
+      }
+    })
+  }
 
   return words.map((word, index) => ({
     id: `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -646,6 +753,15 @@ function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT) {
 }
 
 function spellingRecordFromQuestion(question) {
+  if (question.baseWord) {
+    return {
+      key: `word:${question.baseWord}`,
+      label: `${question.baseWord} -> ${question.answer}`,
+      word: question.answer,
+      baseWord: question.baseWord,
+    }
+  }
+
   return {
     key: `word:${question.word}`,
     label: question.word,
@@ -685,6 +801,27 @@ function generateReadingQuestions(story, testId, count = READING_QUESTION_COUNT)
       options: shuffleArray([...question.options]),
       isRetry: false,
     }))
+}
+
+function splitStoryTextIntoSentences(text) {
+  return String(text ?? '')
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+}
+
+function buildExpandedReadingParagraph(story, languageLabel) {
+  if (!story) return ''
+
+  const baseSentences = (story.paragraphs ?? []).flatMap((paragraph) =>
+    splitStoryTextIntoSentences(paragraph),
+  )
+
+  const fillerPool = languageLabel === 'Spanish' ? SPANISH_READING_FILLER_SENTENCES : ENGLISH_READING_FILLER_SENTENCES
+  const needed = Math.max(0, 10 - baseSentences.length)
+  const fillers = shuffleArray(fillerPool).slice(0, needed)
+
+  return [...baseSentences, ...fillers].join(' ')
 }
 
 function trimReviewLabel(text, maxLength = 88) {
@@ -975,6 +1112,23 @@ function getPersonalRecords(results) {
     })
 }
 
+function getTopRecordForTest(results, subjectId, testId) {
+  return (
+    results
+      .filter(
+        (result) =>
+          result.subjectId === subjectId &&
+          result.testId === testId &&
+          result.attemptStatus !== 'abandoned',
+      )
+      .sort((a, b) => {
+        if ((b.percentage ?? 0) !== (a.percentage ?? 0)) return (b.percentage ?? 0) - (a.percentage ?? 0)
+        if ((b.totalScore ?? 0) !== (a.totalScore ?? 0)) return (b.totalScore ?? 0) - (a.totalScore ?? 0)
+        return (a.createdAtMs ?? 0) - (b.createdAtMs ?? 0)
+      })[0] ?? null
+  )
+}
+
 function getResultDisplayLabels(result) {
   const subjectName = getSubjectById(result.subjectId)?.name ?? result.subjectName ?? 'Subject'
   const testName =
@@ -985,6 +1139,26 @@ function getResultDisplayLabels(result) {
 
 function getSavedStudentName(result) {
   return result.studentName || result.studentAlias || 'Student'
+}
+
+function TestLeaderboardChip({ topRecord }) {
+  if (!topRecord) {
+    return (
+      <div className="test-leader-chip is-empty">
+        <Trophy size={14} />
+        <span>No leaderboard record yet for this test</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="test-leader-chip">
+      <Trophy size={14} />
+      <span className="label">Top</span>
+      <strong>{getSavedStudentName(topRecord)}</strong>
+      <span>{topRecord.percentage}%</span>
+    </div>
+  )
 }
 
 function getStudentDisplayName(studentProfile, currentUser) {
@@ -1033,6 +1207,28 @@ function LoadingScreen() {
         <p>Loading Joy App...</p>
         </div>
       </div>
+  )
+}
+
+const KID_STICKER_ITEMS = [
+  { emoji: '🐶', label: 'Animals' },
+  { emoji: '👕', label: 'Clothes' },
+  { emoji: '🧸', label: 'Toys' },
+  { emoji: '🍎', label: 'Food' },
+  { emoji: '🚀', label: 'Space' },
+  { emoji: '🎨', label: 'Colors' },
+]
+
+function KidsDecorStrip({ compact = false }) {
+  return (
+    <div className={`kids-decor-strip ${compact ? 'is-compact' : ''}`} aria-hidden="true">
+      {KID_STICKER_ITEMS.map((item) => (
+        <div key={item.label} className="kid-sticker">
+          <span className="kid-sticker-emoji">{item.emoji}</span>
+          <span className="kid-sticker-label">{item.label}</span>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -1098,6 +1294,8 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
             Simple student sign-up. Use a nickname and password to save results.
           </p>
         </div>
+
+        <KidsDecorStrip compact />
 
         <div className="auth-mode-toggle" role="tablist" aria-label="Access mode">
           <button
@@ -1415,6 +1613,16 @@ function Dashboard({
         </div>
       )}
 
+      <section className="panel-card playful-panel">
+        <div className="panel-card-header">
+          <div>
+            <h2>Fun Topics for Kids</h2>
+            <p>Animals, clothes, toys, food, and more make practice feel friendly.</p>
+          </div>
+        </div>
+        <KidsDecorStrip />
+      </section>
+
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
@@ -1451,6 +1659,16 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
         </div>
       </section>
 
+      <section className="panel-card playful-panel">
+        <div className="panel-card-header">
+          <div>
+            <h2>Kid-Friendly Practice</h2>
+            <p>We are adding activities with fun themes children already love.</p>
+          </div>
+        </div>
+        <KidsDecorStrip />
+      </section>
+
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
@@ -1479,7 +1697,7 @@ function CoinBurst({ visible }) {
   )
 }
 
-function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
+function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
@@ -1947,6 +2165,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
           <small>
             Math World 1 · Questions in queue: {queue.length}
           </small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
         </div>
 
         <div className="hud-actions">
@@ -2034,7 +2253,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
   )
 }
 
-function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
+function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTestRecord }) {
   const config = testConfig ?? READING_TEST_CONFIGS['reading-english']
 
   const [phase, setPhase] = useState('reading')
@@ -2157,8 +2376,14 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
 
     const nextStory = getNextReadingStory(config)
     const initialQueue = generateReadingQuestions(nextStory, config.testId, READING_QUESTION_COUNT)
+    const storyWithParagraph = nextStory
+      ? {
+          ...nextStory,
+          displayParagraph: buildExpandedReadingParagraph(nextStory, config.languageLabel),
+        }
+      : null
 
-    setStory(nextStory)
+    setStory(storyWithParagraph)
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
@@ -2530,6 +2755,7 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
           <small>
             Reading · {config.languageLabel} · Questions in queue: {queue.length}
           </small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
         </div>
 
         <div className="hud-actions">
@@ -2569,9 +2795,7 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
               <span className="badge badge-live">{READING_QUESTION_COUNT} questions</span>
             </div>
             <div className="story-card-body">
-              {story.paragraphs.map((paragraph, index) => (
-                <p key={`${story.id}_${index}`}>{paragraph}</p>
-              ))}
+              <p>{story.displayParagraph || story.paragraphs?.join(' ')}</p>
             </div>
           </div>
         ) : (
@@ -2657,8 +2881,9 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
   )
 }
 
-function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
+function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topTestRecord }) {
   const config = testConfig ?? SPELLING_TEST_CONFIGS['spelling-english']
+  const isPastTenseMode = config.mode === 'past-tense'
 
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
@@ -2727,8 +2952,9 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
   }
 
   function speakCurrentWord(question) {
-    if (!question?.word) return
-    speakDictationWord(question.word, config.voiceLang, soundEnabled)
+    const spokenWord = question?.baseWord || question?.word
+    if (!spokenWord) return
+    speakDictationWord(spokenWord, config.voiceLang, soundEnabled)
   }
 
   function queueWordSpeech(question) {
@@ -2927,10 +3153,13 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
         let nextQueue = remainingQueue
 
         if (shouldRepeat) {
+          const nextOptions = isPastTenseMode
+            ? generatePastTenseOptions(currentQuestion.baseWord || currentQuestion.word).options
+            : generateSpellingOptions(currentQuestion.answer, config.testId)
           const retryQuestion = {
             ...currentQuestion,
             id: `retry_word_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            options: generateSpellingOptions(currentQuestion.answer, config.testId),
+            options: nextOptions,
             isRetry: true,
           }
           nextQueue = [...remainingQueue, retryQuestion]
@@ -3181,8 +3410,9 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
             <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
           </div>
           <small>
-            {config.languageLabel} Spelling · Questions in queue: {queue.length}
+            {config.languageLabel} {isPastTenseMode ? 'Past Tense' : 'Spelling'} · Questions in queue: {queue.length}
           </small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
         </div>
 
         <div className="hud-actions">
@@ -3240,9 +3470,21 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
 
           <div className={`question-card spelling-card ${feedback ? `feedback-${feedback}` : ''}`}>
             <div className="spelling-card-content">
-              <span className="spelling-kicker">{config.languageLabel} dictation</span>
-              <h2>Listen and choose the correct spelling</h2>
-              <p>Tap the speaker if you want to hear the word again.</p>
+              <span className="spelling-kicker">
+                {isPastTenseMode ? `${config.languageLabel} verbs` : `${config.languageLabel} dictation`}
+              </span>
+              {isPastTenseMode ? (
+                <>
+                  <h2>Choose the past tense form</h2>
+                  <div className="spelling-base-word">{currentQuestion.baseWord}</div>
+                  <p>Tap the speaker to hear the base verb again.</p>
+                </>
+              ) : (
+                <>
+                  <h2>Listen and choose the correct spelling</h2>
+                  <p>Tap the speaker if you want to hear the word again.</p>
+                </>
+              )}
               <button
                 type="button"
                 className="dictation-replay-btn"
@@ -3251,7 +3493,13 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
                 title={soundEnabled ? 'Hear word again' : 'Enable sound to hear the word'}
               >
                 <Volume2 size={18} />
-                <span>{soundEnabled ? 'Hear word again' : 'Sound is muted'}</span>
+                <span>
+                  {soundEnabled
+                    ? isPastTenseMode
+                      ? 'Hear base word again'
+                      : 'Hear word again'
+                    : 'Sound is muted'}
+                </span>
               </button>
             </div>
           </div>
@@ -3542,6 +3790,11 @@ function App() {
   const selectedReadingConfig = selectedTest ? READING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const selectedSpellingConfig = selectedTest ? SPELLING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
+  const rankingSourceResults = globalResults.length ? globalResults : personalResults
+  const selectedTestTopRecord =
+    selectedSubject && selectedTest
+      ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
+      : null
 
   return (
     <div className="app-shell">
@@ -3598,6 +3851,7 @@ function App() {
             onBack={goToSubjectMenu}
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
+            topTestRecord={selectedTestTopRecord}
           />
         )}
 
@@ -3607,6 +3861,7 @@ function App() {
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
             testConfig={selectedReadingConfig}
+            topTestRecord={selectedTestTopRecord}
           />
         )}
 
@@ -3616,6 +3871,7 @@ function App() {
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
             testConfig={selectedSpellingConfig}
+            topTestRecord={selectedTestTopRecord}
           />
         )}
 

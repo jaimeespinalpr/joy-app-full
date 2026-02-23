@@ -348,6 +348,11 @@ button {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  background:
+    radial-gradient(circle at 6% 12%, rgba(255, 193, 117, 0.18), transparent 20%),
+    radial-gradient(circle at 94% 16%, rgba(122, 219, 255, 0.16), transparent 22%),
+    radial-gradient(circle at 12% 86%, rgba(147, 255, 199, 0.12), transparent 20%),
+    radial-gradient(circle at 90% 84%, rgba(255, 155, 211, 0.1), transparent 18%);
 }
 
 .top-nav {
@@ -484,6 +489,76 @@ button {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(24, 38, 89, 0.07);
   box-shadow: 0 18px 40px rgba(17, 31, 79, 0.06);
+}
+
+.panel-card.playful-panel {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 192, 109, 0.18), transparent 35%),
+    radial-gradient(circle at 88% 80%, rgba(107, 211, 255, 0.16), transparent 30%),
+    rgba(255, 255, 255, 0.94);
+}
+
+.kids-decor-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.kids-decor-strip.is-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.8rem;
+}
+
+.kid-sticker {
+  min-height: 62px;
+  border-radius: 16px;
+  border: 1px solid rgba(30, 45, 105, 0.08);
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.45), transparent 42%),
+    linear-gradient(150deg, #ffffff, #f4f8ff);
+  box-shadow:
+    0 12px 22px rgba(20, 33, 85, 0.05),
+    inset 0 -5px 0 rgba(72, 101, 194, 0.04);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.15rem;
+  padding: 0.35rem;
+}
+
+.kid-sticker:nth-child(1) {
+  transform: rotate(-1.4deg);
+}
+
+.kid-sticker:nth-child(2) {
+  transform: rotate(1.2deg);
+}
+
+.kid-sticker:nth-child(3) {
+  transform: rotate(-0.8deg);
+}
+
+.kid-sticker:nth-child(4) {
+  transform: rotate(1deg);
+}
+
+.kid-sticker:nth-child(5) {
+  transform: rotate(-1deg);
+}
+
+.kid-sticker:nth-child(6) {
+  transform: rotate(0.9deg);
+}
+
+.kid-sticker-emoji {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.kid-sticker-label {
+  font-size: 0.8rem;
+  color: #32407b;
+  font-weight: 700;
 }
 
 .panel-card-header {
@@ -1063,6 +1138,34 @@ button {
   margin-top: 0.3rem;
 }
 
+.test-leader-chip {
+  margin-top: 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 999px;
+  background: #f4f7ff;
+  border: 1px solid rgba(31, 46, 104, 0.08);
+  color: #31417c;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
+.test-leader-chip .label {
+  color: #6a77a2;
+}
+
+.test-leader-chip strong {
+  color: #1e295d;
+  font-weight: 800;
+}
+
+.test-leader-chip.is-empty {
+  color: #6a77a2;
+}
+
 .hud-actions {
   display: flex;
   gap: 0.5rem;
@@ -1222,6 +1325,21 @@ button {
   margin: 0;
   color: rgba(255, 255, 255, 0.88);
   font-size: 0.9rem;
+}
+
+.spelling-base-word {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  min-height: 46px;
+  padding: 0.35rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2b61;
+  font-weight: 800;
+  font-size: clamp(1.15rem, 2.8vw, 1.5rem);
+  box-shadow: 0 10px 20px rgba(20, 31, 76, 0.12);
 }
 
 .dictation-replay-btn {
@@ -1654,6 +1772,10 @@ button {
   .tests-grid {
     grid-template-columns: 1fr;
   }
+
+  .kids-decor-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -1672,6 +1794,11 @@ button {
 
   .answers-grid {
     grid-template-columns: 1fr;
+  }
+
+  .kids-decor-strip,
+  .kids-decor-strip.is-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .story-card-header {
