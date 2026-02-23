@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   BookOpen,
@@ -692,7 +692,7 @@ function CoinBurst({ visible }) {
 }
 
 function MultiplicationChallenge({ onBack, onSaveResult }) {
-  const [phase, setPhase] = useState('booting')
+  const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
   const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
@@ -728,7 +728,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     }
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (autoStartRef.current) return
     autoStartRef.current = true
     startGame()
@@ -973,19 +973,6 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     await enterFullscreenMode()
   }
 
-  if (phase === 'booting') {
-    return (
-      <section className={`game-shell intro ${isFullscreen ? 'is-fullscreen' : ''}`}>
-        <div className="game-intro-card">
-          <div className="empty-state">
-            <div className="spinner" aria-hidden="true" />
-            <p>Preparando prueba de multiplicacion...</p>
-          </div>
-        </div>
-      </section>
-    )
-  }
-
   if (phase === 'finished') {
     const summary = lastResult ?? {
       totalScore,
@@ -1122,7 +1109,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
         </div>
       </div>
 
-      {currentQuestion && (
+      {currentQuestion ? (
         <div className="game-board">
           <div className="stars-row" aria-label="Puntos posibles en esta pregunta">
             {Array.from({ length: 5 }, (_, index) => (
@@ -1161,6 +1148,13 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
                 {option.value}
               </button>
             ))}
+          </div>
+        </div>
+      ) : (
+        <div className="game-board">
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Cargando prueba...</p>
           </div>
         </div>
       )}
