@@ -12,7 +12,6 @@ import {
   MessageSquareText,
   Minimize2,
   Minus,
-  Play,
   Plus,
   RotateCcw,
   Sparkles,
@@ -693,7 +692,7 @@ function CoinBurst({ visible }) {
 }
 
 function MultiplicationChallenge({ onBack, onSaveResult }) {
-  const [phase, setPhase] = useState('intro')
+  const [phase, setPhase] = useState('booting')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
   const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
@@ -711,6 +710,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
   const advanceTimerRef = useRef(null)
   const coinTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
 
   useEffect(() => {
     function syncFullscreenState() {
@@ -726,6 +726,12 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
+  }, [])
+
+  useEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame()
   }, [])
 
   function clearTimers() {
@@ -967,52 +973,13 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     await enterFullscreenMode()
   }
 
-  if (phase === 'intro') {
+  if (phase === 'booting') {
     return (
       <section className={`game-shell intro ${isFullscreen ? 'is-fullscreen' : ''}`}>
         <div className="game-intro-card">
-          <div className="game-intro-badge">
-            <Calculator size={16} />
-            <span>Matematicas</span>
-          </div>
-          <h1>Multiplicacion</h1>
-          <p>
-            25 preguntas, 4 opciones por pregunta y refuerzo automatico cuando hay errores.
-          </p>
-
-          <div className="game-rules-grid">
-            <div className="rule-card">
-              <strong>5 / 3 / 1 / 0</strong>
-              <span>Puntos por intento</span>
-            </div>
-            <div className="rule-card">
-              <strong>2 a 10</strong>
-              <span>Factores aleatorios</span>
-            </div>
-            <div className="rule-card">
-              <strong>Firebase</strong>
-              <span>Resultado guardado al final</span>
-            </div>
-          </div>
-
-          <div className="game-intro-actions">
-            <button type="button" className="btn btn-primary btn-lg" onClick={startGame}>
-              <Play size={18} />
-              <span>Comenzar prueba</span>
-            </button>
-            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
-              <ArrowLeft size={16} />
-              <span>Volver a tipos de prueba</span>
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost icon-only"
-              onClick={() => setSoundEnabled((value) => !value)}
-              aria-label={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
-              title={soundEnabled ? 'Silenciar sonidos' : 'Activar sonidos'}
-            >
-              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-            </button>
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Preparando prueba de multiplicacion...</p>
           </div>
         </div>
       </section>
