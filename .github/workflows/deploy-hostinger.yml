@@ -1,0 +1,50 @@
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    # Avoid failing the repo until FTP password is configured in GitHub Secrets.
+    if: ${{ secrets.HOSTINGER_FTP_PASSWORD != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for Hostinger (root path)
+        env:
+          DEPLOY_TARGET: hostinger
+        run: npm run build
+
+      - name: Deploy via FTP to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_FTP_SERVER }}
+          username: ${{ secrets.HOSTINGER_FTP_USERNAME }}
+          password: ${{ secrets.HOSTINGER_FTP_PASSWORD }}
+          port: ${{ secrets.HOSTINGER_FTP_PORT }}
+          protocol: ftp
+          local-dir: ./dist/
+          server-dir: /public_html/
+
+  missing-secrets:
+    if: ${{ secrets.HOSTINGER_FTP_PASSWORD == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Missing Hostinger FTP password
+        run: |
+          echo "HOSTINGER_FTP_PASSWORD secret is missing. Skipping Hostinger deploy."
+          echo "Set HOSTINGER_FTP_SERVER, HOSTINGER_FTP_PORT, HOSTINGER_FTP_USERNAME and HOSTINGER_FTP_PASSWORD in GitHub repo secrets."
+
