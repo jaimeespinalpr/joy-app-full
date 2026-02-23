@@ -2411,7 +2411,13 @@ function App() {
 
     try {
       const profileRef = doc(db, 'students', user.uid)
-      const profileSnapshot = await getDoc(profileRef)
+      const resultsRef = collection(db, 'students', user.uid, 'results')
+      const resultsQuery = query(resultsRef, orderBy('createdAtMs', 'desc'), limit(20))
+
+      const [profileSnapshot, resultSnapshot] = await Promise.all([
+        getDoc(profileRef),
+        getDocs(resultsQuery),
+      ])
 
       if (profileSnapshot.exists()) {
         setStudentProfile(profileSnapshot.data())
@@ -2420,9 +2426,6 @@ function App() {
         setStudentProfile({ alias: fallbackAlias })
       }
 
-      const resultsRef = collection(db, 'students', user.uid, 'results')
-      const resultsQuery = query(resultsRef, orderBy('createdAtMs', 'desc'), limit(20))
-      const resultSnapshot = await getDocs(resultsQuery)
       setResults(resultSnapshot.docs.map(toResultRecord))
     } catch (error) {
       console.error('Error loading student data:', error)
@@ -2446,8 +2449,8 @@ function App() {
         return
       }
 
-      await loadStudentData(user)
       setAuthReady(true)
+      void loadStudentData(user)
     })
 
     return unsubscribe

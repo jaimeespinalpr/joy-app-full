@@ -11,4 +11,17 @@ export default defineConfig(({ command }) => ({
       : process.env.DEPLOY_TARGET === 'github-pages'
         ? '/joy-app-full/'
         : '/',
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase')) return 'firebase-vendor'
+          if (id.includes('node_modules/lucide-react')) return 'icons-vendor'
+          if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) {
+            return 'react-vendor'
+          }
+        },
+      },
+    },
+  },
 }))
