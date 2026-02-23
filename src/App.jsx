@@ -1294,7 +1294,7 @@ function ResultsList({ results, loading }) {
 function RecordsPanel({ results }) {
   const records = getPersonalRecords(results)
   const highScore = records[0] ?? null
-  const topFive = records.slice(0, 5)
+  const leaderboardEntries = records
   const highScoreLabels = highScore ? getResultDisplayLabels(highScore) : null
 
   return (
@@ -1332,7 +1332,7 @@ function RecordsPanel({ results }) {
           </div>
 
           <div className="leaderboard-list">
-            {topFive.map((record, index) => {
+            {leaderboardEntries.map((record, index) => {
               const labels = getResultDisplayLabels(record)
               return (
                 <div key={record.id} className="leaderboard-row">
@@ -3280,7 +3280,7 @@ function App() {
 
     try {
       const globalResultsRef = collection(db, GLOBAL_RESULTS_COLLECTION)
-      const globalQuery = query(globalResultsRef, orderBy('createdAtMs', 'desc'), limit(100))
+      const globalQuery = query(globalResultsRef, orderBy('createdAtMs', 'desc'))
       const snapshot = await getDocs(globalQuery)
       setGlobalResults(snapshot.docs.map(toResultRecord))
     } catch (error) {
