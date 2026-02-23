@@ -2901,6 +2901,7 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
 function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topTestRecord }) {
   const config = testConfig ?? SPELLING_TEST_CONFIGS['spelling-english']
   const isPastTenseMode = config.mode === 'past-tense'
+  const baseQuestionCount = config.questionCount ?? 15
 
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
@@ -3043,7 +3044,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
       playSound('start', soundEnabled)
     }
     void enterFullscreenMode()
-    const initialQueue = generateSpellingQuestions(config, INITIAL_QUESTION_COUNT)
+    const initialQueue = generateSpellingQuestions(config, baseQuestionCount)
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
@@ -3067,7 +3068,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
     const remainingOriginalCount =
       options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
-    const answeredOriginalCount = INITIAL_QUESTION_COUNT - remainingOriginalCount
+    const answeredOriginalCount = baseQuestionCount - remainingOriginalCount
     const pendingExercises = completionMode === 'abandoned' ? getPendingSpellingWords(queueSnapshot) : []
     const reviewExercisesSummary = mergeExerciseRecords(
       reviewWordsRef.current,
@@ -3085,7 +3086,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
       playSound('bump', soundEnabled)
     }
 
-    const maxScore = INITIAL_QUESTION_COUNT * 5
+    const maxScore = baseQuestionCount * 5
     const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
     const gradeInfo = getGrade(percentage)
 
@@ -3101,7 +3102,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
       percentage,
       grade: gradeInfo.grade,
       perfectOriginalCount: finalPerfectCount,
-      questionCount: INITIAL_QUESTION_COUNT,
+      questionCount: baseQuestionCount,
       answeredOriginalCount,
       remainingOriginalCount,
       remainingQueueCount,
@@ -3342,11 +3343,11 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   if (phase === 'finished') {
     const summary = lastResult ?? {
       totalScore,
-      maxScore: INITIAL_QUESTION_COUNT * 5,
+      maxScore: baseQuestionCount * 5,
       percentage: 0,
       grade: 'F',
       perfectOriginalCount,
-      questionCount: INITIAL_QUESTION_COUNT,
+      questionCount: baseQuestionCount,
       reviewExercises: reviewWords,
       pendingExercises: [],
     }
@@ -3382,8 +3383,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
               <span>{summary.percentage}%</span>
               <span>
                 {isAbandoned
-                  ? `${summary.answeredOriginalCount ?? 0} of 25 base questions answered`
-                  : `${summary.perfectOriginalCount} perfect (out of 25)`}
+                  ? `${summary.answeredOriginalCount ?? 0} of ${summary.questionCount ?? baseQuestionCount} base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${summary.questionCount ?? baseQuestionCount})`}
               </span>
             </div>
           </div>
@@ -3486,7 +3487,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   }
 
   const currentQuestion = queue[0]
-  const progressPercentage = Math.round((perfectOriginalCount / INITIAL_QUESTION_COUNT) * 100)
+  const progressPercentage = Math.round((perfectOriginalCount / baseQuestionCount) * 100)
   const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
