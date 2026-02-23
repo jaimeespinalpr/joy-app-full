@@ -291,6 +291,23 @@ const SPELLING_TEST_CONFIGS = {
 }
 
 let audioCtx = null
+let speechVoicesInitialized = false
+
+function warmSpeechVoices() {
+  if (typeof window === 'undefined' || !window.speechSynthesis || speechVoicesInitialized) return
+
+  speechVoicesInitialized = true
+
+  try {
+    window.speechSynthesis.getVoices()
+    window.speechSynthesis.onvoiceschanged = () => {
+      // Trigger browser voice list load/update (Chrome often fills this asynchronously).
+      window.speechSynthesis.getVoices()
+    }
+  } catch (error) {
+    console.warn('Could not initialize speech voices:', error)
+  }
+}
 
 function initAudio() {
   try {
@@ -607,9 +624,62 @@ function stopSpeechPlayback() {
   window.speechSynthesis.cancel()
 }
 
+function getPreferredSpeechVoice(voiceLang) {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return null
+
+  const voices = window.speechSynthesis.getVoices?.() ?? []
+  if (!voices.length) return null
+
+  const requested = String(voiceLang || '').toLowerCase()
+  const requestedBase = requested.split('-')[0]
+
+  const matches = voices.filter((voice) => {
+    const lang = String(voice.lang || '').toLowerCase()
+    if (!requestedBase) return true
+    return lang === requested || lang.startsWith(`${requestedBase}-`) || lang === requestedBase
+  })
+
+  const pool = matches.length ? matches : voices
+
+  const scored = pool
+    .map((voice) => {
+      const name = String(voice.name || '').toLowerCase()
+      const lang = String(voice.lang || '').toLowerCase()
+      let score = 0
+
+      if (lang === requested) score += 40
+      else if (requestedBase && lang.startsWith(`${requestedBase}-`)) score += 24
+      else if (requestedBase && lang === requestedBase) score += 20
+
+      if (name.includes('google')) score += 60
+      if (name.includes('natural')) score += 30
+      if (name.includes('enhanced')) score += 20
+      if (name.includes('premium')) score += 18
+      if (name.includes('neural')) score += 18
+
+      if (requestedBase === 'es') {
+        if (name.includes('español') || name.includes('spanish')) score += 18
+      }
+      if (requestedBase === 'en') {
+        if (name.includes('english')) score += 18
+        if (name.includes('us') || name.includes('america')) score += 6
+      }
+
+      if (voice.default) score += 8
+      if (voice.localService) score += 4
+
+      return { voice, score }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  return scored[0]?.voice ?? null
+}
+
 function speakDictationWord(word, voiceLang, enabled) {
   if (!enabled) return false
   if (typeof window === 'undefined' || !window.speechSynthesis || !word) return false
+
+  warmSpeechVoices()
 
   const UtteranceCtor = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance
   if (!UtteranceCtor) return false
@@ -617,9 +687,18 @@ function speakDictationWord(word, voiceLang, enabled) {
   try {
     window.speechSynthesis.cancel()
     const utterance = new UtteranceCtor(word)
-    utterance.lang = voiceLang
-    utterance.rate = voiceLang.startsWith('es') ? 0.88 : 0.9
+    const preferredVoice = getPreferredSpeechVoice(voiceLang)
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice
+      utterance.lang = preferredVoice.lang || voiceLang
+    } else {
+      utterance.lang = voiceLang
+    }
+
+    utterance.rate = voiceLang.startsWith('es') ? 0.86 : 0.88
     utterance.pitch = 1
+    utterance.volume = 1
     window.speechSynthesis.speak(utterance)
     return true
   } catch (error) {
