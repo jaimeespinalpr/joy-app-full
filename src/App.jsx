@@ -1363,8 +1363,12 @@ function Dashboard({
   globalResults,
   personalResultsLoading,
   globalResultsLoading,
+  globalResultsError,
   onSelectSubject,
 }) {
+  const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
+  const panelResults = usingGlobalPanels ? globalResults : personalResults
+
   return (
     <div className="page-stack">
       <section className="hero-panel">
@@ -1394,6 +1398,23 @@ function Dashboard({
         </div>
       </section>
 
+      {!usingGlobalPanels && (
+        <div className="banner info">
+          <CircleAlert size={16} />
+          <span>
+            Global leaderboard is not available right now, so this section is showing this student&apos;s
+            results only. Check Firestore rules for `publicResults`.
+          </span>
+        </div>
+      )}
+
+      {globalResultsError && (
+        <div className="banner error">
+          <CircleAlert size={16} />
+          <span>{globalResultsError}</span>
+        </div>
+      )}
+
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
@@ -1408,8 +1429,8 @@ function Dashboard({
         </div>
       </section>
 
-      <ResultsList results={globalResults} loading={globalResultsLoading || personalResultsLoading} />
-      <RecordsPanel results={globalResults} />
+      <ResultsList results={panelResults} loading={globalResultsLoading || personalResultsLoading} />
+      <RecordsPanel results={panelResults} />
     </div>
   )
 }
@@ -3271,12 +3292,14 @@ function App() {
   const [globalResultsLoading, setGlobalResultsLoading] = useState(false)
   const [personalResults, setPersonalResults] = useState([])
   const [globalResults, setGlobalResults] = useState([])
+  const [globalResultsError, setGlobalResultsError] = useState('')
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
 
   async function loadGlobalResults() {
     setGlobalResultsLoading(true)
+    setGlobalResultsError('')
 
     try {
       const globalResultsRef = collection(db, GLOBAL_RESULTS_COLLECTION)
@@ -3286,6 +3309,11 @@ function App() {
     } catch (error) {
       console.error('Error loading global results:', error)
       setGlobalResults([])
+      setGlobalResultsError(
+        error?.code === 'permission-denied'
+          ? 'Global leaderboard is blocked by Firestore rules. Allow authenticated access to publicResults.'
+          : 'Could not load the global leaderboard right now.',
+      )
     } finally {
       setGlobalResultsLoading(false)
     }
@@ -3305,6 +3333,11 @@ function App() {
         await setDoc(doc(db, GLOBAL_RESULTS_COLLECTION, publicDocId), publicPayload, { merge: true })
       } catch (error) {
         console.warn('Could not mirror result to global collection:', error)
+        if (error?.code === 'permission-denied') {
+          setGlobalResultsError(
+            'Global leaderboard is blocked by Firestore rules. Allow authenticated access to publicResults.',
+          )
+        }
       }
     })
 
@@ -3351,8 +3384,9 @@ function App() {
       if (!user) {
         setStudentProfile(null)
         setPersonalResults([])
-        setGlobalResults([])
-        setScreen('dashboard')
+      setGlobalResults([])
+      setGlobalResultsError('')
+      setScreen('dashboard')
         setSelectedSubjectId(null)
         setSelectedTestId(null)
         setAuthReady(true)
@@ -3453,8 +3487,14 @@ function App() {
       await setDoc(doc(db, GLOBAL_RESULTS_COLLECTION, publicRecordId), publicRecordPayload, { merge: true })
       const publicRecord = { id: publicRecordId, ...publicRecordPayload }
       setGlobalResults((previous) => upsertResultRecord(previous, publicRecord))
+      setGlobalResultsError('')
     } catch (error) {
       console.warn('Could not save public result record:', error)
+      if (error?.code === 'permission-denied') {
+        setGlobalResultsError(
+          'Global leaderboard is blocked by Firestore rules. Allow authenticated access to publicResults.',
+        )
+      }
     }
 
     return savedRecord
@@ -3540,6 +3580,7 @@ function App() {
             globalResults={globalResults}
             personalResultsLoading={personalResultsLoading}
             globalResultsLoading={globalResultsLoading}
+            globalResultsError={globalResultsError}
             onSelectSubject={openSubject}
           />
         )}
