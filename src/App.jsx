@@ -44,8 +44,43 @@ import { auth, db } from './firebase'
 import { READING_STORY_BANKS } from './readingStories'
 
 const INITIAL_QUESTION_COUNT = 25
+const WORD_PROBLEM_QUESTION_COUNT = 15
+const WORD_PROBLEM_VOICE_LANG = 'en-US'
 const GLOBAL_RESULTS_COLLECTION = 'publicResults'
 const APP_DOMAIN = 'joyapp.student'
+
+const WORD_PROBLEM_NAMES = [
+  'Mia',
+  'Leo',
+  'Sofia',
+  'Noah',
+  'Emma',
+  'Liam',
+  'Ava',
+  'Eli',
+  'Chloe',
+  'Owen',
+  'Luna',
+  'Mateo',
+]
+
+const WORD_PROBLEM_ITEMS = [
+  'stickers',
+  'apples',
+  'cookies',
+  'crayons',
+  'marbles',
+  'blocks',
+  'toy cars',
+  'shells',
+  'books',
+  'pencils',
+  'balloons',
+  'buttons',
+]
+
+const WORD_PROBLEM_CONTAINERS = ['bags', 'boxes', 'rows', 'trays', 'baskets', 'shelves']
+const WORD_PROBLEM_PLACES = ['classroom', 'park', 'kitchen', 'playroom', 'library', 'garden']
 
 const SUBJECTS = [
   {
@@ -103,8 +138,8 @@ const TESTS_BY_SUBJECT = {
     {
       id: 'word-problems',
       name: 'Word Problems',
-      description: 'Coming soon: reading and solving real-life situations.',
-      available: false,
+      description: 'Listen to a short math story and solve it with +, -, or x.',
+      available: true,
       accentClass: 'test-word',
       icon: MessageSquareText,
     },
@@ -497,6 +532,239 @@ function generateMultiplicationQuestions(count = INITIAL_QUESTION_COUNT) {
   })
 }
 
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
+function pickRandom(values) {
+  if (!values?.length) return ''
+  return values[Math.floor(Math.random() * values.length)]
+}
+
+function generateWordProblemOptions(answer, operation, values = {}) {
+  const options = new Set([answer])
+  const seedCandidates = []
+
+  if (operation === 'add') {
+    const { a = 0, b = 0 } = values
+    seedCandidates.push(Math.abs(a - b), answer + 1, answer - 1, answer + 2, answer - 2)
+  } else if (operation === 'subtract') {
+    const { total = 0, removed = 0 } = values
+    seedCandidates.push(total + removed, removed, answer + 1, answer - 1, answer + 2)
+  } else if (operation === 'multiply') {
+    const { groups = 0, each = 0 } = values
+    seedCandidates.push(groups + each, groups * (each - 1), (groups - 1) * each, answer + each, answer - each)
+  }
+
+  for (const candidate of shuffleArray(seedCandidates)) {
+    if (options.size >= 4) break
+    if (Number.isFinite(candidate) && candidate > 0 && candidate !== answer) {
+      options.add(Math.round(candidate))
+    }
+  }
+
+  while (options.size < 4) {
+    const variance = randomInt(1, 8)
+    const candidate = Math.random() > 0.5 ? answer + variance : answer - variance
+    if (candidate > 0 && candidate !== answer) options.add(candidate)
+  }
+
+  return shuffleArray(Array.from(options))
+}
+
+function toSimpleSingular(word) {
+  const value = String(word ?? '').trim().toLowerCase()
+  if (!value) return ''
+  if (value.endsWith('ies')) return `${value.slice(0, -3)}y`
+  if (value.endsWith('xes') || value.endsWith('ches') || value.endsWith('shes')) {
+    return value.slice(0, -2)
+  }
+  if (value.endsWith('s')) return value.slice(0, -1)
+  return value
+}
+
+function buildAdditionWordProblem(templateIndex) {
+  const name = pickRandom(WORD_PROBLEM_NAMES)
+  const item = pickRandom(WORD_PROBLEM_ITEMS)
+  const place = pickRandom(WORD_PROBLEM_PLACES)
+  const a = randomInt(3, 18)
+  const b = randomInt(2, 14)
+  const answer = a + b
+  let storyText = ''
+  let questionPrompt = ''
+  let explanation = ''
+  let templateId = `add-${templateIndex}`
+
+  switch (templateIndex % 4) {
+    case 0:
+      storyText = `${name} had ${a} ${item} at home. Then ${name}'s teacher gave ${name} ${b} more ${item} in class.`
+      questionPrompt = `How many ${item} does ${name} have now?`
+      explanation = `Add the two amounts: ${a} plus ${b} equals ${answer}. So ${name} has ${answer} ${item} now.`
+      break
+    case 1:
+      storyText = `At the ${place}, ${name} found ${a} ${item} in one basket and ${b} ${item} in another basket.`
+      questionPrompt = `How many ${item} are there in both baskets together?`
+      explanation = `Put both groups together: ${a} + ${b} = ${answer}. There are ${answer} ${item} in all.`
+      break
+    case 2:
+      storyText = `${name} brought ${a} ${item} to a game. A friend brought ${b} more ${item} to share.`
+      questionPrompt = `How many ${item} do they have altogether?`
+      explanation = `Altogether means add. ${a} plus ${b} equals ${answer}. The total is ${answer}.`
+      break
+    default:
+      storyText = `${name} counted ${a} ${item} in the ${place}. Later, ${name} counted ${b} more ${item}.`
+      questionPrompt = `What is the total number of ${item}?`
+      explanation = `First group ${a}, second group ${b}. Add them: ${a} + ${b} = ${answer}.`
+      break
+  }
+
+  return {
+    operation: 'add',
+    operationLabel: 'Addition',
+    templateId,
+    values: { a, b },
+    storyText,
+    questionPrompt,
+    answer,
+    explanation,
+    options: generateWordProblemOptions(answer, 'add', { a, b }),
+    baseKey: `${templateId}:${name}:${item}:${a}:${b}`,
+  }
+}
+
+function buildSubtractionWordProblem(templateIndex) {
+  const name = pickRandom(WORD_PROBLEM_NAMES)
+  const item = pickRandom(WORD_PROBLEM_ITEMS)
+  const place = pickRandom(WORD_PROBLEM_PLACES)
+  const total = randomInt(8, 24)
+  const removed = randomInt(2, Math.max(2, total - 2))
+  const answer = total - removed
+  let storyText = ''
+  let questionPrompt = ''
+  let explanation = ''
+  let templateId = `sub-${templateIndex}`
+
+  switch (templateIndex % 4) {
+    case 0:
+      storyText = `${name} had ${total} ${item} in a box. ${name} gave ${removed} ${item} to a friend after school.`
+      questionPrompt = `How many ${item} are left in the box?`
+      explanation = `Left means subtract. Start with ${total} and take away ${removed}. ${total} - ${removed} = ${answer}.`
+      break
+    case 1:
+      storyText = `There were ${total} ${item} on a table in the ${place}. ${removed} ${item} were used for an art project.`
+      questionPrompt = `How many ${item} are still on the table?`
+      explanation = `Still on the table means what remains. Subtract ${removed} from ${total}. The answer is ${answer}.`
+      break
+    case 2:
+      storyText = `${name} counted ${total} ${item}. Then ${removed} ${item} rolled under the couch.`
+      questionPrompt = `How many ${item} can ${name} still count?`
+      explanation = `Take away the ones that rolled away: ${total} - ${removed} = ${answer}.`
+      break
+    default:
+      storyText = `${name} made ${total} ${item} for a class party. The class ate ${removed} ${item}.`
+      questionPrompt = `How many ${item} are left for later?`
+      explanation = `We subtract the eaten items from the total. ${total} minus ${removed} equals ${answer}.`
+      break
+  }
+
+  return {
+    operation: 'subtract',
+    operationLabel: 'Subtraction',
+    templateId,
+    values: { total, removed },
+    storyText,
+    questionPrompt,
+    answer,
+    explanation,
+    options: generateWordProblemOptions(answer, 'subtract', { total, removed }),
+    baseKey: `${templateId}:${name}:${item}:${total}:${removed}`,
+  }
+}
+
+function buildMultiplicationWordProblem(templateIndex) {
+  const name = pickRandom(WORD_PROBLEM_NAMES)
+  const item = pickRandom(WORD_PROBLEM_ITEMS)
+  const container = pickRandom(WORD_PROBLEM_CONTAINERS)
+  const place = pickRandom(WORD_PROBLEM_PLACES)
+  const groups = randomInt(2, 6)
+  const each = randomInt(2, 9)
+  const answer = groups * each
+  const singularContainer = toSimpleSingular(container)
+  let storyText = ''
+  let questionPrompt = ''
+  let explanation = ''
+  let templateId = `mul-${templateIndex}`
+
+  switch (templateIndex % 4) {
+    case 0:
+      storyText = `${name} packed ${groups} ${container} for the ${place}. Each ${singularContainer} has ${each} ${item}.`
+      questionPrompt = `How many ${item} are in all ${groups} ${container}?`
+      explanation = `${groups} groups of ${each} means multiply. ${groups} x ${each} = ${answer}.`
+      break
+    case 1:
+      storyText = `A game has ${groups} rows of prizes. Each row has ${each} ${item}.`
+      questionPrompt = `How many ${item} are there in all?`
+      explanation = `Rows with the same number use multiplication. ${groups} times ${each} equals ${answer}.`
+      break
+    case 2:
+      storyText = `${name} made ${groups} small teams. Each team got ${each} ${item}.`
+      questionPrompt = `How many ${item} did the teams get altogether?`
+      explanation = `There are ${groups} equal groups of ${each}. Multiply: ${groups} x ${each} = ${answer}.`
+      break
+    default:
+      storyText = `In the ${place}, there are ${groups} ${container}. Each ${singularContainer} holds ${each} ${item}.`
+      questionPrompt = `What is the total number of ${item}?`
+      explanation = `Use multiplication for equal groups. ${groups} groups times ${each} each makes ${answer}.`
+      break
+  }
+
+  return {
+    operation: 'multiply',
+    operationLabel: 'Multiplication',
+    templateId,
+    values: { groups, each },
+    storyText,
+    questionPrompt,
+    answer,
+    explanation,
+    options: generateWordProblemOptions(answer, 'multiply', { groups, each }),
+    baseKey: `${templateId}:${name}:${item}:${container}:${groups}:${each}`,
+  }
+}
+
+function buildWordProblemQuestion(operation, index) {
+  const templateIndex = randomInt(0, 99)
+  if (operation === 'add') return buildAdditionWordProblem(templateIndex + index)
+  if (operation === 'subtract') return buildSubtractionWordProblem(templateIndex + index)
+  return buildMultiplicationWordProblem(templateIndex + index)
+}
+
+function generateWordProblemQuestions(count = WORD_PROBLEM_QUESTION_COUNT) {
+  const operationSeed = Array.from({ length: count }, (_, index) => ['add', 'subtract', 'multiply'][index % 3])
+  const operationOrder = shuffleArray(operationSeed)
+  const seenKeys = new Set()
+
+  return operationOrder.map((operation, index) => {
+    let question = null
+    let attempts = 0
+
+    do {
+      question = buildWordProblemQuestion(operation, index + attempts)
+      attempts += 1
+    } while (question && seenKeys.has(question.baseKey) && attempts < 12)
+
+    if (question?.baseKey) {
+      seenKeys.add(question.baseKey)
+    }
+
+    return {
+      ...question,
+      id: `wp_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      isRetry: false,
+    }
+  })
+}
+
 function getWordSequence(pool, count) {
   const uniquePool = Array.from(new Set(pool.map((word) => word.trim().toLowerCase()).filter(Boolean)))
   if (uniquePool.length === 0) return []
@@ -840,11 +1108,29 @@ function readingQuestionRecordFromQuestion(question) {
   }
 }
 
+function wordProblemRecordFromQuestion(question) {
+  const prompt = trimReviewLabel(question.questionPrompt, 64)
+  return {
+    key: `word-problem:${question.baseKey ?? question.id}`,
+    prompt: question.questionPrompt,
+    answer: question.answer,
+    label: `${prompt} (Answer: ${question.answer})`,
+  }
+}
+
 function getPendingReadingQuestions(queueItems) {
   return mergeExerciseRecords(
     queueItems
       .filter((item) => !item.isRetry)
       .map((item) => readingQuestionRecordFromQuestion(item)),
+  )
+}
+
+function getPendingWordProblems(queueItems) {
+  return mergeExerciseRecords(
+    queueItems
+      .filter((item) => !item.isRetry)
+      .map((item) => wordProblemRecordFromQuestion(item)),
   )
 }
 
@@ -854,6 +1140,15 @@ function getPendingSpellingWords(queueItems) {
       .filter((item) => !item.isRetry)
       .map((item) => spellingRecordFromQuestion(item)),
   )
+}
+
+function estimateSpeechDurationMs(text) {
+  const words = String(text ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length
+  if (!words) return 900
+  return Math.max(1400, Math.min(9000, 700 + words * 280))
 }
 
 function stopSpeechPlayback() {
@@ -2263,6 +2558,760 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
           <div className="empty-state">
             <div className="spinner" aria-hidden="true" />
             <p>Loading test...</p>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+  const questionCount = WORD_PROBLEM_QUESTION_COUNT
+
+  const [phase, setPhase] = useState('playing')
+  const [queue, setQueue] = useState([])
+  const [currentOptions, setCurrentOptions] = useState([])
+  const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
+  const [feedback, setFeedback] = useState(null)
+  const [totalScore, setTotalScore] = useState(0)
+  const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
+  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [reviewProblems, setReviewProblems] = useState([])
+  const [currentExplanationText, setCurrentExplanationText] = useState('')
+
+  const clearFeedbackTimerRef = useRef(null)
+  const advanceTimerRef = useRef(null)
+  const coinTimerRef = useRef(null)
+  const speechTimerRef = useRef(null)
+  const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
+  const reviewProblemsRef = useRef([])
+  const speechSequenceTokenRef = useRef(Symbol('word-problem-speech-seq'))
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
+    return () => {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
+      speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+      stopSpeechPlayback()
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame({ playStartSound: false })
+  }, [])
+
+  function clearTimers() {
+    if (clearFeedbackTimerRef.current) {
+      window.clearTimeout(clearFeedbackTimerRef.current)
+      clearFeedbackTimerRef.current = null
+    }
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+    speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+  }
+
+  function speakProblemNarration(question, enabledOverride = soundEnabled) {
+    if (!question) return false
+    return speakTextSequence(
+      [question.storyText, question.questionPrompt],
+      WORD_PROBLEM_VOICE_LANG,
+      enabledOverride,
+      {
+      cancelFirst: true,
+      runTokenRef: speechSequenceTokenRef,
+      },
+    )
+  }
+
+  function speakExplanationNarration(question, options = {}, enabledOverride = soundEnabled) {
+    if (!question?.explanation) return false
+    return speakTextSequence([question.explanation], WORD_PROBLEM_VOICE_LANG, enabledOverride, {
+      cancelFirst: options.cancelFirst ?? true,
+      runTokenRef: speechSequenceTokenRef,
+      onDone: options.onDone,
+    })
+  }
+
+  function queueProblemNarration(question) {
+    if (!question) return
+    if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
+    speechTimerRef.current = window.setTimeout(() => {
+      speechTimerRef.current = null
+      void speakProblemNarration(question)
+    }, 140)
+  }
+
+  function setupQuestion(question) {
+    if (!question) {
+      setCurrentOptions([])
+      setAttemptsOnCurrent(0)
+      setFeedback(null)
+      setCurrentExplanationText('')
+      return
+    }
+
+    setCurrentOptions(question.options.map((value) => ({ value, isHidden: false })))
+    setAttemptsOnCurrent(0)
+    setFeedback(null)
+    setCurrentExplanationText('')
+    queueProblemNarration(question)
+  }
+
+  function addReviewProblem(question) {
+    if (!question || question.isRetry) return
+    const nextList = mergeExerciseRecords(reviewProblemsRef.current, [wordProblemRecordFromQuestion(question)])
+    reviewProblemsRef.current = nextList
+    setReviewProblems(nextList)
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  function handleBackToTests() {
+    void (async () => {
+      speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+      stopSpeechPlayback()
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
+    clearTimers()
+    speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+    stopSpeechPlayback()
+    finishInProgressRef.current = false
+    if (shouldPlayStartSound) {
+      playSound('start', soundEnabled)
+    }
+    void enterFullscreenMode()
+
+    const initialQueue = generateWordProblemQuestions(questionCount)
+    setQueue(initialQueue)
+    setTotalScore(0)
+    setPerfectOriginalCount(0)
+    setShowCoinAnimation(false)
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    reviewProblemsRef.current = []
+    setReviewProblems([])
+    setCurrentExplanationText('')
+    setupQuestion(initialQueue[0])
+    setPhase('playing')
+  }
+
+  async function finishGame(finalScore, finalPerfectCount, options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    const completionMode = options.completionMode ?? 'completed'
+    const queueSnapshot = options.queueSnapshot ?? []
+    const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
+    const remainingOriginalCount =
+      options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
+    const answeredOriginalCount = questionCount - remainingOriginalCount
+    const pendingExercises = completionMode === 'abandoned' ? getPendingWordProblems(queueSnapshot) : []
+    const reviewExercisesSummary = mergeExerciseRecords(
+      reviewProblemsRef.current,
+      options.extraReviewExercises ?? [],
+    )
+
+    clearTimers()
+    stopSpeechPlayback()
+    setShowCoinAnimation(false)
+
+    if (completionMode === 'completed') {
+      playSound('win', soundEnabled)
+    } else {
+      playSound('bump', soundEnabled)
+    }
+
+    const maxScore = questionCount * 5
+    const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
+    const gradeInfo = getGrade(percentage)
+
+    const summary = {
+      subjectId: 'math',
+      subjectName: 'Math',
+      testId: 'word-problems',
+      testName: 'Word Problems',
+      mode: 'word-problems',
+      languageLabel: 'English',
+      totalScore: finalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      perfectOriginalCount: finalPerfectCount,
+      questionCount,
+      answeredOriginalCount,
+      remainingOriginalCount,
+      remainingQueueCount,
+      attemptStatus: completionMode,
+      isAbandoned: completionMode === 'abandoned',
+      reviewExercises: reviewExercisesSummary,
+      pendingExercises,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage(
+      completionMode === 'abandoned'
+        ? 'Saving partial result (remaining questions = 0 pts)...'
+        : 'Saving result...',
+    )
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(
+        completionMode === 'abandoned'
+          ? 'Test abandoned: progress and score saved to Firebase.'
+          : 'Result saved to Firebase.',
+      )
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  function advanceAfterCorrect(currentQuestion, nextScore, nextPerfectOriginalCount) {
+    const remainingQueue = queue.slice(1)
+    const shouldRepeat = attemptsOnCurrent > 0
+    let nextQueue = remainingQueue
+
+    if (shouldRepeat) {
+      const retryQuestion = {
+        ...currentQuestion,
+        id: `retry_wp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        options: generateWordProblemOptions(currentQuestion.answer, currentQuestion.operation, currentQuestion.values),
+        isRetry: true,
+      }
+      nextQueue = [...remainingQueue, retryQuestion]
+    }
+
+    setPerfectOriginalCount(nextPerfectOriginalCount)
+
+    if (nextQueue.length === 0) {
+      setQueue([])
+      setCurrentOptions([])
+      setFeedback(null)
+      void finishGame(nextScore, nextPerfectOriginalCount, {
+        completionMode: 'completed',
+        queueSnapshot: [],
+      })
+      return
+    }
+
+    setQueue(nextQueue)
+    setupQuestion(nextQueue[0])
+  }
+
+  function handleGuess(guessedValue) {
+    if (feedback === 'correct') return
+    if (phase !== 'playing') return
+
+    const currentQuestion = queue[0]
+    if (!currentQuestion) return
+
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+    speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+    stopSpeechPlayback()
+
+    if (guessedValue === currentQuestion.answer) {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      playSound('coin', soundEnabled)
+
+      const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+      const nextScore = totalScore + pointsEarned
+
+      if (attemptsOnCurrent > 0) {
+        addReviewProblem(currentQuestion)
+      }
+
+      const isPerfectOriginal = !currentQuestion.isRetry && attemptsOnCurrent === 0
+      const nextPerfectOriginalCount = isPerfectOriginal
+        ? perfectOriginalCount + 1
+        : perfectOriginalCount
+
+      setTotalScore(nextScore)
+      setFeedback('correct')
+      setCurrentExplanationText(currentQuestion.explanation ?? '')
+      setShowCoinAnimation(true)
+
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = window.setTimeout(() => {
+        setShowCoinAnimation(false)
+      }, 850)
+
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+
+      let advanced = false
+      const continueToNext = () => {
+        if (advanced) return
+        advanced = true
+        if (advanceTimerRef.current) {
+          window.clearTimeout(advanceTimerRef.current)
+          advanceTimerRef.current = null
+        }
+        advanceAfterCorrect(currentQuestion, nextScore, nextPerfectOriginalCount)
+      }
+
+      if (soundEnabled && currentQuestion.explanation) {
+        speechTimerRef.current = window.setTimeout(() => {
+          speechTimerRef.current = null
+          const started = speakExplanationNarration(currentQuestion, {
+            cancelFirst: true,
+            onDone: continueToNext,
+          })
+          const fallbackDelay = started
+            ? estimateSpeechDurationMs(currentQuestion.explanation) + 700
+            : 1100
+          advanceTimerRef.current = window.setTimeout(continueToNext, fallbackDelay)
+        }, 120)
+      } else {
+        advanceTimerRef.current = window.setTimeout(continueToNext, 950)
+      }
+
+      return
+    }
+
+    playSound('bump', soundEnabled)
+    setFeedback('incorrect')
+    setAttemptsOnCurrent((previous) => previous + 1)
+    setCurrentOptions((previous) =>
+      previous.map((option) =>
+        option.value === guessedValue ? { ...option, isHidden: true } : option,
+      ),
+    )
+
+    if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+    clearFeedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback((previous) => (previous === 'incorrect' ? null : previous))
+    }, 420)
+  }
+
+  function handleAbandonTest() {
+    if (phase !== 'playing') return
+    if (feedback === 'correct') return
+    if (!queue.length) return
+    if (finishInProgressRef.current) return
+
+    const confirmed = window.confirm(
+      'If you leave the test now, your current score will be saved and all remaining questions will count as 0 points. Do you want to continue?',
+    )
+    if (!confirmed) return
+
+    const queueSnapshot = [...queue]
+    const currentQuestion = queue[0]
+    const extraReviewExercises =
+      currentQuestion && !currentQuestion.isRetry && attemptsOnCurrent > 0
+        ? [wordProblemRecordFromQuestion(currentQuestion)]
+        : []
+
+    void finishGame(totalScore, perfectOriginalCount, {
+      completionMode: 'abandoned',
+      queueSnapshot,
+      extraReviewExercises,
+    })
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+    await enterFullscreenMode()
+  }
+
+  function handleSoundToggle() {
+    setSoundEnabled((value) => {
+      const next = !value
+      if (!next) {
+        speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
+        if (speechTimerRef.current) {
+          window.clearTimeout(speechTimerRef.current)
+          speechTimerRef.current = null
+        }
+        stopSpeechPlayback()
+      } else if (queue[0]) {
+        if (speechTimerRef.current) {
+          window.clearTimeout(speechTimerRef.current)
+        }
+        speechTimerRef.current = window.setTimeout(() => {
+          speechTimerRef.current = null
+          void speakProblemNarration(queue[0], true)
+        }, 80)
+      }
+      return next
+    })
+  }
+
+  function handleReplayProblem() {
+    const currentQuestion = queue[0]
+    if (!currentQuestion) return
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+    void speakProblemNarration(currentQuestion)
+  }
+
+  function handleReplayExplanation() {
+    const currentQuestion = queue[0]
+    if (!currentQuestion || !currentQuestion.explanation) return
+    if (feedback !== 'correct') return
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+    void speakExplanationNarration(currentQuestion, { cancelFirst: true })
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore,
+      maxScore: questionCount * 5,
+      percentage: 0,
+      grade: 'F',
+      perfectOriginalCount,
+      questionCount,
+      reviewExercises: reviewProblems,
+      pendingExercises: [],
+    }
+    const gradeInfo = getGrade(summary.percentage)
+    const isAbandoned = summary.attemptStatus === 'abandoned'
+    const reviewList = summary.reviewExercises ?? []
+    const pendingList = summary.pendingExercises ?? []
+
+    return (
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="results-card">
+          <div className={`results-trophy ${gradeInfo.color}`}>
+            {isAbandoned ? <CircleAlert size={34} /> : <Trophy size={34} />}
+          </div>
+          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
+          <p className="results-message">
+            {isAbandoned
+              ? 'Test abandoned. Progress was saved with the current score.'
+              : gradeInfo.message}
+          </p>
+
+          <div className="story-result-chip">
+            <MessageSquareText size={14} />
+            <span>Math · Word Problems</span>
+          </div>
+
+          <div className="score-panel">
+            <div className="score-labels">
+              <span>Final score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore} pts
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <div className="score-meta">
+              <span>{summary.percentage}%</span>
+              <span>
+                {isAbandoned
+                  ? `${summary.answeredOriginalCount ?? 0} of ${summary.questionCount ?? questionCount} base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${summary.questionCount ?? questionCount})`}
+              </span>
+            </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Problems to review</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">
+                  {isAbandoned
+                    ? 'No missed problems have been recorded in this attempt yet.'
+                    : 'Excellent: there were no missed problems in this test.'}
+                </p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((item) => (
+                    <span key={item.key} className="exercise-tag review-long">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isAbandoned && (
+              <div className="study-card">
+                <div className="study-card-header">
+                  <Clock3 size={16} />
+                  <h3>Problems pending when left</h3>
+                </div>
+                {pendingList.length === 0 ? (
+                  <p className="study-empty">No base problems were left pending.</p>
+                ) : (
+                  <div className="exercise-tags">
+                    {pendingList.map((item) => (
+                      <span key={item.key} className="exercise-tag pending review-long">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`banner ${
+              saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'error'
+                  ? 'error'
+                  : 'info'
+            }`}
+          >
+            {saveStatus === 'saved' ? (
+              <CheckCircle2 size={16} />
+            ) : saveStatus === 'error' ? (
+              <CircleAlert size={16} />
+            ) : (
+              <Clock3 size={16} />
+            )}
+            <span>{saveMessage || 'Result ready.'}</span>
+          </div>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={startGame}>
+              <RotateCcw size={16} />
+              <span>New word problems</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
+              <ArrowLeft size={16} />
+              <span>Back to test types</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const currentQuestion = queue[0]
+  const progressPercentage = Math.round((perfectOriginalCount / questionCount) * 100)
+  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+
+  return (
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <CoinBurst visible={showCoinAnimation} />
+
+      <div className="game-topbar">
+        <div className="hud-pill">
+          <span className="hud-label">Points</span>
+          <strong>x{String(totalScore).padStart(3, '0')}</strong>
+        </div>
+
+        <div className="hud-progress">
+          <div className="hud-row">
+            <span>Hello, {studentName || 'Student'}</span>
+            <span>{progressPercentage}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
+          </div>
+          <small>Math · Word Problems · Questions in queue: {queue.length}</small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </div>
+
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={handleSoundToggle}
+            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+          >
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleAbandonTest}
+            disabled={saveStatus === 'saving' || feedback === 'correct'}
+            title="Save partial result and leave the test"
+          >
+            <ArrowLeft size={16} />
+            <span>Leave test</span>
+          </button>
+        </div>
+      </div>
+
+      {currentQuestion ? (
+        <div className="game-board reading-board">
+          <div className="story-card">
+            <div className="story-card-header">
+              <div className="story-card-title">
+                <MessageSquareText size={18} />
+                <div>
+                  <small>Math story problem</small>
+                  <h3>{currentQuestion.operationLabel}</h3>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className={currentQuestion.isRetry ? 'badge badge-soon' : 'badge badge-live'}>
+                  {currentQuestion.isRetry ? 'Reinforcement (0 pts)' : 'Scored question'}
+                </span>
+                <span className="badge badge-live">{questionCount} questions</span>
+              </div>
+            </div>
+            <div className="story-card-body">
+              <p>{currentQuestion.storyText}</p>
+            </div>
+            <div className="story-start-actions">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={handleReplayProblem}
+                disabled={!soundEnabled}
+                title={soundEnabled ? 'Hear the story and question again' : 'Enable sound first'}
+              >
+                <Volume2 size={16} />
+                <span>{soundEnabled ? 'Hear problem again' : 'Sound is muted'}</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={handleReplayExplanation}
+                disabled={!soundEnabled || feedback !== 'correct'}
+                title={
+                  !soundEnabled
+                    ? 'Enable sound first'
+                    : feedback === 'correct'
+                      ? 'Hear the explanation again'
+                      : 'Answer correctly to hear the explanation'
+                }
+              >
+                <BookOpen size={16} />
+                <span>Hear explanation</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="stars-row" aria-label="Possible points for this question">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Star
+                key={index}
+                size={28}
+                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
+                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
+              />
+            ))}
+          </div>
+
+          <div className="question-meta">
+            <span className="badge badge-live">Choose the best answer</span>
+          </div>
+
+          <div className={`question-card reading-question-card ${feedback ? `feedback-${feedback}` : ''}`}>
+            <div className="reading-question-content">
+              <span className="reading-question-kicker">Question</span>
+              <p>{currentQuestion.questionPrompt}</p>
+            </div>
+          </div>
+
+          {feedback === 'correct' && currentExplanationText && (
+            <div className="story-start-panel">
+              <p>
+                <strong>How we solved it:</strong> {currentExplanationText}
+              </p>
+            </div>
+          )}
+
+          <div className="answers-grid">
+            {currentOptions.map((option, index) => (
+              <button
+                key={`${currentQuestion.id}_${index}`}
+                type="button"
+                className={`answer-btn ${option.isHidden ? 'is-hidden' : ''}`}
+                disabled={option.isHidden || feedback === 'correct'}
+                onClick={() => handleGuess(option.value)}
+              >
+                {option.value}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="game-board">
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Loading word problems...</p>
           </div>
         </div>
       )}
@@ -3947,6 +4996,15 @@ function App() {
 
         {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
           <MultiplicationChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={selectedTestTopRecord}
+          />
+        )}
+
+        {screen === 'test' && selectedSubject && selectedTest?.id === 'word-problems' && (
+          <WordProblemsChallenge
             onBack={goToSubjectMenu}
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
