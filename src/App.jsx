@@ -41,6 +41,7 @@ import {
   setDoc,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { READING_STORY_BANKS } from './readingStories'
 
 const INITIAL_QUESTION_COUNT = 25
 const APP_DOMAIN = 'joyapp.student'
@@ -57,10 +58,10 @@ const SUBJECTS = [
   {
     id: 'reading',
     name: 'Reading',
-    description: 'Comprehension, vocabulary, and mini reading challenges.',
+    description: 'Short stories in English and Spanish with comprehension questions.',
     colorClass: 'subject-reading',
     icon: BookOpen,
-    available: false,
+    available: true,
   },
   {
     id: 'language',
@@ -105,6 +106,24 @@ const TESTS_BY_SUBJECT = {
       available: false,
       accentClass: 'test-word',
       icon: MessageSquareText,
+    },
+  ],
+  reading: [
+    {
+      id: 'reading-english',
+      name: 'English',
+      description: 'Read a short story and answer 5 questions.',
+      available: true,
+      accentClass: 'test-reading-english',
+      icon: BookOpen,
+    },
+    {
+      id: 'reading-spanish',
+      name: 'Spanish',
+      description: 'Read a short story and answer 5 questions.',
+      available: true,
+      accentClass: 'test-reading-spanish',
+      icon: BookOpen,
     },
   ],
   language: [
@@ -287,6 +306,28 @@ const SPELLING_TEST_CONFIGS = {
       'rocket',
       'winter',
     ],
+  },
+}
+
+const READING_QUESTION_COUNT = 5
+const readingStoryDecksByTest = {}
+
+const READING_TEST_CONFIGS = {
+  'reading-english': {
+    subjectId: 'reading',
+    subjectName: 'Reading',
+    testId: 'reading-english',
+    testName: 'English',
+    languageLabel: 'English',
+    stories: READING_STORY_BANKS.english,
+  },
+  'reading-spanish': {
+    subjectId: 'reading',
+    subjectName: 'Reading',
+    testId: 'reading-spanish',
+    testName: 'Spanish',
+    languageLabel: 'Spanish',
+    stories: READING_STORY_BANKS.spanish,
   },
 }
 
@@ -609,6 +650,64 @@ function spellingRecordFromQuestion(question) {
     label: question.word,
     word: question.word,
   }
+}
+
+function getNextReadingStory(testConfig) {
+  const pool = testConfig?.stories ?? []
+  if (!pool.length) return null
+
+  const deckKey = testConfig.testId
+  let deck = readingStoryDecksByTest[deckKey] ?? []
+
+  if (!deck.length) {
+    deck = shuffleArray(pool.map((item) => item.id))
+  }
+
+  const nextStoryId = deck.shift()
+  readingStoryDecksByTest[deckKey] = deck
+
+  return pool.find((item) => item.id === nextStoryId) ?? pool[0]
+}
+
+function generateReadingQuestions(story, testId, count = READING_QUESTION_COUNT) {
+  if (!story) return []
+
+  return shuffleArray(story.questions)
+    .slice(0, count)
+    .map((question, index) => ({
+      id: `rd_${testId}_${story.id}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      baseKey: `${story.id}:${question.id}`,
+      storyId: story.id,
+      storyTitle: story.title,
+      prompt: question.prompt,
+      answer: question.answer,
+      options: shuffleArray([...question.options]),
+      isRetry: false,
+    }))
+}
+
+function trimReviewLabel(text, maxLength = 88) {
+  const value = String(text ?? '').trim()
+  if (value.length <= maxLength) return value
+  return `${value.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+function readingQuestionRecordFromQuestion(question) {
+  const prompt = trimReviewLabel(question.prompt, 64)
+  return {
+    key: `reading:${question.baseKey ?? question.id}`,
+    prompt: question.prompt,
+    answer: question.answer,
+    label: `${prompt} (Answer: ${question.answer})`,
+  }
+}
+
+function getPendingReadingQuestions(queueItems) {
+  return mergeExerciseRecords(
+    queueItems
+      .filter((item) => !item.isRetry)
+      .map((item) => readingQuestionRecordFromQuestion(item)),
+  )
 }
 
 function getPendingSpellingWords(queueItems) {
@@ -1862,6 +1961,629 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
   )
 }
 
+function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
+  const config = testConfig ?? READING_TEST_CONFIGS['reading-english']
+
+  const [phase, setPhase] = useState('reading')
+  const [story, setStory] = useState(null)
+  const [queue, setQueue] = useState([])
+  const [currentOptions, setCurrentOptions] = useState([])
+  const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
+  const [feedback, setFeedback] = useState(null)
+  const [totalScore, setTotalScore] = useState(0)
+  const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
+  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [reviewQuestions, setReviewQuestions] = useState([])
+
+  const clearFeedbackTimerRef = useRef(null)
+  const advanceTimerRef = useRef(null)
+  const coinTimerRef = useRef(null)
+  const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
+  const reviewQuestionsRef = useRef([])
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
+    return () => {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame({ playStartSound: false })
+  }, [])
+
+  function clearTimers() {
+    if (clearFeedbackTimerRef.current) {
+      window.clearTimeout(clearFeedbackTimerRef.current)
+      clearFeedbackTimerRef.current = null
+    }
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
+  }
+
+  function setupQuestion(question) {
+    if (!question) {
+      setCurrentOptions([])
+      setAttemptsOnCurrent(0)
+      setFeedback(null)
+      return
+    }
+    setCurrentOptions(question.options.map((value) => ({ value, isHidden: false })))
+    setAttemptsOnCurrent(0)
+    setFeedback(null)
+  }
+
+  function addReviewQuestion(question) {
+    if (!question || question.isRetry) return
+
+    const nextList = mergeExerciseRecords(reviewQuestionsRef.current, [readingQuestionRecordFromQuestion(question)])
+    reviewQuestionsRef.current = nextList
+    setReviewQuestions(nextList)
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  function handleBackToTests() {
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
+    clearTimers()
+    finishInProgressRef.current = false
+    if (shouldPlayStartSound) {
+      playSound('start', true)
+    }
+    void enterFullscreenMode()
+
+    const nextStory = getNextReadingStory(config)
+    const initialQueue = generateReadingQuestions(nextStory, config.testId, READING_QUESTION_COUNT)
+
+    setStory(nextStory)
+    setQueue(initialQueue)
+    setTotalScore(0)
+    setPerfectOriginalCount(0)
+    setShowCoinAnimation(false)
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    reviewQuestionsRef.current = []
+    setReviewQuestions([])
+    setupQuestion(initialQueue[0])
+    setPhase('reading')
+  }
+
+  function beginQuestions() {
+    if (!story || !queue.length) return
+    setPhase('playing')
+  }
+
+  async function finishGame(finalScore, finalPerfectCount, options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    const completionMode = options.completionMode ?? 'completed'
+    const queueSnapshot = options.queueSnapshot ?? []
+    const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
+    const remainingOriginalCount =
+      options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
+    const answeredOriginalCount = READING_QUESTION_COUNT - remainingOriginalCount
+    const pendingExercises = completionMode === 'abandoned' ? getPendingReadingQuestions(queueSnapshot) : []
+    const reviewExercisesSummary = mergeExerciseRecords(
+      reviewQuestionsRef.current,
+      options.extraReviewExercises ?? [],
+    )
+
+    clearTimers()
+    setShowCoinAnimation(false)
+
+    if (completionMode === 'completed') {
+      playSound('win', true)
+    } else {
+      playSound('bump', true)
+    }
+
+    const maxScore = READING_QUESTION_COUNT * 5
+    const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
+    const gradeInfo = getGrade(percentage)
+
+    const summary = {
+      subjectId: config.subjectId,
+      subjectName: config.subjectName,
+      testId: config.testId,
+      testName: config.testName,
+      mode: 'reading',
+      languageLabel: config.languageLabel,
+      storyId: story?.id ?? null,
+      storyTitle: story?.title ?? null,
+      totalScore: finalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      perfectOriginalCount: finalPerfectCount,
+      questionCount: READING_QUESTION_COUNT,
+      answeredOriginalCount,
+      remainingOriginalCount,
+      remainingQueueCount,
+      attemptStatus: completionMode,
+      isAbandoned: completionMode === 'abandoned',
+      reviewExercises: reviewExercisesSummary,
+      pendingExercises,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage(
+      completionMode === 'abandoned'
+        ? 'Saving partial result (remaining questions = 0 pts)...'
+        : 'Saving result...',
+    )
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(
+        completionMode === 'abandoned'
+          ? 'Test abandoned: progress and score saved to Firebase.'
+          : 'Result saved to Firebase.',
+      )
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  function handleGuess(guessedValue) {
+    if (feedback === 'correct') return
+    if (phase !== 'playing') return
+    const currentQuestion = queue[0]
+    if (!currentQuestion) return
+
+    if (guessedValue === currentQuestion.answer) {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      playSound('coin', true)
+
+      const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+      const nextScore = totalScore + pointsEarned
+
+      if (attemptsOnCurrent > 0) {
+        addReviewQuestion(currentQuestion)
+      }
+
+      setTotalScore(nextScore)
+      setFeedback('correct')
+      setShowCoinAnimation(true)
+
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = window.setTimeout(() => {
+        setShowCoinAnimation(false)
+      }, 850)
+
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = window.setTimeout(() => {
+        const remainingQueue = queue.slice(1)
+        const shouldRepeat = attemptsOnCurrent > 0
+        const isPerfectOriginal = !currentQuestion.isRetry && attemptsOnCurrent === 0
+        const nextPerfectOriginalCount = isPerfectOriginal
+          ? perfectOriginalCount + 1
+          : perfectOriginalCount
+
+        let nextQueue = remainingQueue
+
+        if (shouldRepeat) {
+          const retryQuestion = {
+            ...currentQuestion,
+            id: `retry_read_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            options: shuffleArray([...currentQuestion.options]),
+            isRetry: true,
+          }
+          nextQueue = [...remainingQueue, retryQuestion]
+        }
+
+        setPerfectOriginalCount(nextPerfectOriginalCount)
+
+        if (nextQueue.length === 0) {
+          setQueue([])
+          setCurrentOptions([])
+          setFeedback(null)
+          void finishGame(nextScore, nextPerfectOriginalCount, {
+            completionMode: 'completed',
+            queueSnapshot: [],
+          })
+          return
+        }
+
+        setQueue(nextQueue)
+        setupQuestion(nextQueue[0])
+      }, 900)
+
+      return
+    }
+
+    playSound('bump', true)
+    setFeedback('incorrect')
+    setAttemptsOnCurrent((previous) => previous + 1)
+    setCurrentOptions((previous) =>
+      previous.map((option) =>
+        option.value === guessedValue ? { ...option, isHidden: true } : option,
+      ),
+    )
+
+    if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+    clearFeedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback((previous) => (previous === 'incorrect' ? null : previous))
+    }, 420)
+  }
+
+  function handleAbandonTest() {
+    if (!queue.length) return
+    if (feedback === 'correct') return
+    if (finishInProgressRef.current) return
+
+    const confirmed = window.confirm(
+      'If you leave the test now, your current score will be saved and all remaining questions will count as 0 points. Do you want to continue?',
+    )
+
+    if (!confirmed) return
+
+    const queueSnapshot = [...queue]
+    const currentQuestion = queue[0]
+    const extraReviewExercises =
+      phase === 'playing' && currentQuestion && !currentQuestion.isRetry && attemptsOnCurrent > 0
+        ? [readingQuestionRecordFromQuestion(currentQuestion)]
+        : []
+
+    void finishGame(totalScore, perfectOriginalCount, {
+      completionMode: 'abandoned',
+      queueSnapshot,
+      extraReviewExercises,
+    })
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+
+    await enterFullscreenMode()
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore,
+      maxScore: READING_QUESTION_COUNT * 5,
+      percentage: 0,
+      grade: 'F',
+      perfectOriginalCount,
+      questionCount: READING_QUESTION_COUNT,
+      reviewExercises: reviewQuestions,
+      pendingExercises: [],
+      storyTitle: story?.title ?? null,
+    }
+    const gradeInfo = getGrade(summary.percentage)
+    const isAbandoned = summary.attemptStatus === 'abandoned'
+    const reviewList = summary.reviewExercises ?? []
+    const pendingList = summary.pendingExercises ?? []
+
+    return (
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="results-card">
+          <div className={`results-trophy ${gradeInfo.color}`}>
+            {isAbandoned ? <CircleAlert size={34} /> : <Trophy size={34} />}
+          </div>
+          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
+          <p className="results-message">
+            {isAbandoned
+              ? 'Test abandoned. Progress was saved with the current score.'
+              : gradeInfo.message}
+          </p>
+
+          {summary.storyTitle && (
+            <div className="story-result-chip">
+              <BookOpen size={14} />
+              <span>{summary.storyTitle}</span>
+            </div>
+          )}
+
+          <div className="score-panel">
+            <div className="score-labels">
+              <span>Final score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore} pts
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <div className="score-meta">
+              <span>{summary.percentage}%</span>
+              <span>
+                {isAbandoned
+                  ? `${summary.answeredOriginalCount ?? 0} of ${READING_QUESTION_COUNT} questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${READING_QUESTION_COUNT})`}
+              </span>
+            </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Questions to review</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">
+                  {isAbandoned
+                    ? 'No missed questions have been recorded in this attempt yet.'
+                    : 'Excellent: there were no missed questions in this test.'}
+                </p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((item) => (
+                    <span key={item.key} className="exercise-tag review-long">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isAbandoned && (
+              <div className="study-card">
+                <div className="study-card-header">
+                  <Clock3 size={16} />
+                  <h3>Questions pending when left</h3>
+                </div>
+                {pendingList.length === 0 ? (
+                  <p className="study-empty">No base questions were left pending.</p>
+                ) : (
+                  <div className="exercise-tags">
+                    {pendingList.map((item) => (
+                      <span key={item.key} className="exercise-tag pending review-long">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`banner ${
+              saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'error'
+                  ? 'error'
+                  : 'info'
+            }`}
+          >
+            {saveStatus === 'saved' ? (
+              <CheckCircle2 size={16} />
+            ) : saveStatus === 'error' ? (
+              <CircleAlert size={16} />
+            ) : (
+              <Clock3 size={16} />
+            )}
+            <span>{saveMessage || 'Result ready.'}</span>
+          </div>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={startGame}>
+              <RotateCcw size={16} />
+              <span>Read another story</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
+              <ArrowLeft size={16} />
+              <span>Back to test types</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const currentQuestion = queue[0]
+  const progressPercentage = Math.round((perfectOriginalCount / READING_QUESTION_COUNT) * 100)
+  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+
+  return (
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <CoinBurst visible={showCoinAnimation} />
+
+      <div className="game-topbar">
+        <div className="hud-pill">
+          <span className="hud-label">Points</span>
+          <strong>x{String(totalScore).padStart(3, '0')}</strong>
+        </div>
+
+        <div className="hud-progress">
+          <div className="hud-row">
+            <span>Hello, {studentName || 'Student'}</span>
+            <span>{progressPercentage}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
+          </div>
+          <small>
+            Reading · {config.languageLabel} · Questions in queue: {queue.length}
+          </small>
+        </div>
+
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleAbandonTest}
+            disabled={saveStatus === 'saving' || feedback === 'correct'}
+            title="Save partial result and leave the test"
+          >
+            <ArrowLeft size={16} />
+            <span>Leave test</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="game-board reading-board">
+        {story ? (
+          <div className="story-card">
+            <div className="story-card-header">
+              <div className="story-card-title">
+                <BookOpen size={18} />
+                <div>
+                  <small>{config.languageLabel} story</small>
+                  <h3>{story.title}</h3>
+                </div>
+              </div>
+              <span className="badge badge-live">{READING_QUESTION_COUNT} questions</span>
+            </div>
+            <div className="story-card-body">
+              {story.paragraphs.map((paragraph, index) => (
+                <p key={`${story.id}_${index}`}>{paragraph}</p>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Loading story...</p>
+          </div>
+        )}
+
+        {phase === 'reading' ? (
+          <div className="story-start-panel">
+            <p>Read the story carefully. The quiz has 5 questions about this story.</p>
+            <div className="story-start-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={beginQuestions}
+                disabled={!story || !queue.length}
+              >
+                <BookOpen size={16} />
+                <span>Start questions</span>
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={startGame}>
+                <RotateCcw size={16} />
+                <span>New story</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentQuestion ? (
+              <>
+                <div className="stars-row" aria-label="Possible points for this question">
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <Star
+                      key={index}
+                      size={28}
+                      className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
+                      fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
+                    />
+                  ))}
+                </div>
+
+                <div className="question-meta">
+                  {currentQuestion.isRetry ? (
+                    <span className="badge badge-soon">Reinforcement (0 pts)</span>
+                  ) : (
+                    <span className="badge badge-live">Scored question</span>
+                  )}
+                </div>
+
+                <div className={`question-card reading-question-card ${feedback ? `feedback-${feedback}` : ''}`}>
+                  <div className="reading-question-content">
+                    <span className="reading-question-kicker">Question</span>
+                    <p>{currentQuestion.prompt}</p>
+                  </div>
+                </div>
+
+                <div className="answers-grid">
+                  {currentOptions.map((option, index) => (
+                    <button
+                      key={`${currentQuestion.id}_${index}`}
+                      type="button"
+                      className={`answer-btn answer-text ${option.isHidden ? 'is-hidden' : ''}`}
+                      disabled={option.isHidden || feedback === 'correct'}
+                      onClick={() => handleGuess(option.value)}
+                    >
+                      {option.value}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="empty-state">
+                <div className="spinner" aria-hidden="true" />
+                <p>Loading questions...</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
   const config = testConfig ?? SPELLING_TEST_CONFIGS['spelling-english']
 
@@ -2669,6 +3391,7 @@ function App() {
 
   const selectedSubject = getSubjectById(selectedSubjectId)
   const selectedTest = selectedSubject ? getTestById(selectedSubject.id, selectedTestId) : null
+  const selectedReadingConfig = selectedTest ? READING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const selectedSpellingConfig = selectedTest ? SPELLING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
 
@@ -2724,6 +3447,15 @@ function App() {
             onBack={goToSubjectMenu}
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
+          />
+        )}
+
+        {screen === 'test' && selectedSubject && selectedReadingConfig && (
+          <ReadingChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            testConfig={selectedReadingConfig}
           />
         )}
 
