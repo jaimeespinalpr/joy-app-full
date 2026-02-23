@@ -112,81 +112,90 @@ const TESTS_BY_SUBJECT = {
 let audioCtx = null
 
 function initAudio() {
-  if (typeof window === 'undefined') return false
+  try {
+    if (typeof window === 'undefined') return false
 
-  if (!audioCtx) {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext
-    if (!AudioContextCtor) return false
-    audioCtx = new AudioContextCtor()
+    if (!audioCtx) {
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext
+      if (!AudioContextCtor) return false
+      audioCtx = new AudioContextCtor()
+    }
+
+    if (audioCtx.state === 'suspended') {
+      void audioCtx.resume()
+    }
+
+    return true
+  } catch (error) {
+    console.warn('Audio no disponible en este momento:', error)
+    return false
   }
-
-  if (audioCtx.state === 'suspended') {
-    void audioCtx.resume()
-  }
-
-  return true
 }
 
 function playSound(type, enabled) {
-  if (!enabled) return
-  if (!initAudio()) return
+  try {
+    if (!enabled) return
+    if (!initAudio()) return
 
-  const osc = audioCtx.createOscillator()
-  const gainNode = audioCtx.createGain()
+    const osc = audioCtx.createOscillator()
+    const gainNode = audioCtx.createGain()
 
-  osc.connect(gainNode)
-  gainNode.connect(audioCtx.destination)
+    osc.connect(gainNode)
+    gainNode.connect(audioCtx.destination)
 
-  const now = audioCtx.currentTime
+    const now = audioCtx.currentTime
 
-  if (type === 'start') {
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(440, now)
-    osc.frequency.setValueAtTime(554.37, now + 0.09)
-    osc.frequency.setValueAtTime(659.25, now + 0.18)
-    osc.frequency.setValueAtTime(880, now + 0.27)
-    gainNode.gain.setValueAtTime(0.001, now)
-    gainNode.gain.linearRampToValueAtTime(0.14, now + 0.04)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45)
-    osc.start(now)
-    osc.stop(now + 0.46)
-    return
-  }
+    if (type === 'start') {
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(440, now)
+      osc.frequency.setValueAtTime(554.37, now + 0.09)
+      osc.frequency.setValueAtTime(659.25, now + 0.18)
+      osc.frequency.setValueAtTime(880, now + 0.27)
+      gainNode.gain.setValueAtTime(0.001, now)
+      gainNode.gain.linearRampToValueAtTime(0.14, now + 0.04)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45)
+      osc.start(now)
+      osc.stop(now + 0.46)
+      return
+    }
 
-  if (type === 'coin') {
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(987.77, now)
-    osc.frequency.setValueAtTime(1318.51, now + 0.08)
-    gainNode.gain.setValueAtTime(0.001, now)
-    gainNode.gain.linearRampToValueAtTime(0.16, now + 0.03)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.22)
-    osc.start(now)
-    osc.stop(now + 0.24)
-    return
-  }
+    if (type === 'coin') {
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(987.77, now)
+      osc.frequency.setValueAtTime(1318.51, now + 0.08)
+      gainNode.gain.setValueAtTime(0.001, now)
+      gainNode.gain.linearRampToValueAtTime(0.16, now + 0.03)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.22)
+      osc.start(now)
+      osc.stop(now + 0.24)
+      return
+    }
 
-  if (type === 'bump') {
-    osc.type = 'sawtooth'
-    osc.frequency.setValueAtTime(180, now)
-    osc.frequency.exponentialRampToValueAtTime(60, now + 0.18)
-    gainNode.gain.setValueAtTime(0.08, now)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
-    osc.start(now)
-    osc.stop(now + 0.2)
-    return
-  }
+    if (type === 'bump') {
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(180, now)
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.18)
+      gainNode.gain.setValueAtTime(0.08, now)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
+      osc.start(now)
+      osc.stop(now + 0.2)
+      return
+    }
 
-  if (type === 'win') {
-    osc.type = 'square'
-    const notes = [523.25, 659.25, 783.99, 1046.5]
-    notes.forEach((freq, index) => {
-      osc.frequency.setValueAtTime(freq, now + index * 0.13)
-    })
-    gainNode.gain.setValueAtTime(0.08, now)
-    gainNode.gain.linearRampToValueAtTime(0.09, now + 0.35)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.65)
-    osc.start(now)
-    osc.stop(now + 0.66)
+    if (type === 'win') {
+      osc.type = 'square'
+      const notes = [523.25, 659.25, 783.99, 1046.5]
+      notes.forEach((freq, index) => {
+        osc.frequency.setValueAtTime(freq, now + index * 0.13)
+      })
+      gainNode.gain.setValueAtTime(0.08, now)
+      gainNode.gain.linearRampToValueAtTime(0.09, now + 0.35)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.65)
+      osc.start(now)
+      osc.stop(now + 0.66)
+    }
+  } catch (error) {
+    console.warn('No se pudo reproducir sonido:', error)
   }
 }
 
@@ -731,7 +740,7 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
   useLayoutEffect(() => {
     if (autoStartRef.current) return
     autoStartRef.current = true
-    startGame()
+    startGame({ playStartSound: false })
   }, [])
 
   function clearTimers() {
@@ -785,10 +794,13 @@ function MultiplicationChallenge({ onBack, onSaveResult }) {
     })()
   }
 
-  function startGame() {
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
     clearTimers()
     finishInProgressRef.current = false
-    playSound('start', soundEnabled)
+    if (shouldPlayStartSound) {
+      playSound('start', soundEnabled)
+    }
     void enterFullscreenMode()
     const initialQueue = generateMultiplicationQuestions(INITIAL_QUESTION_COUNT)
     setQueue(initialQueue)
