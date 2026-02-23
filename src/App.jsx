@@ -1210,28 +1210,6 @@ function LoadingScreen() {
   )
 }
 
-const KID_STICKER_ITEMS = [
-  { emoji: '🐶', label: 'Animals' },
-  { emoji: '👕', label: 'Clothes' },
-  { emoji: '🧸', label: 'Toys' },
-  { emoji: '🍎', label: 'Food' },
-  { emoji: '🚀', label: 'Space' },
-  { emoji: '🎨', label: 'Colors' },
-]
-
-function KidsDecorStrip({ compact = false }) {
-  return (
-    <div className={`kids-decor-strip ${compact ? 'is-compact' : ''}`} aria-hidden="true">
-      {KID_STICKER_ITEMS.map((item) => (
-        <div key={item.label} className="kid-sticker">
-          <span className="kid-sticker-emoji">{item.emoji}</span>
-          <span className="kid-sticker-label">{item.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
   const [mode, setMode] = useState('login')
   const [alias, setAlias] = useState('')
@@ -1294,8 +1272,6 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
             Simple student sign-up. Use a nickname and password to save results.
           </p>
         </div>
-
-        <KidsDecorStrip compact />
 
         <div className="auth-mode-toggle" role="tablist" aria-label="Access mode">
           <button
@@ -1613,16 +1589,6 @@ function Dashboard({
         </div>
       )}
 
-      <section className="panel-card playful-panel">
-        <div className="panel-card-header">
-          <div>
-            <h2>Fun Topics for Kids</h2>
-            <p>Animals, clothes, toys, food, and more make practice feel friendly.</p>
-          </div>
-        </div>
-        <KidsDecorStrip />
-      </section>
-
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
@@ -1657,16 +1623,6 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
           <h1>{subject.name}</h1>
           <p>Select the test type for this subject. More activities will be added over time.</p>
         </div>
-      </section>
-
-      <section className="panel-card playful-panel">
-        <div className="panel-card-header">
-          <div>
-            <h2>Kid-Friendly Practice</h2>
-            <p>We are adding activities with fun themes children already love.</p>
-          </div>
-        </div>
-        <KidsDecorStrip />
       </section>
 
       <section className="panel-card">

@@ -491,76 +491,6 @@ button {
   box-shadow: 0 18px 40px rgba(17, 31, 79, 0.06);
 }
 
-.panel-card.playful-panel {
-  background:
-    radial-gradient(circle at 12% 18%, rgba(255, 192, 109, 0.18), transparent 35%),
-    radial-gradient(circle at 88% 80%, rgba(107, 211, 255, 0.16), transparent 30%),
-    rgba(255, 255, 255, 0.94);
-}
-
-.kids-decor-strip {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.kids-decor-strip.is-compact {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-bottom: 0.8rem;
-}
-
-.kid-sticker {
-  min-height: 62px;
-  border-radius: 16px;
-  border: 1px solid rgba(30, 45, 105, 0.08);
-  background:
-    radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.45), transparent 42%),
-    linear-gradient(150deg, #ffffff, #f4f8ff);
-  box-shadow:
-    0 12px 22px rgba(20, 33, 85, 0.05),
-    inset 0 -5px 0 rgba(72, 101, 194, 0.04);
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 0.15rem;
-  padding: 0.35rem;
-}
-
-.kid-sticker:nth-child(1) {
-  transform: rotate(-1.4deg);
-}
-
-.kid-sticker:nth-child(2) {
-  transform: rotate(1.2deg);
-}
-
-.kid-sticker:nth-child(3) {
-  transform: rotate(-0.8deg);
-}
-
-.kid-sticker:nth-child(4) {
-  transform: rotate(1deg);
-}
-
-.kid-sticker:nth-child(5) {
-  transform: rotate(-1deg);
-}
-
-.kid-sticker:nth-child(6) {
-  transform: rotate(0.9deg);
-}
-
-.kid-sticker-emoji {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-.kid-sticker-label {
-  font-size: 0.8rem;
-  color: #32407b;
-  font-weight: 700;
-}
-
 .panel-card-header {
   display: flex;
   justify-content: space-between;
@@ -1773,9 +1703,6 @@ button {
     grid-template-columns: 1fr;
   }
 
-  .kids-decor-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 700px) {
@@ -1794,11 +1721,6 @@ button {
 
   .answers-grid {
     grid-template-columns: 1fr;
-  }
-
-  .kids-decor-strip,
-  .kids-decor-strip.is-compact {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .story-card-header {
