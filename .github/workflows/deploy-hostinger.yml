@@ -7,8 +7,6 @@ on:
 
 jobs:
   deploy:
-    # Avoid failing the repo until FTP password is configured in GitHub Secrets.
-    if: ${{ secrets.HOSTINGER_FTP_PASSWORD != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,13 +36,3 @@ jobs:
           protocol: ftp
           local-dir: ./dist/
           server-dir: /public_html/
-
-  missing-secrets:
-    if: ${{ secrets.HOSTINGER_FTP_PASSWORD == '' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Missing Hostinger FTP password
-        run: |
-          echo "HOSTINGER_FTP_PASSWORD secret is missing. Skipping Hostinger deploy."
-          echo "Set HOSTINGER_FTP_SERVER, HOSTINGER_FTP_PORT, HOSTINGER_FTP_USERNAME and HOSTINGER_FTP_PASSWORD in GitHub repo secrets."
-
