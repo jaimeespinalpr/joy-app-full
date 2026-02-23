@@ -824,12 +824,10 @@ function getPendingOriginalExercises(queueItems) {
   )
 }
 
-function getPersonalMultiplicationRecords(results) {
+function getPersonalRecords(results) {
   return results
     .filter(
       (result) =>
-        result.subjectId === 'math' &&
-        result.testId === 'multiplication' &&
         result.attemptStatus !== 'abandoned',
     )
     .sort((a, b) => {
@@ -845,6 +843,10 @@ function getResultDisplayLabels(result) {
     getTestById(result.subjectId, result.testId)?.name ?? result.testName ?? 'Test'
 
   return { subjectName, testName }
+}
+
+function getSavedStudentName(result) {
+  return result.studentName || result.studentAlias || 'Student'
 }
 
 function getStudentDisplayName(studentProfile, currentUser) {
@@ -1150,16 +1152,17 @@ function ResultsList({ results, loading }) {
 }
 
 function RecordsPanel({ results }) {
-  const records = getPersonalMultiplicationRecords(results)
+  const records = getPersonalRecords(results)
   const highScore = records[0] ?? null
   const topFive = records.slice(0, 5)
+  const highScoreLabels = highScore ? getResultDisplayLabels(highScore) : null
 
   return (
     <section className="panel-card">
       <div className="panel-card-header">
         <div>
           <h2>Records / High Score</h2>
-          <p>Student ranking in Math &gt; Multiplication.</p>
+          <p>Saved scores from completed tests (with student name and score).</p>
         </div>
       </div>
 
@@ -1177,6 +1180,11 @@ function RecordsPanel({ results }) {
             </div>
             <strong>{highScore.totalScore} pts</strong>
             <div className="record-highlight-meta">
+              <span>{getSavedStudentName(highScore)}</span>
+              <span>{highScoreLabels?.subjectName}</span>
+              <span>{highScoreLabels?.testName}</span>
+            </div>
+            <div className="record-highlight-meta">
               <span>{highScore.percentage}%</span>
               <span>{highScore.grade}</span>
               <span>{formatDateTime(highScore.createdAtMs)}</span>
@@ -1184,18 +1192,24 @@ function RecordsPanel({ results }) {
           </div>
 
           <div className="leaderboard-list">
-            {topFive.map((record, index) => (
-              <div key={record.id} className="leaderboard-row">
-                <div className="rank-pill">#{index + 1}</div>
-                <div className="leaderboard-main">
-                  <strong>{record.totalScore} pts</strong>
-                  <small>
-                    {record.percentage}% · {record.grade}
-                  </small>
+            {topFive.map((record, index) => {
+              const labels = getResultDisplayLabels(record)
+              return (
+                <div key={record.id} className="leaderboard-row">
+                  <div className="rank-pill">#{index + 1}</div>
+                  <div className="leaderboard-main">
+                    <strong>{record.totalScore} pts</strong>
+                    <small>
+                      {record.percentage}% · {record.grade} · {getSavedStudentName(record)}
+                    </small>
+                    <small>
+                      {labels.subjectName} · {labels.testName}
+                    </small>
+                  </div>
+                  <small className="leaderboard-date">{formatDateTime(record.createdAtMs)}</small>
                 </div>
-                <small className="leaderboard-date">{formatDateTime(record.createdAtMs)}</small>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -2599,9 +2613,12 @@ function App() {
       throw new Error('No authenticated user.')
     }
 
+    const studentName = getStudentDisplayName(studentProfile, currentUser)
     const payload = {
       ...summary,
-      studentAlias: getStudentDisplayName(studentProfile, currentUser),
+      studentAlias: studentName,
+      studentName,
+      score: summary.totalScore,
       createdAtMs: Date.now(),
       createdAt: serverTimestamp(),
     }
