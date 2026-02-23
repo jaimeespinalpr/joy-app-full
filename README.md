@@ -1,38 +1,52 @@
-# Joy App
+# Joy App Full
 
-Base inicial para una app/pagina web para ninos, preparada para trabajar con Git y publicar en Hostinger.
+App educativa web para ninos con:
 
-## Estado actual
+- registro/login de estudiante (apodo + contrasena)
+- seleccion por materias
+- Matematicas > Multiplicacion (v1 funcional)
+- guardado de resultados en Firebase (Auth + Firestore)
 
-- Repositorio Git inicializado
-- Estructura estatica creada (`index.html`, `styles.css`, `script.js`)
-- Lista para personalizar segun tu idea
+## Stack
 
-## Estructura
+- React + Vite
+- Firebase Authentication
+- Cloud Firestore
+- Lucide React
+- CSS custom (estilo moderno y colorido)
 
-- `index.html`: pagina principal
-- `styles.css`: estilos
-- `script.js`: interacciones basicas
-- `assets/`: imagenes, iconos, audios, etc.
+## Requisitos
 
-## Probar localmente
+- Node.js 20+
+- Proyecto Firebase con:
+  - `Authentication > Email/Password` activado
+  - `Firestore Database` creado (modo prueba para empezar)
 
-Puedes abrir `index.html` directamente en el navegador.
+## Ejecutar localmente
 
-## Publicar en Hostinger (modo simple)
+```bash
+npm install
+npm run dev
+```
 
-Sube estos archivos al `public_html`:
+## Build para Hostinger
 
-- `index.html`
-- `styles.css`
-- `script.js`
-- `assets/` (si usas imagenes o audios)
+```bash
+npm run build
+```
 
-## Pendiente (cuando me des la idea)
+Sube el contenido de `dist/` a `public_html` en Hostinger.
 
-- Definir objetivo de la app (juego, cuentos, aprendizaje, etc.)
-- Definir edades
-- Colores/estilo visual
-- Funciones principales
-- Si sera estatica o con backend
+## Notas de Firebase
 
+- El estudiante escribe `apodo + contrasena`
+- Internamente el apodo se transforma en un email tecnico para Firebase Auth
+- Los resultados se guardan en `students/{uid}/results`
+
+## Proximos pasos sugeridos
+
+- Suma
+- Resta
+- Problemas verbales
+- Nuevas materias (Lectura, Lenguaje, etc.)
+- Reglas de Firestore para produccion
