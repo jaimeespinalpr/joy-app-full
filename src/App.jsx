@@ -64,11 +64,11 @@ const SUBJECTS = [
   },
   {
     id: 'language',
-    name: 'Language Arts',
-    description: 'Spelling, syllables, and written expression.',
+    name: 'Language',
+    description: 'Spelling and language practice in Spanish and English.',
     colorClass: 'subject-language',
     icon: MessageSquareText,
-    available: false,
+    available: true,
   },
 ]
 
@@ -107,6 +107,187 @@ const TESTS_BY_SUBJECT = {
       icon: MessageSquareText,
     },
   ],
+  language: [
+    {
+      id: 'spelling-spanish',
+      name: 'Spanish',
+      description: 'Listen to a word and choose the correct spelling.',
+      available: true,
+      accentClass: 'test-word',
+      icon: Volume2,
+    },
+    {
+      id: 'spelling-english',
+      name: 'English',
+      description: 'Listen to a word and choose the correct spelling.',
+      available: true,
+      accentClass: 'test-language',
+      icon: Volume2,
+    },
+  ],
+}
+
+const SPELLING_TEST_CONFIGS = {
+  'spelling-spanish': {
+    subjectId: 'language',
+    subjectName: 'Language',
+    testId: 'spelling-spanish',
+    testName: 'Spanish',
+    languageLabel: 'Spanish',
+    voiceLang: 'es-ES',
+    words: [
+      'casa',
+      'gato',
+      'perro',
+      'mesa',
+      'silla',
+      'libro',
+      'lapiz',
+      'cuaderno',
+      'escuela',
+      'amigo',
+      'amiga',
+      'fruta',
+      'manzana',
+      'pera',
+      'uva',
+      'leche',
+      'pan',
+      'queso',
+      'arroz',
+      'sopa',
+      'agua',
+      'sol',
+      'luna',
+      'estrella',
+      'cielo',
+      'nube',
+      'lluvia',
+      'viento',
+      'playa',
+      'arena',
+      'mar',
+      'pez',
+      'pato',
+      'gallina',
+      'caballo',
+      'conejo',
+      'flor',
+      'hoja',
+      'arbol',
+      'rama',
+      'piedra',
+      'puerta',
+      'ventana',
+      'camisa',
+      'zapato',
+      'gorra',
+      'rojo',
+      'azul',
+      'verde',
+      'amarillo',
+      'negro',
+      'blanco',
+      'grande',
+      'chico',
+      'feliz',
+      'triste',
+      'jugar',
+      'cantar',
+      'saltar',
+      'correr',
+      'bailar',
+      'sonrisa',
+      'dulce',
+      'tigre',
+      'raton',
+      'botella',
+      'parque',
+      'pelota',
+      'camino',
+      'naranja',
+    ],
+  },
+  'spelling-english': {
+    subjectId: 'language',
+    subjectName: 'Language',
+    testId: 'spelling-english',
+    testName: 'English',
+    languageLabel: 'English',
+    voiceLang: 'en-US',
+    words: [
+      'cat',
+      'dog',
+      'fish',
+      'bird',
+      'duck',
+      'horse',
+      'mouse',
+      'house',
+      'home',
+      'table',
+      'chair',
+      'book',
+      'pencil',
+      'school',
+      'friend',
+      'apple',
+      'grape',
+      'banana',
+      'orange',
+      'bread',
+      'milk',
+      'cheese',
+      'water',
+      'soup',
+      'sun',
+      'moon',
+      'star',
+      'cloud',
+      'rain',
+      'wind',
+      'beach',
+      'sand',
+      'tree',
+      'leaf',
+      'flower',
+      'stone',
+      'door',
+      'window',
+      'shirt',
+      'shoe',
+      'hat',
+      'red',
+      'blue',
+      'green',
+      'yellow',
+      'black',
+      'white',
+      'big',
+      'small',
+      'happy',
+      'sad',
+      'fast',
+      'slow',
+      'jump',
+      'run',
+      'play',
+      'sing',
+      'dance',
+      'smile',
+      'light',
+      'train',
+      'plane',
+      'truck',
+      'bread',
+      'cookie',
+      'garden',
+      'paper',
+      'pillow',
+      'rocket',
+      'winter',
+    ],
+  },
 }
 
 let audioCtx = null
@@ -240,6 +421,211 @@ function generateMultiplicationQuestions(count = INITIAL_QUESTION_COUNT) {
       isRetry: false,
     }
   })
+}
+
+function getWordSequence(pool, count) {
+  const uniquePool = Array.from(new Set(pool.map((word) => word.trim().toLowerCase()).filter(Boolean)))
+  if (uniquePool.length === 0) return []
+
+  const sequence = []
+  let batch = shuffleArray(uniquePool)
+  let index = 0
+
+  while (sequence.length < count) {
+    if (index >= batch.length) {
+      batch = shuffleArray(uniquePool)
+      index = 0
+    }
+
+    const candidate = batch[index]
+    index += 1
+
+    if (sequence.length > 0 && sequence[sequence.length - 1] === candidate && uniquePool.length > 1) {
+      continue
+    }
+
+    sequence.push(candidate)
+  }
+
+  return sequence
+}
+
+function replaceCharAt(value, index, nextChar) {
+  return `${value.slice(0, index)}${nextChar}${value.slice(index + 1)}`
+}
+
+function mutateSpellingWord(word, languageId) {
+  const normalized = word.trim().toLowerCase()
+  if (normalized.length < 2) return normalized
+
+  const vowels = ['a', 'e', 'i', 'o', 'u']
+  const spanishMap = {
+    b: ['v'],
+    v: ['b'],
+    c: ['s', 'k'],
+    s: ['c', 'z'],
+    z: ['s'],
+    g: ['j'],
+    j: ['g'],
+    y: ['i'],
+    i: ['y'],
+  }
+  const englishMap = {
+    c: ['k', 's'],
+    k: ['c'],
+    s: ['c', 'z'],
+    z: ['s'],
+    i: ['e', 'y'],
+    e: ['i'],
+    y: ['i'],
+    f: ['v'],
+    v: ['f'],
+    g: ['j'],
+    j: ['g'],
+  }
+  const confusionMap = languageId === 'spelling-spanish' ? spanishMap : englishMap
+
+  const candidates = []
+
+  for (let i = 0; i < normalized.length - 1; i += 1) {
+    if (normalized[i] !== normalized[i + 1]) {
+      const swapped =
+        normalized.slice(0, i) +
+        normalized[i + 1] +
+        normalized[i] +
+        normalized.slice(i + 2)
+      candidates.push(swapped)
+    }
+  }
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const char = normalized[i]
+    if (vowels.includes(char)) {
+      for (const vowel of vowels) {
+        if (vowel !== char) {
+          candidates.push(replaceCharAt(normalized, i, vowel))
+        }
+      }
+    }
+
+    const substitutions = confusionMap[char] ?? []
+    for (const replacement of substitutions) {
+      candidates.push(replaceCharAt(normalized, i, replacement))
+    }
+
+    candidates.push(normalized.slice(0, i) + normalized.slice(i + 1))
+    candidates.push(normalized.slice(0, i + 1) + char + normalized.slice(i + 1))
+  }
+
+  if (!normalized.startsWith('h')) {
+    candidates.push(`h${normalized}`)
+  } else if (normalized.length > 2) {
+    candidates.push(normalized.slice(1))
+  }
+
+  const filtered = shuffleArray(
+    Array.from(
+      new Set(
+        candidates.filter(
+          (candidate) =>
+            candidate &&
+            candidate !== normalized &&
+            candidate.length >= 2 &&
+            /^[a-z]+$/.test(candidate),
+        ),
+      ),
+    ),
+  )
+
+  return filtered
+}
+
+function generateSpellingOptions(correctWord, languageId) {
+  const options = new Set([correctWord])
+  const candidates = mutateSpellingWord(correctWord, languageId)
+
+  for (const candidate of candidates) {
+    if (options.size >= 4) break
+    options.add(candidate)
+  }
+
+  let safety = 0
+  while (options.size < 4 && safety < 40) {
+    safety += 1
+    const base = mutateSpellingWord(correctWord, languageId)
+    const fallback = base[safety % Math.max(base.length, 1)]
+    if (fallback) options.add(fallback)
+  }
+
+  if (options.size < 4) {
+    const extraLetters = ['a', 'e', 'i', 'o', 'u', 'n', 'r', 's', 't', 'l']
+    let attempts = 0
+    while (options.size < 4 && attempts < 40) {
+      attempts += 1
+      const index = Math.floor(Math.random() * correctWord.length)
+      const nextChar = extraLetters[Math.floor(Math.random() * extraLetters.length)]
+      const candidate = replaceCharAt(correctWord, index, nextChar)
+      if (candidate !== correctWord && /^[a-z]+$/.test(candidate)) {
+        options.add(candidate)
+      }
+    }
+  }
+
+  return shuffleArray(Array.from(options)).slice(0, 4)
+}
+
+function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT) {
+  const words = getWordSequence(testConfig.words, count)
+
+  return words.map((word, index) => ({
+    id: `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    word,
+    answer: word,
+    options: generateSpellingOptions(word, testConfig.testId),
+    isRetry: false,
+  }))
+}
+
+function spellingRecordFromQuestion(question) {
+  return {
+    key: `word:${question.word}`,
+    label: question.word,
+    word: question.word,
+  }
+}
+
+function getPendingSpellingWords(queueItems) {
+  return mergeExerciseRecords(
+    queueItems
+      .filter((item) => !item.isRetry)
+      .map((item) => spellingRecordFromQuestion(item)),
+  )
+}
+
+function stopSpeechPlayback() {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+}
+
+function speakDictationWord(word, voiceLang, enabled) {
+  if (!enabled) return false
+  if (typeof window === 'undefined' || !window.speechSynthesis || !word) return false
+
+  const UtteranceCtor = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance
+  if (!UtteranceCtor) return false
+
+  try {
+    window.speechSynthesis.cancel()
+    const utterance = new UtteranceCtor(word)
+    utterance.lang = voiceLang
+    utterance.rate = voiceLang.startsWith('es') ? 0.88 : 0.9
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+    return true
+  } catch (error) {
+    console.warn('Could not play dictation voice:', error)
+    return false
+  }
 }
 
 function calculatePoints(attempts) {
@@ -796,7 +1182,7 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
             <span>Back to subjects</span>
           </button>
           <h1>{subject.name}</h1>
-          <p>Select the test type. We start with multiplication and add more later.</p>
+          <p>Select the test type for this subject. More activities will be added over time.</p>
         </div>
       </section>
 
@@ -1383,6 +1769,631 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName }) {
   )
 }
 
+function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig }) {
+  const config = testConfig ?? SPELLING_TEST_CONFIGS['spelling-english']
+
+  const [phase, setPhase] = useState('playing')
+  const [queue, setQueue] = useState([])
+  const [currentOptions, setCurrentOptions] = useState([])
+  const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
+  const [feedback, setFeedback] = useState(null)
+  const [totalScore, setTotalScore] = useState(0)
+  const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
+  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [reviewWords, setReviewWords] = useState([])
+
+  const clearFeedbackTimerRef = useRef(null)
+  const advanceTimerRef = useRef(null)
+  const coinTimerRef = useRef(null)
+  const speechTimerRef = useRef(null)
+  const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
+  const reviewWordsRef = useRef([])
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
+    return () => {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
+      stopSpeechPlayback()
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame({ playStartSound: false })
+  }, [])
+
+  function clearTimers() {
+    if (clearFeedbackTimerRef.current) {
+      window.clearTimeout(clearFeedbackTimerRef.current)
+      clearFeedbackTimerRef.current = null
+    }
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+  }
+
+  function speakCurrentWord(question) {
+    if (!question?.word) return
+    speakDictationWord(question.word, config.voiceLang, soundEnabled)
+  }
+
+  function queueWordSpeech(question) {
+    if (!question?.word) return
+    if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
+    speechTimerRef.current = window.setTimeout(() => {
+      speakCurrentWord(question)
+    }, 120)
+  }
+
+  function setupQuestion(question) {
+    setCurrentOptions(question.options.map((value) => ({ value, isHidden: false })))
+    setAttemptsOnCurrent(0)
+    setFeedback(null)
+    queueWordSpeech(question)
+  }
+
+  function addReviewWord(question) {
+    if (!question || question.isRetry) return
+
+    const nextList = mergeExerciseRecords(reviewWordsRef.current, [spellingRecordFromQuestion(question)])
+    reviewWordsRef.current = nextList
+    setReviewWords(nextList)
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  function handleBackToTests() {
+    void (async () => {
+      stopSpeechPlayback()
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
+    clearTimers()
+    stopSpeechPlayback()
+    finishInProgressRef.current = false
+    if (shouldPlayStartSound) {
+      playSound('start', soundEnabled)
+    }
+    void enterFullscreenMode()
+    const initialQueue = generateSpellingQuestions(config, INITIAL_QUESTION_COUNT)
+    setQueue(initialQueue)
+    setTotalScore(0)
+    setPerfectOriginalCount(0)
+    setShowCoinAnimation(false)
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    reviewWordsRef.current = []
+    setReviewWords([])
+    setupQuestion(initialQueue[0])
+    setPhase('playing')
+  }
+
+  async function finishGame(finalScore, finalPerfectCount, options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    const completionMode = options.completionMode ?? 'completed'
+    const queueSnapshot = options.queueSnapshot ?? []
+    const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
+    const remainingOriginalCount =
+      options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
+    const answeredOriginalCount = INITIAL_QUESTION_COUNT - remainingOriginalCount
+    const pendingExercises = completionMode === 'abandoned' ? getPendingSpellingWords(queueSnapshot) : []
+    const reviewExercisesSummary = mergeExerciseRecords(
+      reviewWordsRef.current,
+      options.extraReviewExercises ?? [],
+    )
+
+    clearTimers()
+    stopSpeechPlayback()
+    setShowCoinAnimation(false)
+
+    if (completionMode === 'completed') {
+      playSound('win', soundEnabled)
+    } else {
+      playSound('bump', soundEnabled)
+    }
+
+    const maxScore = INITIAL_QUESTION_COUNT * 5
+    const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
+    const gradeInfo = getGrade(percentage)
+
+    const summary = {
+      subjectId: config.subjectId,
+      subjectName: config.subjectName,
+      testId: config.testId,
+      testName: config.testName,
+      mode: 'spelling',
+      languageLabel: config.languageLabel,
+      totalScore: finalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      perfectOriginalCount: finalPerfectCount,
+      questionCount: INITIAL_QUESTION_COUNT,
+      answeredOriginalCount,
+      remainingOriginalCount,
+      remainingQueueCount,
+      attemptStatus: completionMode,
+      isAbandoned: completionMode === 'abandoned',
+      reviewExercises: reviewExercisesSummary,
+      pendingExercises,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage(
+      completionMode === 'abandoned'
+        ? 'Saving partial result (remaining questions = 0 pts)...'
+        : 'Saving result...',
+    )
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(
+        completionMode === 'abandoned'
+          ? 'Test abandoned: progress and score saved to Firebase.'
+          : 'Result saved to Firebase.',
+      )
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  function handleGuess(guessedValue) {
+    if (feedback === 'correct') return
+    const currentQuestion = queue[0]
+    if (!currentQuestion) return
+
+    if (speechTimerRef.current) {
+      window.clearTimeout(speechTimerRef.current)
+      speechTimerRef.current = null
+    }
+    stopSpeechPlayback()
+
+    if (guessedValue === currentQuestion.answer) {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      playSound('coin', soundEnabled)
+
+      const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+      const nextScore = totalScore + pointsEarned
+
+      if (attemptsOnCurrent > 0) {
+        addReviewWord(currentQuestion)
+      }
+
+      setTotalScore(nextScore)
+      setFeedback('correct')
+      setShowCoinAnimation(true)
+
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = window.setTimeout(() => {
+        setShowCoinAnimation(false)
+      }, 850)
+
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = window.setTimeout(() => {
+        const remainingQueue = queue.slice(1)
+        const shouldRepeat = attemptsOnCurrent > 0
+        const isPerfectOriginal = !currentQuestion.isRetry && attemptsOnCurrent === 0
+        const nextPerfectOriginalCount = isPerfectOriginal
+          ? perfectOriginalCount + 1
+          : perfectOriginalCount
+
+        let nextQueue = remainingQueue
+
+        if (shouldRepeat) {
+          const retryQuestion = {
+            ...currentQuestion,
+            id: `retry_word_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            options: generateSpellingOptions(currentQuestion.answer, config.testId),
+            isRetry: true,
+          }
+          nextQueue = [...remainingQueue, retryQuestion]
+        }
+
+        setPerfectOriginalCount(nextPerfectOriginalCount)
+
+        if (nextQueue.length === 0) {
+          setQueue([])
+          setCurrentOptions([])
+          setFeedback(null)
+          void finishGame(nextScore, nextPerfectOriginalCount, {
+            completionMode: 'completed',
+            queueSnapshot: [],
+          })
+          return
+        }
+
+        setQueue(nextQueue)
+        setupQuestion(nextQueue[0])
+      }, 900)
+
+      return
+    }
+
+    playSound('bump', soundEnabled)
+    setFeedback('incorrect')
+    setAttemptsOnCurrent((previous) => previous + 1)
+    setCurrentOptions((previous) =>
+      previous.map((option) =>
+        option.value === guessedValue ? { ...option, isHidden: true } : option,
+      ),
+    )
+
+    if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+    clearFeedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback((previous) => (previous === 'incorrect' ? null : previous))
+    }, 420)
+  }
+
+  function handleAbandonTest() {
+    if (phase !== 'playing') return
+    if (feedback === 'correct') return
+    if (!queue.length) return
+    if (finishInProgressRef.current) return
+
+    const confirmed = window.confirm(
+      'If you leave the test now, your current score will be saved and all remaining questions will count as 0 points. Do you want to continue?',
+    )
+
+    if (!confirmed) return
+
+    const queueSnapshot = [...queue]
+    const currentQuestion = queue[0]
+    const extraReviewExercises =
+      currentQuestion && !currentQuestion.isRetry && attemptsOnCurrent > 0
+        ? [spellingRecordFromQuestion(currentQuestion)]
+        : []
+
+    void finishGame(totalScore, perfectOriginalCount, {
+      completionMode: 'abandoned',
+      queueSnapshot,
+      extraReviewExercises,
+    })
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+
+    await enterFullscreenMode()
+  }
+
+  function handleSoundToggle() {
+    setSoundEnabled((value) => {
+      const next = !value
+      if (!next) {
+        if (speechTimerRef.current) {
+          window.clearTimeout(speechTimerRef.current)
+          speechTimerRef.current = null
+        }
+        stopSpeechPlayback()
+      } else if (queue[0]?.word) {
+        if (speechTimerRef.current) {
+          window.clearTimeout(speechTimerRef.current)
+        }
+        speechTimerRef.current = window.setTimeout(() => {
+          speakDictationWord(queue[0].word, config.voiceLang, true)
+        }, 80)
+      }
+      return next
+    })
+  }
+
+  function handleReplayWord() {
+    speakCurrentWord(queue[0])
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore,
+      maxScore: INITIAL_QUESTION_COUNT * 5,
+      percentage: 0,
+      grade: 'F',
+      perfectOriginalCount,
+      questionCount: INITIAL_QUESTION_COUNT,
+      reviewExercises: reviewWords,
+      pendingExercises: [],
+    }
+    const gradeInfo = getGrade(summary.percentage)
+    const isAbandoned = summary.attemptStatus === 'abandoned'
+    const reviewList = summary.reviewExercises ?? []
+    const pendingList = summary.pendingExercises ?? []
+
+    return (
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="results-card">
+          <div className={`results-trophy ${gradeInfo.color}`}>
+            {isAbandoned ? <CircleAlert size={34} /> : <Trophy size={34} />}
+          </div>
+          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
+          <p className="results-message">
+            {isAbandoned
+              ? 'Test abandoned. Progress was saved with the current score.'
+              : gradeInfo.message}
+          </p>
+
+          <div className="score-panel">
+            <div className="score-labels">
+              <span>Final score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore} pts
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <div className="score-meta">
+              <span>{summary.percentage}%</span>
+              <span>
+                {isAbandoned
+                  ? `${summary.answeredOriginalCount ?? 0} of 25 base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of 25)`}
+              </span>
+            </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Words to study</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">
+                  {isAbandoned
+                    ? 'No missed words have been recorded in this attempt yet.'
+                    : 'Excellent: there were no missed words in this test.'}
+                </p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((item) => (
+                    <span key={item.key} className="exercise-tag">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isAbandoned && (
+              <div className="study-card">
+                <div className="study-card-header">
+                  <Clock3 size={16} />
+                  <h3>Words pending when left</h3>
+                </div>
+                {pendingList.length === 0 ? (
+                  <p className="study-empty">No base words were left pending.</p>
+                ) : (
+                  <div className="exercise-tags">
+                    {pendingList.map((item) => (
+                      <span key={item.key} className="exercise-tag pending">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`banner ${
+              saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'error'
+                  ? 'error'
+                  : 'info'
+            }`}
+          >
+            {saveStatus === 'saved' ? (
+              <CheckCircle2 size={16} />
+            ) : saveStatus === 'error' ? (
+              <CircleAlert size={16} />
+            ) : (
+              <Clock3 size={16} />
+            )}
+            <span>{saveMessage || 'Result ready.'}</span>
+          </div>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={startGame}>
+              <RotateCcw size={16} />
+              <span>Play again</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToTests}>
+              <ArrowLeft size={16} />
+              <span>Back to test types</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const currentQuestion = queue[0]
+  const progressPercentage = Math.round((perfectOriginalCount / INITIAL_QUESTION_COUNT) * 100)
+  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+
+  return (
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <CoinBurst visible={showCoinAnimation} />
+
+      <div className="game-topbar">
+        <div className="hud-pill">
+          <span className="hud-label">Points</span>
+          <strong>x{String(totalScore).padStart(3, '0')}</strong>
+        </div>
+
+        <div className="hud-progress">
+          <div className="hud-row">
+            <span>Hello, {studentName || 'Student'}</span>
+            <span>{progressPercentage}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
+          </div>
+          <small>
+            {config.languageLabel} Spelling · Questions in queue: {queue.length}
+          </small>
+        </div>
+
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={handleSoundToggle}
+            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+          >
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleAbandonTest}
+            disabled={saveStatus === 'saving' || feedback === 'correct'}
+            title="Save partial result and leave the test"
+          >
+            <ArrowLeft size={16} />
+            <span>Leave test</span>
+          </button>
+        </div>
+      </div>
+
+      {currentQuestion ? (
+        <div className="game-board">
+          <div className="stars-row" aria-label="Possible points for this question">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Star
+                key={index}
+                size={28}
+                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
+                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
+              />
+            ))}
+          </div>
+
+          <div className="question-meta">
+            {currentQuestion.isRetry ? (
+              <span className="badge badge-soon">Reinforcement (0 pts)</span>
+            ) : (
+              <span className="badge badge-live">Scored question</span>
+            )}
+          </div>
+
+          <div className={`question-card spelling-card ${feedback ? `feedback-${feedback}` : ''}`}>
+            <div className="spelling-card-content">
+              <span className="spelling-kicker">{config.languageLabel} dictation</span>
+              <h2>Listen and choose the correct spelling</h2>
+              <p>Tap the speaker if you want to hear the word again.</p>
+              <button
+                type="button"
+                className="dictation-replay-btn"
+                onClick={handleReplayWord}
+                disabled={!soundEnabled}
+                title={soundEnabled ? 'Hear word again' : 'Enable sound to hear the word'}
+              >
+                <Volume2 size={18} />
+                <span>{soundEnabled ? 'Hear word again' : 'Sound is muted'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="answers-grid">
+            {currentOptions.map((option, index) => (
+              <button
+                key={`${currentQuestion.id}_${index}`}
+                type="button"
+                className={`answer-btn answer-word ${option.isHidden ? 'is-hidden' : ''}`}
+                disabled={option.isHidden || feedback === 'correct'}
+                onClick={() => handleGuess(option.value)}
+              >
+                {option.value}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="game-board">
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Loading test...</p>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function App() {
   const [authReady, setAuthReady] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
@@ -1559,6 +2570,7 @@ function App() {
 
   const selectedSubject = getSubjectById(selectedSubjectId)
   const selectedTest = selectedSubject ? getTestById(selectedSubject.id, selectedTestId) : null
+  const selectedSpellingConfig = selectedTest ? SPELLING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
 
   return (
@@ -1613,6 +2625,15 @@ function App() {
             onBack={goToSubjectMenu}
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
+          />
+        )}
+
+        {screen === 'test' && selectedSubject && selectedSpellingConfig && (
+          <SpellingChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            testConfig={selectedSpellingConfig}
           />
         )}
 
