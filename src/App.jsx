@@ -34,9 +34,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  limit,
-  orderBy,
-  query,
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore'
@@ -44,7 +41,10 @@ import { auth, db } from './firebase'
 import { READING_STORY_BANKS } from './readingStories'
 
 const INITIAL_QUESTION_COUNT = 25
+const MULTIPLICATION_QUESTION_COUNT = 12
 const WORD_PROBLEM_QUESTION_COUNT = 8
+const FULL_TEST_QUESTION_COUNT = 15
+const FULL_TEST_MIN_PER_TEST = 2
 const WORD_PROBLEM_VOICE_LANG = 'en-US'
 const GLOBAL_RESULTS_COLLECTION = 'publicResults'
 const APP_DOMAIN = 'joyapp.student'
@@ -181,6 +181,24 @@ const TESTS_BY_SUBJECT = {
     },
   ],
 }
+
+const FULL_TEST_CARD = {
+  id: 'full-test',
+  name: 'Full Test',
+  description: 'Mixed challenge with 15 exercises (minimum 2 from each test).',
+  available: true,
+  accentClass: 'test-full',
+  icon: Sparkles,
+}
+
+const FULL_TEST_SOURCE_TESTS = [
+  { testId: 'multiplication', label: 'Multiplication' },
+  { testId: 'word-problems', label: 'Word Problems' },
+  { testId: 'reading-english', label: 'Reading English' },
+  { testId: 'reading-spanish', label: 'Reading Spanish' },
+  { testId: 'spelling-spanish', label: 'Spelling Spanish' },
+  { testId: 'spelling-english', label: 'Spelling English' },
+]
 
 const SPELLING_TEST_CONFIGS = {
   'spelling-spanish': {
@@ -515,7 +533,7 @@ function generateOptions(answer) {
   return shuffleArray(Array.from(options))
 }
 
-function generateMultiplicationQuestions(count = INITIAL_QUESTION_COUNT) {
+function generateMultiplicationQuestions(count = MULTIPLICATION_QUESTION_COUNT) {
   return Array.from({ length: count }, (_, index) => {
     const n1 = Math.floor(Math.random() * 9) + 2
     const n2 = Math.floor(Math.random() * 9) + 2
@@ -1018,6 +1036,185 @@ function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT) {
     options: generateSpellingOptions(word, testConfig.testId),
     isRetry: false,
   }))
+}
+
+function getObjectSequence(pool, count) {
+  if (!pool?.length || count <= 0) return []
+
+  const sequence = []
+  let batch = shuffleArray(pool)
+  let index = 0
+
+  while (sequence.length < count) {
+    if (index >= batch.length) {
+      batch = shuffleArray(pool)
+      index = 0
+    }
+
+    sequence.push(batch[index])
+    index += 1
+  }
+
+  return sequence
+}
+
+function toFullQuestionId(prefix, index) {
+  return `full_${prefix}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+function generateFullTestReadingQuestions(testConfig, sourceLabel, count) {
+  const stories = testConfig?.stories ?? []
+  const pool = stories.flatMap((story) =>
+    (story.questions ?? []).map((question) => ({
+      story,
+      question,
+    })),
+  )
+  const picked = getObjectSequence(pool, count)
+
+  return picked.map((item, index) => {
+    const storyText = (item.story?.paragraphs ?? []).join(' ')
+    return {
+      id: toFullQuestionId(testConfig.testId, index),
+      sourceTestId: testConfig.testId,
+      sourceLabel,
+      prompt: item.question.prompt,
+      context: storyText,
+      answer: item.question.answer,
+      options: shuffleArray([...(item.question.options ?? [])]),
+      optionPool: [...(item.question.options ?? [])],
+      baseKey: `${item.story?.id ?? 'story'}:${item.question.id}`,
+      isRetry: false,
+    }
+  })
+}
+
+function generateFullTestQuestionsForSource(sourceTestId, count) {
+  if (sourceTestId === 'multiplication') {
+    return generateMultiplicationQuestions(count).map((question, index) => ({
+      id: toFullQuestionId('multiplication', index),
+      sourceTestId,
+      sourceLabel: 'Multiplication',
+      prompt: `${question.n1} x ${question.n2} = ?`,
+      context: 'Solve the multiplication.',
+      answer: question.answer,
+      options: question.options,
+      n1: question.n1,
+      n2: question.n2,
+      baseKey: `${question.n1}x${question.n2}`,
+      isRetry: false,
+    }))
+  }
+
+  if (sourceTestId === 'word-problems') {
+    return generateWordProblemQuestions(count).map((question, index) => ({
+      id: toFullQuestionId('word-problems', index),
+      sourceTestId,
+      sourceLabel: 'Word Problems',
+      prompt: question.questionPrompt,
+      context: question.storyText,
+      answer: question.answer,
+      options: question.options,
+      operation: question.operation,
+      values: question.values,
+      explanation: question.explanation,
+      baseKey: question.baseKey ?? `wp:${index}`,
+      isRetry: false,
+    }))
+  }
+
+  if (sourceTestId === 'reading-english') {
+    return generateFullTestReadingQuestions(READING_TEST_CONFIGS['reading-english'], 'Reading English', count)
+  }
+
+  if (sourceTestId === 'reading-spanish') {
+    return generateFullTestReadingQuestions(READING_TEST_CONFIGS['reading-spanish'], 'Reading Spanish', count)
+  }
+
+  if (sourceTestId === 'spelling-spanish' || sourceTestId === 'spelling-english') {
+    const config = SPELLING_TEST_CONFIGS[sourceTestId]
+    return generateSpellingQuestions(config, count).map((question, index) => ({
+      id: toFullQuestionId(sourceTestId, index),
+      sourceTestId,
+      sourceLabel: sourceTestId === 'spelling-spanish' ? 'Spelling Spanish' : 'Spelling English',
+      prompt:
+        sourceTestId === 'spelling-english'
+          ? `Choose the correct past tense for "${question.baseWord}".`
+          : `Choose the correct spelling for "${question.word}".`,
+      context:
+        sourceTestId === 'spelling-english'
+          ? 'Pick the verb in past tense.'
+          : 'Pick the word with correct spelling.',
+      answer: question.answer,
+      options: question.options,
+      word: question.word,
+      baseWord: question.baseWord,
+      baseKey: `${sourceTestId}:${question.baseWord ?? question.word ?? index}`,
+      isRetry: false,
+    }))
+  }
+
+  return []
+}
+
+function buildFullTestRetryQuestion(question) {
+  let nextOptions = shuffleArray([...(question.options ?? [])])
+
+  if (question.sourceTestId === 'multiplication') {
+    nextOptions = generateOptions(question.answer)
+  } else if (question.sourceTestId === 'word-problems') {
+    nextOptions = generateWordProblemOptions(question.answer, question.operation, question.values)
+  } else if (question.sourceTestId === 'reading-english' || question.sourceTestId === 'reading-spanish') {
+    nextOptions = shuffleArray([...(question.optionPool ?? question.options ?? [])])
+  } else if (question.sourceTestId === 'spelling-english' && question.baseWord) {
+    nextOptions = generatePastTenseOptions(question.baseWord).options
+  } else if (question.sourceTestId === 'spelling-spanish' && question.answer) {
+    nextOptions = generateSpellingOptions(question.answer, 'spelling-spanish')
+  }
+
+  return {
+    ...question,
+    id: `retry_full_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    options: nextOptions,
+    isRetry: true,
+  }
+}
+
+function generateFullTestQuestions(count = FULL_TEST_QUESTION_COUNT) {
+  const required = FULL_TEST_SOURCE_TESTS.flatMap((source) =>
+    generateFullTestQuestionsForSource(source.testId, FULL_TEST_MIN_PER_TEST),
+  )
+  const allQuestions = [...required]
+
+  while (allQuestions.length < count) {
+    const extraSource = pickRandom(FULL_TEST_SOURCE_TESTS)
+    const [extraQuestion] = generateFullTestQuestionsForSource(extraSource?.testId, 1)
+    if (extraQuestion) {
+      allQuestions.push(extraQuestion)
+    } else {
+      break
+    }
+  }
+
+  return shuffleArray(allQuestions).slice(0, count)
+}
+
+function fullTestRecordFromQuestion(question) {
+  const prompt = trimReviewLabel(question.prompt, 64)
+  return {
+    key: `full:${question.sourceTestId}:${question.baseKey ?? question.id}`,
+    prompt: question.prompt,
+    answer: question.answer,
+    label: `${question.sourceLabel}: ${prompt} (Answer: ${question.answer})`,
+  }
+}
+
+function getPendingFullTestQuestions(queueItems) {
+  return mergeExerciseRecords(
+    queueItems
+      .filter((item) => !item.isRetry)
+      .map((item) => fullTestRecordFromQuestion(item)),
+  )
 }
 
 function spellingRecordFromQuestion(question) {
@@ -1910,10 +2107,12 @@ function Dashboard({
   personalResultsLoading,
   globalResultsLoading,
   globalResultsError,
+  onStartFullTest,
   onSelectSubject,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
+  const panelLoading = usingGlobalPanels ? globalResultsLoading : personalResultsLoading
 
   return (
     <div className="page-stack">
@@ -1964,6 +2163,18 @@ function Dashboard({
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
+            <h2>Full Test</h2>
+            <p>Mixed challenge of 15 exercises with all test types included.</p>
+          </div>
+        </div>
+        <div className="tests-grid tests-grid-single">
+          <TestCard test={FULL_TEST_CARD} onSelect={onStartFullTest} />
+        </div>
+      </section>
+
+      <section className="panel-card">
+        <div className="panel-card-header">
+          <div>
             <h2>Subjects</h2>
             <p>Choose a subject to see its test types.</p>
           </div>
@@ -1975,7 +2186,7 @@ function Dashboard({
         </div>
       </section>
 
-      <ResultsList results={panelResults} loading={globalResultsLoading || personalResultsLoading} />
+      <ResultsList results={panelResults} loading={panelLoading} />
       <RecordsPanel results={panelResults} />
     </div>
   )
@@ -2139,7 +2350,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
       playSound('start', soundEnabled)
     }
     void enterFullscreenMode()
-    const initialQueue = generateMultiplicationQuestions(INITIAL_QUESTION_COUNT)
+    const initialQueue = generateMultiplicationQuestions(MULTIPLICATION_QUESTION_COUNT)
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
@@ -2162,7 +2373,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
     const remainingOriginalCount =
       options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
-    const answeredOriginalCount = INITIAL_QUESTION_COUNT - remainingOriginalCount
+    const answeredOriginalCount = MULTIPLICATION_QUESTION_COUNT - remainingOriginalCount
     const pendingExercises = completionMode === 'abandoned' ? getPendingOriginalExercises(queueSnapshot) : []
     const reviewExercisesSummary = mergeExerciseRecords(
       reviewExercisesRef.current,
@@ -2178,7 +2389,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
       playSound('bump', soundEnabled)
     }
 
-    const maxScore = INITIAL_QUESTION_COUNT * 5
+    const maxScore = MULTIPLICATION_QUESTION_COUNT * 5
     const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
     const gradeInfo = getGrade(percentage)
 
@@ -2192,7 +2403,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
       percentage,
       grade: gradeInfo.grade,
       perfectOriginalCount: finalPerfectCount,
-      questionCount: INITIAL_QUESTION_COUNT,
+      questionCount: MULTIPLICATION_QUESTION_COUNT,
       answeredOriginalCount,
       remainingOriginalCount,
       remainingQueueCount,
@@ -2344,11 +2555,11 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
   if (phase === 'finished') {
     const summary = lastResult ?? {
       totalScore,
-      maxScore: INITIAL_QUESTION_COUNT * 5,
+      maxScore: MULTIPLICATION_QUESTION_COUNT * 5,
       percentage: 0,
       grade: 'F',
       perfectOriginalCount,
-      questionCount: INITIAL_QUESTION_COUNT,
+      questionCount: MULTIPLICATION_QUESTION_COUNT,
       reviewExercises,
       pendingExercises: [],
     }
@@ -2384,8 +2595,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
               <span>{summary.percentage}%</span>
               <span>
                 {isAbandoned
-                  ? `${summary.answeredOriginalCount ?? 0} of 25 base questions answered`
-                  : `${summary.perfectOriginalCount} perfect (out of 25)`}
+                  ? `${summary.answeredOriginalCount ?? 0} of ${MULTIPLICATION_QUESTION_COUNT} base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${MULTIPLICATION_QUESTION_COUNT})`}
               </span>
             </div>
           </div>
@@ -2469,7 +2680,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
   }
 
   const currentQuestion = queue[0]
-  const progressPercentage = Math.round((perfectOriginalCount / INITIAL_QUESTION_COUNT) * 100)
+  const progressPercentage = Math.round((perfectOriginalCount / MULTIPLICATION_QUESTION_COUNT) * 100)
   const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
@@ -4704,6 +4915,606 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
+function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+  const questionCount = FULL_TEST_QUESTION_COUNT
+
+  const [phase, setPhase] = useState('playing')
+  const [queue, setQueue] = useState([])
+  const [currentOptions, setCurrentOptions] = useState([])
+  const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
+  const [feedback, setFeedback] = useState(null)
+  const [totalScore, setTotalScore] = useState(0)
+  const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
+  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [reviewExercises, setReviewExercises] = useState([])
+  const [currentExplanationText, setCurrentExplanationText] = useState('')
+
+  const clearFeedbackTimerRef = useRef(null)
+  const advanceTimerRef = useRef(null)
+  const coinTimerRef = useRef(null)
+  const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
+  const reviewExercisesRef = useRef([])
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
+    return () => {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame({ playStartSound: false })
+  }, [])
+
+  function clearTimers() {
+    if (clearFeedbackTimerRef.current) {
+      window.clearTimeout(clearFeedbackTimerRef.current)
+      clearFeedbackTimerRef.current = null
+    }
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
+  }
+
+  function setupQuestion(question) {
+    if (!question) {
+      setCurrentOptions([])
+      setAttemptsOnCurrent(0)
+      setFeedback(null)
+      setCurrentExplanationText('')
+      return
+    }
+
+    setCurrentOptions((question.options ?? []).map((value) => ({ value, isHidden: false })))
+    setAttemptsOnCurrent(0)
+    setFeedback(null)
+    setCurrentExplanationText('')
+  }
+
+  function addReviewExercise(question) {
+    if (!question || question.isRetry) return
+    const nextList = mergeExerciseRecords(reviewExercisesRef.current, [fullTestRecordFromQuestion(question)])
+    reviewExercisesRef.current = nextList
+    setReviewExercises(nextList)
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  function handleBackToDashboard() {
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
+    clearTimers()
+    finishInProgressRef.current = false
+    if (shouldPlayStartSound) {
+      playSound('start', soundEnabled)
+    }
+    void enterFullscreenMode()
+
+    const initialQueue = generateFullTestQuestions(questionCount)
+    setQueue(initialQueue)
+    setTotalScore(0)
+    setPerfectOriginalCount(0)
+    setShowCoinAnimation(false)
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    reviewExercisesRef.current = []
+    setReviewExercises([])
+    setCurrentExplanationText('')
+    setupQuestion(initialQueue[0])
+    setPhase('playing')
+  }
+
+  async function finishGame(finalScore, finalPerfectCount, options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    const completionMode = options.completionMode ?? 'completed'
+    const queueSnapshot = options.queueSnapshot ?? []
+    const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
+    const remainingOriginalCount =
+      options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
+    const answeredOriginalCount = questionCount - remainingOriginalCount
+    const pendingExercises = completionMode === 'abandoned' ? getPendingFullTestQuestions(queueSnapshot) : []
+    const reviewExercisesSummary = mergeExerciseRecords(
+      reviewExercisesRef.current,
+      options.extraReviewExercises ?? [],
+    )
+
+    clearTimers()
+    setShowCoinAnimation(false)
+
+    if (completionMode === 'completed') {
+      playSound('win', soundEnabled)
+    } else {
+      playSound('bump', soundEnabled)
+    }
+
+    const maxScore = questionCount * 5
+    const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
+    const gradeInfo = getGrade(percentage)
+
+    const summary = {
+      subjectId: 'full',
+      subjectName: 'Full Test',
+      testId: 'full-test',
+      testName: 'Full Test',
+      mode: 'full-test',
+      languageLabel: 'Mixed',
+      totalScore: finalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      perfectOriginalCount: finalPerfectCount,
+      questionCount,
+      answeredOriginalCount,
+      remainingOriginalCount,
+      remainingQueueCount,
+      attemptStatus: completionMode,
+      isAbandoned: completionMode === 'abandoned',
+      reviewExercises: reviewExercisesSummary,
+      pendingExercises,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage(
+      completionMode === 'abandoned'
+        ? 'Saving partial result (remaining questions = 0 pts)...'
+        : 'Saving result...',
+    )
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(
+        completionMode === 'abandoned'
+          ? 'Test abandoned: progress and score saved to Firebase.'
+          : 'Result saved to Firebase.',
+      )
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  function advanceAfterCorrect(currentQuestion, nextScore, nextPerfectOriginalCount) {
+    const remainingQueue = queue.slice(1)
+    const shouldRepeat = attemptsOnCurrent > 0
+    let nextQueue = remainingQueue
+
+    if (shouldRepeat) {
+      nextQueue = [...remainingQueue, buildFullTestRetryQuestion(currentQuestion)]
+    }
+
+    setPerfectOriginalCount(nextPerfectOriginalCount)
+
+    if (nextQueue.length === 0) {
+      setQueue([])
+      setCurrentOptions([])
+      setFeedback(null)
+      void finishGame(nextScore, nextPerfectOriginalCount, {
+        completionMode: 'completed',
+        queueSnapshot: [],
+      })
+      return
+    }
+
+    setQueue(nextQueue)
+    setupQuestion(nextQueue[0])
+  }
+
+  function handleGuess(guessedValue) {
+    if (feedback === 'correct') return
+    if (phase !== 'playing') return
+
+    const currentQuestion = queue[0]
+    if (!currentQuestion) return
+
+    if (guessedValue === currentQuestion.answer) {
+      if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+      playSound('coin', soundEnabled)
+
+      const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+      const nextScore = totalScore + pointsEarned
+
+      if (attemptsOnCurrent > 0) {
+        addReviewExercise(currentQuestion)
+      }
+
+      const isPerfectOriginal = !currentQuestion.isRetry && attemptsOnCurrent === 0
+      const nextPerfectOriginalCount = isPerfectOriginal
+        ? perfectOriginalCount + 1
+        : perfectOriginalCount
+
+      setTotalScore(nextScore)
+      setFeedback('correct')
+      setCurrentExplanationText(currentQuestion.explanation ?? '')
+      setShowCoinAnimation(true)
+
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = window.setTimeout(() => {
+        setShowCoinAnimation(false)
+      }, 850)
+
+      if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = window.setTimeout(() => {
+        advanceAfterCorrect(currentQuestion, nextScore, nextPerfectOriginalCount)
+      }, 900)
+
+      return
+    }
+
+    playSound('bump', soundEnabled)
+    setFeedback('incorrect')
+    setAttemptsOnCurrent((previous) => previous + 1)
+    setCurrentOptions((previous) =>
+      previous.map((option) =>
+        option.value === guessedValue ? { ...option, isHidden: true } : option,
+      ),
+    )
+
+    if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
+    clearFeedbackTimerRef.current = window.setTimeout(() => {
+      setFeedback((previous) => (previous === 'incorrect' ? null : previous))
+    }, 420)
+  }
+
+  function handleAbandonTest() {
+    if (phase !== 'playing') return
+    if (feedback === 'correct') return
+    if (!queue.length) return
+    if (finishInProgressRef.current) return
+
+    const confirmed = window.confirm(
+      'If you leave the test now, your current score will be saved and all remaining questions will count as 0 points. Do you want to continue?',
+    )
+    if (!confirmed) return
+
+    const queueSnapshot = [...queue]
+    const currentQuestion = queue[0]
+    const extraReviewExercises =
+      currentQuestion && !currentQuestion.isRetry && attemptsOnCurrent > 0
+        ? [fullTestRecordFromQuestion(currentQuestion)]
+        : []
+
+    void finishGame(totalScore, perfectOriginalCount, {
+      completionMode: 'abandoned',
+      queueSnapshot,
+      extraReviewExercises,
+    })
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+    await enterFullscreenMode()
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore,
+      maxScore: questionCount * 5,
+      percentage: 0,
+      grade: 'F',
+      perfectOriginalCount,
+      questionCount,
+      reviewExercises,
+      pendingExercises: [],
+    }
+    const gradeInfo = getGrade(summary.percentage)
+    const isAbandoned = summary.attemptStatus === 'abandoned'
+    const reviewList = summary.reviewExercises ?? []
+    const pendingList = summary.pendingExercises ?? []
+
+    return (
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="results-card">
+          <div className={`results-trophy ${gradeInfo.color}`}>
+            {isAbandoned ? <CircleAlert size={34} /> : <Trophy size={34} />}
+          </div>
+          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
+          <p className="results-message">
+            {isAbandoned
+              ? 'Test abandoned. Progress was saved with the current score.'
+              : gradeInfo.message}
+          </p>
+
+          <div className="story-result-chip">
+            <Sparkles size={14} />
+            <span>Full Test · Mixed (15)</span>
+          </div>
+
+          <div className="score-panel">
+            <div className="score-labels">
+              <span>Final score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore} pts
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <div className="score-meta">
+              <span>{summary.percentage}%</span>
+              <span>
+                {isAbandoned
+                  ? `${summary.answeredOriginalCount ?? 0} of ${questionCount} base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${questionCount})`}
+              </span>
+            </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Exercises to review</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">
+                  {isAbandoned
+                    ? 'No missed exercises have been recorded in this attempt yet.'
+                    : 'Excellent: there were no missed exercises in this test.'}
+                </p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((item) => (
+                    <span key={item.key} className="exercise-tag review-long">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {isAbandoned && (
+              <div className="study-card">
+                <div className="study-card-header">
+                  <Clock3 size={16} />
+                  <h3>Pending when abandoned</h3>
+                </div>
+                {pendingList.length === 0 ? (
+                  <p className="study-empty">No base questions were left pending.</p>
+                ) : (
+                  <div className="exercise-tags">
+                    {pendingList.map((item) => (
+                      <span key={item.key} className="exercise-tag pending review-long">
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`banner ${
+              saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'error'
+                  ? 'error'
+                  : 'info'
+            }`}
+          >
+            {saveStatus === 'saved' ? (
+              <CheckCircle2 size={16} />
+            ) : saveStatus === 'error' ? (
+              <CircleAlert size={16} />
+            ) : (
+              <Clock3 size={16} />
+            )}
+            <span>{saveMessage || 'Result ready.'}</span>
+          </div>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={startGame}>
+              <RotateCcw size={16} />
+              <span>New full test</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToDashboard}>
+              <ArrowLeft size={16} />
+              <span>Back to home</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const currentQuestion = queue[0]
+  const progressPercentage = Math.round((perfectOriginalCount / questionCount) * 100)
+  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
+
+  return (
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <CoinBurst visible={showCoinAnimation} />
+
+      <div className="game-topbar">
+        <div className="hud-pill">
+          <span className="hud-label">Points</span>
+          <strong>x{String(totalScore).padStart(3, '0')}</strong>
+        </div>
+
+        <div className="hud-progress">
+          <div className="hud-row">
+            <span>Hello, {studentName || 'Student'}</span>
+            <span>{progressPercentage}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
+          </div>
+          <small>Full Test · Mixed challenge · Questions in queue: {queue.length}</small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </div>
+
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => setSoundEnabled((value) => !value)}
+            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+          >
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleAbandonTest}
+            disabled={saveStatus === 'saving' || feedback === 'correct'}
+            title="Save partial result and leave the test"
+          >
+            <ArrowLeft size={16} />
+            <span>Leave test</span>
+          </button>
+        </div>
+      </div>
+
+      {currentQuestion ? (
+        <div className="game-board reading-board">
+          <div className="story-card">
+            <div className="story-card-header">
+              <div className="story-card-title">
+                <Sparkles size={18} />
+                <div>
+                  <small>Mixed question source</small>
+                  <h3>{currentQuestion.sourceLabel}</h3>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className={currentQuestion.isRetry ? 'badge badge-soon' : 'badge badge-live'}>
+                  {currentQuestion.isRetry ? 'Reinforcement (0 pts)' : 'Scored question'}
+                </span>
+                <span className="badge badge-live">{questionCount} questions</span>
+              </div>
+            </div>
+            {currentQuestion.context && (
+              <div className="story-card-body">
+                <p>{currentQuestion.context}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="stars-row" aria-label="Possible points for this question">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Star
+                key={index}
+                size={28}
+                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
+                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
+              />
+            ))}
+          </div>
+
+          <div className="question-meta">
+            <span className="badge badge-live">Choose the best answer</span>
+          </div>
+
+          <div className={`question-card reading-question-card ${feedback ? `feedback-${feedback}` : ''}`}>
+            <div className="reading-question-content">
+              <span className="reading-question-kicker">Question</span>
+              <p>{currentQuestion.prompt}</p>
+            </div>
+          </div>
+
+          {feedback === 'correct' && currentExplanationText && (
+            <div className="story-start-panel">
+              <p>
+                <strong>How we solved it:</strong> {currentExplanationText}
+              </p>
+            </div>
+          )}
+
+          <div className="answers-grid">
+            {currentOptions.map((option, index) => (
+              <button
+                key={`${currentQuestion.id}_${index}`}
+                type="button"
+                className={`answer-btn ${option.isHidden ? 'is-hidden' : ''}`}
+                disabled={option.isHidden || feedback === 'correct'}
+                onClick={() => handleGuess(option.value)}
+              >
+                {option.value}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="game-board">
+          <div className="empty-state">
+            <div className="spinner" aria-hidden="true" />
+            <p>Loading full test...</p>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function App() {
   const [authReady, setAuthReady] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
@@ -4725,9 +5536,9 @@ function App() {
 
     try {
       const globalResultsRef = collection(db, GLOBAL_RESULTS_COLLECTION)
-      const globalQuery = query(globalResultsRef, orderBy('createdAtMs', 'desc'))
-      const snapshot = await getDocs(globalQuery)
-      setGlobalResults(snapshot.docs.map(toResultRecord))
+      const snapshot = await getDocs(globalResultsRef)
+      const mappedResults = sortResultsByNewest(snapshot.docs.map(toResultRecord))
+      setGlobalResults(mappedResults)
     } catch (error) {
       console.error('Error loading global results:', error)
       setGlobalResults([])
@@ -4772,11 +5583,10 @@ function App() {
     try {
       const profileRef = doc(db, 'students', user.uid)
       const resultsRef = collection(db, 'students', user.uid, 'results')
-      const resultsQuery = query(resultsRef, orderBy('createdAtMs', 'desc'), limit(20))
 
       const [profileSnapshot, resultSnapshot] = await Promise.all([
         getDoc(profileRef),
-        getDocs(resultsQuery),
+        getDocs(resultsRef),
       ])
 
       if (profileSnapshot.exists()) {
@@ -4786,7 +5596,7 @@ function App() {
         setStudentProfile({ alias: fallbackAlias })
       }
 
-      const nextPersonalResults = resultSnapshot.docs.map(toResultRecord)
+      const nextPersonalResults = sortResultsByNewest(resultSnapshot.docs.map(toResultRecord)).slice(0, 20)
       setPersonalResults(nextPersonalResults)
       void mirrorResultsToPublicCollection(user.uid, nextPersonalResults).then(() => {
         void loadGlobalResults()
@@ -4933,6 +5743,12 @@ function App() {
     setScreen('test')
   }
 
+  function openFullTest() {
+    setSelectedSubjectId(null)
+    setSelectedTestId(null)
+    setScreen('full-test')
+  }
+
   function goToDashboard() {
     setScreen('dashboard')
     setSelectedSubjectId(null)
@@ -4965,6 +5781,7 @@ function App() {
   const selectedSpellingConfig = selectedTest ? SPELLING_TEST_CONFIGS[selectedTest.id] ?? null : null
   const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
   const rankingSourceResults = globalResults.length ? globalResults : personalResults
+  const fullTestTopRecord = getTopRecordForTest(rankingSourceResults, 'full', 'full-test')
   const selectedTestTopRecord =
     selectedSubject && selectedTest
       ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
@@ -5008,7 +5825,17 @@ function App() {
             personalResultsLoading={personalResultsLoading}
             globalResultsLoading={globalResultsLoading}
             globalResultsError={globalResultsError}
+            onStartFullTest={openFullTest}
             onSelectSubject={openSubject}
+          />
+        )}
+
+        {screen === 'full-test' && (
+          <FullTestChallenge
+            onBack={goToDashboard}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={fullTestTopRecord}
           />
         )}
 

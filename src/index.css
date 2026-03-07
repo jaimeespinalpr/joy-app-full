@@ -620,6 +620,10 @@ button {
   gap: 0.8rem;
 }
 
+.tests-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .test-card {
   border: 0;
   border-radius: 16px;
@@ -692,6 +696,11 @@ button {
 .test-language .test-card-icon {
   background: rgba(79, 190, 255, 0.14);
   color: #1c69c8;
+}
+
+.test-full .test-card-icon {
+  background: rgba(255, 214, 92, 0.2);
+  color: #a05a00;
 }
 
 .back-inline {
