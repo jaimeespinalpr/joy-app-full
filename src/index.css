@@ -1311,6 +1311,86 @@ button {
   opacity: 0.8;
 }
 
+.spelling-build-panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.spelling-slot-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.spelling-slot {
+  width: 48px;
+  height: 54px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  border: 2px dashed rgba(51, 72, 152, 0.24);
+  color: #354589;
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-transform: lowercase;
+  box-shadow: inset 0 -3px 0 rgba(88, 106, 187, 0.08);
+}
+
+.spelling-slot.is-filled {
+  border-style: solid;
+  border-color: rgba(51, 72, 152, 0.14);
+  background: #fff;
+}
+
+.spelling-build-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.letter-bank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 0.65rem;
+}
+
+.letter-tile {
+  border: 0;
+  border-radius: 16px;
+  min-height: 68px;
+  display: grid;
+  place-items: center;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #16204f;
+  background:
+    linear-gradient(180deg, #ffffff, #f3f7ff),
+    linear-gradient(135deg, #ffffff, #eff4ff);
+  border: 1px solid rgba(28, 43, 100, 0.1);
+  box-shadow:
+    0 14px 22px rgba(18, 29, 71, 0.08),
+    inset 0 -6px 0 rgba(57, 86, 180, 0.06);
+  transition: transform 0.12s ease, opacity 0.2s ease;
+  text-transform: lowercase;
+}
+
+.letter-tile:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.letter-tile:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.letter-tile.is-used,
+.letter-tile:disabled {
+  opacity: 0.42;
+  transform: none;
+}
+
 .question-number {
   font-size: clamp(2.25rem, 7vw, 4.5rem);
   font-weight: 800;
@@ -1762,6 +1842,15 @@ button {
   .answer-btn.answer-text {
     min-height: 84px;
     font-size: 0.95rem;
+  }
+
+  .spelling-slot {
+    width: 44px;
+    height: 50px;
+  }
+
+  .letter-bank-grid {
+    grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
   }
 
   .game-rules-grid {

@@ -1011,31 +1011,83 @@ function generatePastTenseOptions(baseWord) {
   return { answer, options: shuffleArray(Array.from(options)).slice(0, 4) }
 }
 
-function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT) {
-  const words = getWordSequence(testConfig.words, count)
+function generateSpellingLetterPool(answer, languageId) {
+  const normalized = String(answer ?? '').trim().toLowerCase()
+  if (!normalized) return []
 
-  if (testConfig.mode === 'past-tense') {
-    return words.map((word, index) => {
-      const pastTense = generatePastTenseOptions(word)
-      return {
-        id: `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        word,
-        baseWord: word,
-        promptWord: word,
-        answer: pastTense.answer,
-        options: pastTense.options,
-        isRetry: false,
+  const extraCount = Math.max(2, Math.min(4, Math.ceil(normalized.length / 3)))
+  const extras = []
+  const distractorWords = mutateSpellingWord(normalized, languageId)
+
+  for (const candidate of distractorWords) {
+    for (const letter of candidate) {
+      if (extras.length >= extraCount) break
+      if (!/^[a-z]$/.test(letter)) continue
+      if (!normalized.includes(letter) || extras.filter((item) => item === letter).length < 1) {
+        extras.push(letter)
       }
-    })
+    }
+    if (extras.length >= extraCount) break
   }
 
-  return words.map((word, index) => ({
-    id: `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    word,
-    answer: word,
-    options: generateSpellingOptions(word, testConfig.testId),
+  const fallbackAlphabet =
+    languageId === 'spelling-spanish'
+      ? ['a', 'e', 'i', 'o', 'u', 'l', 'm', 'n', 'p', 'r', 's', 't']
+      : ['a', 'd', 'e', 'g', 'i', 'l', 'n', 'o', 'r', 's', 't', 'u']
+
+  while (extras.length < extraCount) {
+    const letter = fallbackAlphabet[Math.floor(Math.random() * fallbackAlphabet.length)]
+    extras.push(letter)
+  }
+
+  return shuffleArray([...normalized.split(''), ...extras])
+}
+
+function buildSpellingQuestion(word, testConfig, index, responseMode = 'choice') {
+  const normalizedWord = String(word ?? '').trim().toLowerCase()
+  const baseId = `sp_${testConfig.testId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+  if (testConfig.mode === 'past-tense') {
+    const pastTense = generatePastTenseOptions(normalizedWord)
+    return {
+      id: baseId,
+      word: normalizedWord,
+      baseWord: normalizedWord,
+      promptWord: normalizedWord,
+      answer: pastTense.answer,
+      responseMode,
+      options: responseMode === 'choice' ? pastTense.options : [],
+      letterPool:
+        responseMode === 'build'
+          ? generateSpellingLetterPool(pastTense.answer, testConfig.testId)
+          : [],
+      isRetry: false,
+    }
+  }
+
+  return {
+    id: baseId,
+    word: normalizedWord,
+    answer: normalizedWord,
+    responseMode,
+    options: responseMode === 'choice' ? generateSpellingOptions(normalizedWord, testConfig.testId) : [],
+    letterPool:
+      responseMode === 'build'
+        ? generateSpellingLetterPool(normalizedWord, testConfig.testId)
+        : [],
     isRetry: false,
-  }))
+  }
+}
+
+function generateSpellingQuestions(testConfig, count = INITIAL_QUESTION_COUNT, options = {}) {
+  const allowBuildMode = options.allowBuildMode ?? true
+  const words = getWordSequence(testConfig.words, count)
+  const buildQuestionCount = allowBuildMode ? Math.max(1, Math.floor(count / 3)) : 0
+  const buildIndexes = new Set(shuffleArray(Array.from({ length: count }, (_, index) => index)).slice(0, buildQuestionCount))
+
+  return words.map((word, index) =>
+    buildSpellingQuestion(word, testConfig, index, buildIndexes.has(index) ? 'build' : 'choice'),
+  )
 }
 
 function getObjectSequence(pool, count) {
@@ -1133,7 +1185,7 @@ function generateFullTestQuestionsForSource(sourceTestId, count) {
 
   if (sourceTestId === 'spelling-spanish' || sourceTestId === 'spelling-english') {
     const config = SPELLING_TEST_CONFIGS[sourceTestId]
-    return generateSpellingQuestions(config, count).map((question, index) => ({
+    return generateSpellingQuestions(config, count, { allowBuildMode: false }).map((question, index) => ({
       id: toFullQuestionId(sourceTestId, index),
       sourceTestId,
       sourceLabel: sourceTestId === 'spelling-spanish' ? 'Spelling Spanish' : 'Spelling English',
@@ -4208,6 +4260,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
+  const [currentLetterTiles, setCurrentLetterTiles] = useState([])
+  const [selectedLetterTileIds, setSelectedLetterTileIds] = useState([])
   const [attemptsOnCurrent, setAttemptsOnCurrent] = useState(0)
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
@@ -4290,7 +4344,20 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   }
 
   function setupQuestion(question) {
-    setCurrentOptions(question.options.map((value) => ({ value, isHidden: false })))
+    if (question?.responseMode === 'build') {
+      setCurrentOptions([])
+      setCurrentLetterTiles(
+        (question.letterPool ?? []).map((letter, index) => ({
+          id: `${question.id}_tile_${index}_${letter}`,
+          letter,
+        })),
+      )
+      setSelectedLetterTileIds([])
+    } else {
+      setCurrentOptions((question?.options ?? []).map((value) => ({ value, isHidden: false })))
+      setCurrentLetterTiles([])
+      setSelectedLetterTileIds([])
+    }
     setAttemptsOnCurrent(0)
     setFeedback(null)
     queueWordSpeech(question)
@@ -4490,13 +4557,16 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
         let nextQueue = remainingQueue
 
         if (shouldRepeat) {
-          const nextOptions = isPastTenseMode
-            ? generatePastTenseOptions(currentQuestion.baseWord || currentQuestion.word).options
-            : generateSpellingOptions(currentQuestion.answer, config.testId)
+          const regeneratedQuestion = buildSpellingQuestion(
+            currentQuestion.baseWord || currentQuestion.word,
+            config,
+            Date.now(),
+            currentQuestion.responseMode ?? 'choice',
+          )
           const retryQuestion = {
             ...currentQuestion,
+            ...regeneratedQuestion,
             id: `retry_word_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-            options: nextOptions,
             isRetry: true,
           }
           nextQueue = [...remainingQueue, retryQuestion]
@@ -4525,11 +4595,16 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     playSound('bump', soundEnabled)
     setFeedback('incorrect')
     setAttemptsOnCurrent((previous) => previous + 1)
-    setCurrentOptions((previous) =>
-      previous.map((option) =>
-        option.value === guessedValue ? { ...option, isHidden: true } : option,
-      ),
-    )
+    if (currentQuestion.responseMode === 'build') {
+      setSelectedLetterTileIds([])
+      setCurrentLetterTiles((previous) => shuffleArray(previous))
+    } else {
+      setCurrentOptions((previous) =>
+        previous.map((option) =>
+          option.value === guessedValue ? { ...option, isHidden: true } : option,
+        ),
+      )
+    }
 
     if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
     clearFeedbackTimerRef.current = window.setTimeout(() => {
@@ -4597,6 +4672,41 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
   function handleReplayWord() {
     speakCurrentWord(queue[0])
+  }
+
+  function handleLetterTilePick(tileId) {
+    const currentQuestion = queue[0]
+    if (!currentQuestion || currentQuestion.responseMode !== 'build') return
+    if (feedback === 'correct') return
+    if (selectedLetterTileIds.includes(tileId)) return
+    if (selectedLetterTileIds.length >= currentQuestion.answer.length) return
+
+    setSelectedLetterTileIds((previous) => [...previous, tileId])
+  }
+
+  function handleLetterBackspace() {
+    if (feedback === 'correct') return
+    setSelectedLetterTileIds((previous) => previous.slice(0, -1))
+  }
+
+  function handleLetterClear() {
+    if (feedback === 'correct') return
+    setSelectedLetterTileIds([])
+  }
+
+  function getBuiltAnswer(question) {
+    if (!question || question.responseMode !== 'build') return ''
+    const lettersById = new Map(currentLetterTiles.map((tile) => [tile.id, tile.letter]))
+    return selectedLetterTileIds.map((tileId) => lettersById.get(tileId) ?? '').join('')
+  }
+
+  function handleBuiltAnswerSubmit() {
+    const currentQuestion = queue[0]
+    if (!currentQuestion || currentQuestion.responseMode !== 'build') return
+
+    const builtAnswer = getBuiltAnswer(currentQuestion)
+    if (builtAnswer.length !== currentQuestion.answer.length) return
+    handleGuess(builtAnswer)
   }
 
   function playPastTenseReviewAudio(items, options = {}) {
@@ -4789,6 +4899,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   }
 
   const currentQuestion = queue[0]
+  const isBuildMode = currentQuestion?.responseMode === 'build'
+  const builtAnswer = getBuiltAnswer(currentQuestion)
   const progressPercentage = Math.round((perfectOriginalCount / baseQuestionCount) * 100)
   const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
@@ -4876,14 +4988,22 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
               </span>
               {isPastTenseMode ? (
                 <>
-                  <h2>Choose the past tense form</h2>
+                  <h2>{isBuildMode ? 'Build the past tense form' : 'Choose the past tense form'}</h2>
                   <div className="spelling-base-word">{currentQuestion.baseWord}</div>
-                  <p>Tap the speaker to hear the base verb again.</p>
+                  <p>
+                    {isBuildMode
+                      ? 'Tap letters to build the answer after hearing the base verb.'
+                      : 'Tap the speaker to hear the base verb again.'}
+                  </p>
                 </>
               ) : (
                 <>
-                  <h2>Listen and choose the correct spelling</h2>
-                  <p>Tap the speaker if you want to hear the word again.</p>
+                  <h2>{isBuildMode ? 'Listen and build the correct spelling' : 'Listen and choose the correct spelling'}</h2>
+                  <p>
+                    {isBuildMode
+                      ? 'Fill the boxes with the letters to spell the word.'
+                      : 'Tap the speaker if you want to hear the word again.'}
+                  </p>
                 </>
               )}
               <button
@@ -4905,19 +5025,85 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
             </div>
           </div>
 
-          <div className="answers-grid">
-            {currentOptions.map((option, index) => (
-              <button
-                key={`${currentQuestion.id}_${index}`}
-                type="button"
-                className={`answer-btn answer-word ${option.isHidden ? 'is-hidden' : ''}`}
-                disabled={option.isHidden || feedback === 'correct'}
-                onClick={() => handleGuess(option.value)}
-              >
-                {option.value}
-              </button>
-            ))}
-          </div>
+          {isBuildMode ? (
+            <div className="spelling-build-panel">
+              <div className="spelling-slot-row" aria-label="Build the answer one letter at a time">
+                {Array.from({ length: currentQuestion.answer.length }, (_, index) => (
+                  <div
+                    key={`${currentQuestion.id}_slot_${index}`}
+                    className={`spelling-slot ${builtAnswer[index] ? 'is-filled' : ''}`}
+                  >
+                    {builtAnswer[index] ?? ''}
+                  </div>
+                ))}
+              </div>
+
+              <div className="spelling-build-actions">
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={handleLetterBackspace}
+                  disabled={!selectedLetterTileIds.length || feedback === 'correct'}
+                >
+                  <ArrowLeft size={16} />
+                  <span>Backspace</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={handleLetterClear}
+                  disabled={!selectedLetterTileIds.length || feedback === 'correct'}
+                >
+                  <RotateCcw size={16} />
+                  <span>Clear</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleBuiltAnswerSubmit}
+                  disabled={builtAnswer.length !== currentQuestion.answer.length || feedback === 'correct'}
+                >
+                  <CheckCircle2 size={16} />
+                  <span>Check word</span>
+                </button>
+              </div>
+
+              <div className="letter-bank-grid">
+                {currentLetterTiles.map((tile) => {
+                  const isUsed = selectedLetterTileIds.includes(tile.id)
+                  return (
+                    <button
+                      key={tile.id}
+                      type="button"
+                      className={`letter-tile ${isUsed ? 'is-used' : ''}`}
+                      disabled={
+                        isUsed ||
+                        feedback === 'correct' ||
+                        selectedLetterTileIds.length >= currentQuestion.answer.length
+                      }
+                      onClick={() => handleLetterTilePick(tile.id)}
+                    >
+                      {tile.letter}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="answers-grid">
+              {currentOptions.map((option, index) => (
+                <button
+                  key={`${currentQuestion.id}_${index}`}
+                  type="button"
+                  className={`answer-btn answer-word ${option.isHidden ? 'is-hidden' : ''}`}
+                  disabled={option.isHidden || feedback === 'correct'}
+                  onClick={() => handleGuess(option.value)}
+                >
+                  {option.value}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="game-board">
