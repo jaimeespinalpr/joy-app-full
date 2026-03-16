@@ -422,6 +422,8 @@ const READING_TEST_CONFIGS = {
 
 let audioCtx = null
 let speechVoicesInitialized = false
+let activeMusicTheme = ''
+let backgroundMusicTimerId = null
 
 function warmSpeechVoices() {
   if (typeof window === 'undefined' || !window.speechSynthesis || speechVoicesInitialized) return
@@ -525,6 +527,97 @@ function playSound(type, enabled) {
   } catch (error) {
     console.warn('Could not play sound:', error)
   }
+}
+
+const BACKGROUND_MUSIC_PATTERNS = {
+  snake: {
+    stepMs: 220,
+    notes: [
+      523.25,
+      659.25,
+      783.99,
+      659.25,
+      587.33,
+      698.46,
+      880,
+      698.46,
+      523.25,
+      659.25,
+      783.99,
+      659.25,
+      493.88,
+      587.33,
+      659.25,
+      null,
+    ],
+  },
+}
+
+function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}) {
+  if (!frequency) return
+  if (!initAudio()) return
+
+  try {
+    const osc = audioCtx.createOscillator()
+    const gainNode = audioCtx.createGain()
+    const now = audioCtx.currentTime + startOffsetMs / 1000
+    const duration = durationMs / 1000
+
+    osc.connect(gainNode)
+    gainNode.connect(audioCtx.destination)
+
+    osc.type = options.type ?? 'triangle'
+    osc.frequency.setValueAtTime(frequency, now)
+    gainNode.gain.setValueAtTime(0.001, now)
+    gainNode.gain.linearRampToValueAtTime(options.volume ?? 0.035, now + 0.02)
+    gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration)
+
+    osc.start(now)
+    osc.stop(now + duration + 0.03)
+  } catch (error) {
+    console.warn('Could not play music note:', error)
+  }
+}
+
+function stopBackgroundMusic() {
+  activeMusicTheme = ''
+  if (backgroundMusicTimerId) {
+    window.clearTimeout(backgroundMusicTimerId)
+    backgroundMusicTimerId = null
+  }
+}
+
+function scheduleBackgroundMusic(theme) {
+  const pattern = BACKGROUND_MUSIC_PATTERNS[theme]
+  if (!pattern) return
+
+  pattern.notes.forEach((frequency, index) => {
+    playMusicNote(frequency, index * pattern.stepMs, pattern.stepMs - 35, {
+      type: 'triangle',
+      volume: 0.028,
+    })
+  })
+
+  backgroundMusicTimerId = window.setTimeout(() => {
+    if (activeMusicTheme !== theme) return
+    scheduleBackgroundMusic(theme)
+  }, pattern.notes.length * pattern.stepMs)
+}
+
+function startBackgroundMusic(theme, enabled) {
+  if (!enabled) {
+    stopBackgroundMusic()
+    return false
+  }
+
+  if (!theme) return false
+  if (!initAudio()) return false
+  if (activeMusicTheme === theme && backgroundMusicTimerId) return true
+
+  stopBackgroundMusic()
+  activeMusicTheme = theme
+  scheduleBackgroundMusic(theme)
+  return true
 }
 
 function shuffleArray(values) {
@@ -5249,6 +5342,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [reviewExercises, setReviewExercises] = useState([])
   const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [musicEnabled, setMusicEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [lastResult, setLastResult] = useState(null)
@@ -5309,6 +5403,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     return () => {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      stopBackgroundMusic()
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
@@ -5405,6 +5500,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     finishInProgressRef.current = true
 
     clearTimers()
+    stopBackgroundMusic()
     setCurrentQuestion(null)
     setCurrentOptions([])
     setQuestionFeedback(null)
@@ -5534,6 +5630,20 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }
 
   useEffect(() => {
+    if (phase === 'playing' || phase === 'resume') {
+      startBackgroundMusic('snake', musicEnabled)
+    } else {
+      stopBackgroundMusic()
+    }
+
+    return () => {
+      if (phase === 'playing' || phase === 'resume') {
+        stopBackgroundMusic()
+      }
+    }
+  }, [phase, musicEnabled])
+
+  useEffect(() => {
     if (phase !== 'playing') return undefined
 
     const speed = Math.max(90, SNAKE_BASE_SPEED_MS - applesEaten * 4)
@@ -5556,23 +5666,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
         if (!isOppositeSnakeDirection(nextDirection, currentDirection)) {
           directionRef.current = nextDirection
           setDirection(nextDirection)
-        }
 
-        if (phaseRef.current === 'resume') {
-          setCurrentQuestion(null)
-          setCurrentOptions([])
-          setQuestionFeedback(null)
-          setPhase('playing')
+          if (phaseRef.current === 'resume') {
+            setCurrentQuestion(null)
+            setCurrentOptions([])
+            setQuestionFeedback(null)
+            setPhase('playing')
+          }
         }
         return
-      }
-
-      if ((event.key === ' ' || event.key === 'Enter') && phaseRef.current === 'resume') {
-        event.preventDefault()
-        setCurrentQuestion(null)
-        setCurrentOptions([])
-        setQuestionFeedback(null)
-        setPhase('playing')
       }
     }
 
@@ -5613,7 +5715,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setPhase('restart')
   }
 
-  function handleResumeGame() {
+  function handleResumeWithDirection(nextDirection) {
+    const currentDirection = directionRef.current
+    if (!nextDirection) return
+    if (isOppositeSnakeDirection(nextDirection, currentDirection)) return
+
+    directionRef.current = nextDirection
+    setDirection(nextDirection)
     setCurrentQuestion(null)
     setCurrentOptions([])
     setQuestionFeedback(null)
@@ -5633,6 +5741,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     void (async () => {
       await exitFullscreenMode()
+      stopBackgroundMusic()
       onBack()
     })()
   }
@@ -5803,6 +5912,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           </button>
           <button
             type="button"
+            className="btn btn-ghost"
+            onClick={() => setMusicEnabled((value) => !value)}
+            aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
+            title={musicEnabled ? 'Turn music off' : 'Turn music on'}
+          >
+            <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
+          </button>
+          <button
+            type="button"
             className="btn btn-danger-soft"
             onClick={handleLeaveGame}
             title="Leave Snake"
@@ -5868,18 +5986,48 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
                       <div className="snake-overlay-header">
                         <div>
                           <small>Correct answer</small>
-                          <h3>Continue your run</h3>
+                          <h3>Choose the next direction</h3>
                         </div>
-                        <span className="badge badge-live">Saved your spot</span>
+                        <span className="badge badge-live">Direction required</span>
                       </div>
                       <p className="snake-prompt">
-                        You can keep playing from the same place. Change direction first if you need to avoid another crash.
+                        You can keep playing from the same place, but the snake will not move until you choose the direction to continue.
                       </p>
                       <div className="snake-resume-row">
                         <span className="snake-direction-pill">Current direction: {getSnakeDirectionLabel(direction)}</span>
-                        <button type="button" className="btn btn-primary" onClick={handleResumeGame}>
-                          <Sparkles size={16} />
-                          <span>Continue Snake</span>
+                      </div>
+                      <div className="snake-direction-grid">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleResumeWithDirection('up')}
+                          disabled={isOppositeSnakeDirection('up', direction)}
+                        >
+                          <span>Up</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleResumeWithDirection('left')}
+                          disabled={isOppositeSnakeDirection('left', direction)}
+                        >
+                          <span>Left</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleResumeWithDirection('right')}
+                          disabled={isOppositeSnakeDirection('right', direction)}
+                        >
+                          <span>Right</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={() => handleResumeWithDirection('down')}
+                          disabled={isOppositeSnakeDirection('down', direction)}
+                        >
+                          <span>Down</span>
                         </button>
                       </div>
                     </>
