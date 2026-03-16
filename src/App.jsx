@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   CircleAlert,
   Clock3,
+  Gamepad2,
   Lock,
   LogOut,
   Maximize2,
@@ -191,6 +192,15 @@ const FULL_TEST_CARD = {
   icon: Sparkles,
 }
 
+const GAMES_CARD = {
+  id: 'snake',
+  name: 'Games',
+  description: 'Play Snake. Every crash unlocks a mixed challenge question to keep going.',
+  available: true,
+  accentClass: 'test-games',
+  icon: Gamepad2,
+}
+
 const FULL_TEST_SOURCE_TESTS = [
   { testId: 'multiplication', label: 'Multiplication' },
   { testId: 'word-problems', label: 'Word Problems' },
@@ -199,6 +209,16 @@ const FULL_TEST_SOURCE_TESTS = [
   { testId: 'spelling-spanish', label: 'Spelling Spanish' },
   { testId: 'spelling-english', label: 'Spelling English' },
 ]
+
+const SNAKE_BOARD_SIZE = 14
+const SNAKE_GOAL_APPLES = 10
+const SNAKE_BASE_SPEED_MS = 160
+const SNAKE_DIRECTION_VECTORS = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+}
 
 const SPELLING_TEST_CONFIGS = {
   'spelling-spanish': {
@@ -1269,6 +1289,100 @@ function getPendingFullTestQuestions(queueItems) {
   )
 }
 
+function createInitialSnake() {
+  return [
+    { x: 4, y: 7 },
+    { x: 3, y: 7 },
+    { x: 2, y: 7 },
+  ]
+}
+
+function createSnakeRunState() {
+  const snake = createInitialSnake()
+  return {
+    snake,
+    direction: 'right',
+    apple: getRandomOpenSnakeCell(snake),
+  }
+}
+
+function getRandomOpenSnakeCell(snake) {
+  const occupied = new Set((snake ?? []).map((cell) => `${cell.x},${cell.y}`))
+  const openCells = []
+
+  for (let y = 0; y < SNAKE_BOARD_SIZE; y += 1) {
+    for (let x = 0; x < SNAKE_BOARD_SIZE; x += 1) {
+      const key = `${x},${y}`
+      if (!occupied.has(key)) {
+        openCells.push({ x, y })
+      }
+    }
+  }
+
+  return pickRandom(openCells) ?? { x: 0, y: 0 }
+}
+
+function isSnakeOutOfBounds(cell) {
+  return (
+    !cell ||
+    cell.x < 0 ||
+    cell.y < 0 ||
+    cell.x >= SNAKE_BOARD_SIZE ||
+    cell.y >= SNAKE_BOARD_SIZE
+  )
+}
+
+function snakeCellsMatch(a, b) {
+  return Boolean(a && b && a.x === b.x && a.y === b.y)
+}
+
+function isOppositeSnakeDirection(nextDirection, currentDirection) {
+  return (
+    (nextDirection === 'up' && currentDirection === 'down') ||
+    (nextDirection === 'down' && currentDirection === 'up') ||
+    (nextDirection === 'left' && currentDirection === 'right') ||
+    (nextDirection === 'right' && currentDirection === 'left')
+  )
+}
+
+function getSnakeDirectionFromKey(key) {
+  switch (key) {
+    case 'ArrowUp':
+    case 'w':
+    case 'W':
+      return 'up'
+    case 'ArrowDown':
+    case 's':
+    case 'S':
+      return 'down'
+    case 'ArrowLeft':
+    case 'a':
+    case 'A':
+      return 'left'
+    case 'ArrowRight':
+    case 'd':
+    case 'D':
+      return 'right'
+    default:
+      return ''
+  }
+}
+
+function getSnakeDirectionLabel(direction) {
+  switch (direction) {
+    case 'up':
+      return 'Up'
+    case 'down':
+      return 'Down'
+    case 'left':
+      return 'Left'
+    case 'right':
+      return 'Right'
+    default:
+      return 'Right'
+  }
+}
+
 function spellingRecordFromQuestion(question) {
   if (question.baseWord) {
     return {
@@ -2176,6 +2290,7 @@ function Dashboard({
   globalResultsLoading,
   globalResultsError,
   onStartFullTest,
+  onStartSnakeGame,
   onSelectSubject,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
@@ -2231,12 +2346,13 @@ function Dashboard({
       <section className="panel-card">
         <div className="panel-card-header">
           <div>
-            <h2>Full Test</h2>
-            <p>Mixed challenge of 15 exercises with all test types included.</p>
+            <h2>Special Modes</h2>
+            <p>Jump into a mixed challenge or the new arcade games area.</p>
           </div>
         </div>
-        <div className="tests-grid tests-grid-single">
+        <div className="tests-grid special-modes-grid">
           <TestCard test={FULL_TEST_CARD} onSelect={onStartFullTest} />
+          <TestCard test={GAMES_CARD} onSelect={onStartSnakeGame} />
         </div>
       </section>
 
@@ -5117,6 +5233,731 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
+function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+  const goalApples = SNAKE_GOAL_APPLES
+
+  const [phase, setPhase] = useState('playing')
+  const [snake, setSnake] = useState([])
+  const [direction, setDirection] = useState('right')
+  const [apple, setApple] = useState({ x: 0, y: 0 })
+  const [applesEaten, setApplesEaten] = useState(0)
+  const [collisionQuestionCount, setCollisionQuestionCount] = useState(0)
+  const [restartCount, setRestartCount] = useState(0)
+  const [currentQuestion, setCurrentQuestion] = useState(null)
+  const [currentOptions, setCurrentOptions] = useState([])
+  const [questionFeedback, setQuestionFeedback] = useState(null)
+  const [reviewExercises, setReviewExercises] = useState([])
+  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const snakeRef = useRef([])
+  const appleRef = useRef({ x: 0, y: 0 })
+  const directionRef = useRef('right')
+  const phaseRef = useRef('playing')
+  const applesEatenRef = useRef(0)
+  const collisionQuestionCountRef = useRef(0)
+  const restartCountRef = useRef(0)
+  const reviewExercisesRef = useRef([])
+  const questionDeckRef = useRef([])
+  const autoStartRef = useRef(false)
+  const finishInProgressRef = useRef(false)
+  const coinTimerRef = useRef(null)
+
+  useEffect(() => {
+    snakeRef.current = snake
+  }, [snake])
+
+  useEffect(() => {
+    appleRef.current = apple
+  }, [apple])
+
+  useEffect(() => {
+    directionRef.current = direction
+  }, [direction])
+
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    applesEatenRef.current = applesEaten
+  }, [applesEaten])
+
+  useEffect(() => {
+    collisionQuestionCountRef.current = collisionQuestionCount
+  }, [collisionQuestionCount])
+
+  useEffect(() => {
+    restartCountRef.current = restartCount
+  }, [restartCount])
+
+  useEffect(() => {
+    reviewExercisesRef.current = reviewExercises
+  }, [reviewExercises])
+
+  useEffect(() => {
+    function syncFullscreenState() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreenState)
+    syncFullscreenState()
+
+    return () => {
+      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      document.removeEventListener('fullscreenchange', syncFullscreenState)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startGame({ playStartSound: false })
+  }, [])
+
+  function clearTimers() {
+    if (coinTimerRef.current) {
+      window.clearTimeout(coinTimerRef.current)
+      coinTimerRef.current = null
+    }
+  }
+
+  function refillQuestionDeck() {
+    questionDeckRef.current = [...questionDeckRef.current, ...generateFullTestQuestions(FULL_TEST_QUESTION_COUNT)]
+  }
+
+  function getNextCollisionQuestion() {
+    if (!questionDeckRef.current.length) {
+      refillQuestionDeck()
+    }
+    return questionDeckRef.current.shift() ?? null
+  }
+
+  function resetSnakeBoard() {
+    const nextState = createSnakeRunState()
+    snakeRef.current = nextState.snake
+    directionRef.current = nextState.direction
+    appleRef.current = nextState.apple
+    applesEatenRef.current = 0
+    setSnake(nextState.snake)
+    setDirection(nextState.direction)
+    setApple(nextState.apple)
+    setApplesEaten(0)
+    setCurrentQuestion(null)
+    setCurrentOptions([])
+    setQuestionFeedback(null)
+    setShowCoinAnimation(false)
+    setPhase('playing')
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!document.documentElement?.requestFullscreen) return
+
+    try {
+      await document.documentElement.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  function startGame(options = {}) {
+    const shouldPlayStartSound = options.playStartSound ?? true
+    clearTimers()
+    finishInProgressRef.current = false
+    if (shouldPlayStartSound) {
+      playSound('start', soundEnabled)
+    }
+    void enterFullscreenMode()
+
+    questionDeckRef.current = []
+    refillQuestionDeck()
+    collisionQuestionCountRef.current = 0
+    restartCountRef.current = 0
+    reviewExercisesRef.current = []
+    setCollisionQuestionCount(0)
+    setRestartCount(0)
+    setReviewExercises([])
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    resetSnakeBoard()
+  }
+
+  async function finishGame() {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    clearTimers()
+    setCurrentQuestion(null)
+    setCurrentOptions([])
+    setQuestionFeedback(null)
+    setPhase('finished')
+    playSound('win', soundEnabled)
+
+    const maxScore = 100
+    const penalty = collisionQuestionCountRef.current * 4 + restartCountRef.current * 12
+    const totalScore = Math.max(20, maxScore - penalty)
+    const percentage = Math.min(totalScore, 100)
+    const gradeInfo = getGrade(percentage)
+
+    const summary = {
+      subjectId: 'games',
+      subjectName: 'Games',
+      testId: 'snake',
+      testName: 'Snake',
+      mode: 'snake',
+      languageLabel: 'Arcade',
+      totalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      perfectOriginalCount: applesEatenRef.current,
+      questionCount: goalApples,
+      answeredOriginalCount: applesEatenRef.current,
+      remainingOriginalCount: 0,
+      remainingQueueCount: 0,
+      attemptStatus: 'completed',
+      isAbandoned: false,
+      reviewExercises: reviewExercisesRef.current,
+      pendingExercises: [],
+      applesGoal: goalApples,
+      applesEaten: applesEatenRef.current,
+      collisionQuestionCount: collisionQuestionCountRef.current,
+      restartCount: restartCountRef.current,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setSaveStatus('saving')
+    setSaveMessage('Saving result...')
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage('Result saved to Firebase.')
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  function handleSnakeCollision() {
+    const nextQuestion = getNextCollisionQuestion()
+    if (!nextQuestion) {
+      const nextRestartCount = restartCountRef.current + 1
+      restartCountRef.current = nextRestartCount
+      setRestartCount(nextRestartCount)
+      playSound('bump', soundEnabled)
+      resetSnakeBoard()
+      return
+    }
+
+    const nextCollisionCount = collisionQuestionCountRef.current + 1
+    collisionQuestionCountRef.current = nextCollisionCount
+    setCollisionQuestionCount(nextCollisionCount)
+    setCurrentQuestion(nextQuestion)
+    setCurrentOptions((nextQuestion.options ?? []).map((value) => ({ value, isHidden: false })))
+    setQuestionFeedback(null)
+    playSound('bump', soundEnabled)
+    setPhase('question')
+  }
+
+  function moveSnakeStep() {
+    if (phaseRef.current !== 'playing') return
+
+    const currentSnake = snakeRef.current
+    if (!currentSnake.length) return
+
+    const directionVector = SNAKE_DIRECTION_VECTORS[directionRef.current] ?? SNAKE_DIRECTION_VECTORS.right
+    const head = currentSnake[0]
+    const nextHead = {
+      x: head.x + directionVector.x,
+      y: head.y + directionVector.y,
+    }
+    const willEatApple = snakeCellsMatch(nextHead, appleRef.current)
+    const bodyToCheck = willEatApple ? currentSnake : currentSnake.slice(0, -1)
+
+    if (isSnakeOutOfBounds(nextHead) || bodyToCheck.some((cell) => snakeCellsMatch(cell, nextHead))) {
+      handleSnakeCollision()
+      return
+    }
+
+    const nextSnake = [nextHead, ...currentSnake]
+    if (!willEatApple) {
+      nextSnake.pop()
+    }
+
+    snakeRef.current = nextSnake
+    setSnake(nextSnake)
+
+    if (!willEatApple) return
+
+    playSound('coin', soundEnabled)
+    setShowCoinAnimation(true)
+    if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+    coinTimerRef.current = window.setTimeout(() => {
+      setShowCoinAnimation(false)
+    }, 650)
+
+    const nextAppleCount = applesEatenRef.current + 1
+    applesEatenRef.current = nextAppleCount
+    setApplesEaten(nextAppleCount)
+
+    if (nextAppleCount >= goalApples) {
+      const nextApple = getRandomOpenSnakeCell(nextSnake)
+      appleRef.current = nextApple
+      setApple(nextApple)
+      void finishGame()
+      return
+    }
+
+    const nextApple = getRandomOpenSnakeCell(nextSnake)
+    appleRef.current = nextApple
+    setApple(nextApple)
+  }
+
+  useEffect(() => {
+    if (phase !== 'playing') return undefined
+
+    const speed = Math.max(90, SNAKE_BASE_SPEED_MS - applesEaten * 4)
+    const intervalId = window.setInterval(() => {
+      moveSnakeStep()
+    }, speed)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [phase, applesEaten, soundEnabled])
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      const nextDirection = getSnakeDirectionFromKey(event.key)
+
+      if (nextDirection) {
+        event.preventDefault()
+        const currentDirection = directionRef.current
+        if (!isOppositeSnakeDirection(nextDirection, currentDirection)) {
+          directionRef.current = nextDirection
+          setDirection(nextDirection)
+        }
+
+        if (phaseRef.current === 'resume') {
+          setCurrentQuestion(null)
+          setCurrentOptions([])
+          setQuestionFeedback(null)
+          setPhase('playing')
+        }
+        return
+      }
+
+      if ((event.key === ' ' || event.key === 'Enter') && phaseRef.current === 'resume') {
+        event.preventDefault()
+        setCurrentQuestion(null)
+        setCurrentOptions([])
+        setQuestionFeedback(null)
+        setPhase('playing')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+    await enterFullscreenMode()
+  }
+
+  function handleQuestionGuess(guessedValue) {
+    if (!currentQuestion || phase !== 'question') return
+    if (questionFeedback) return
+
+    if (guessedValue === currentQuestion.answer) {
+      playSound('coin', soundEnabled)
+      setQuestionFeedback('correct')
+      setPhase('resume')
+      return
+    }
+
+    playSound('bump', soundEnabled)
+    setQuestionFeedback('incorrect')
+    const nextRestartCount = restartCountRef.current + 1
+    restartCountRef.current = nextRestartCount
+    setRestartCount(nextRestartCount)
+    const nextReviewExercises = mergeExerciseRecords(
+      reviewExercisesRef.current,
+      [fullTestRecordFromQuestion(currentQuestion)],
+    )
+    reviewExercisesRef.current = nextReviewExercises
+    setReviewExercises(nextReviewExercises)
+    setPhase('restart')
+  }
+
+  function handleResumeGame() {
+    setCurrentQuestion(null)
+    setCurrentOptions([])
+    setQuestionFeedback(null)
+    setPhase('playing')
+  }
+
+  function handleRestartRun() {
+    setCurrentQuestion(null)
+    setCurrentOptions([])
+    setQuestionFeedback(null)
+    resetSnakeBoard()
+  }
+
+  function handleLeaveGame() {
+    const confirmed = window.confirm('Leave Snake and lose the current run?')
+    if (!confirmed) return
+
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore: 0,
+      maxScore: 100,
+      percentage: 0,
+      grade: 'F',
+      applesGoal: goalApples,
+      applesEaten: applesEaten,
+      collisionQuestionCount,
+      restartCount,
+      reviewExercises,
+    }
+    const gradeInfo = getGrade(summary.percentage)
+    const reviewList = summary.reviewExercises ?? []
+
+    return (
+      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="results-card">
+          <div className={`results-trophy ${gradeInfo.color}`}>
+            <Gamepad2 size={34} />
+          </div>
+          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
+          <p className="results-message">
+            Snake cleared. You ate {summary.applesGoal} apples and finished the arcade challenge.
+          </p>
+
+          <div className="story-result-chip">
+            <Gamepad2 size={14} />
+            <span>Games · Snake</span>
+          </div>
+
+          <div className="score-panel">
+            <div className="score-labels">
+              <span>Final score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore} pts
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <div className="score-meta">
+              <span>{summary.percentage}%</span>
+              <span>
+                {summary.collisionQuestionCount} collision questions · {summary.restartCount} restarts
+              </span>
+            </div>
+          </div>
+
+          <div className="study-panels">
+            <div className="study-card">
+              <div className="study-card-header">
+                <BookOpen size={16} />
+                <h3>Questions to review</h3>
+              </div>
+              {reviewList.length === 0 ? (
+                <p className="study-empty">Excellent: there were no failed collision questions.</p>
+              ) : (
+                <div className="exercise-tags">
+                  {reviewList.map((item) => (
+                    <span key={item.key} className="exercise-tag review-long">
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`banner ${
+              saveStatus === 'saved'
+                ? 'success'
+                : saveStatus === 'error'
+                  ? 'error'
+                  : 'info'
+            }`}
+          >
+            {saveStatus === 'saved' ? (
+              <CheckCircle2 size={16} />
+            ) : saveStatus === 'error' ? (
+              <CircleAlert size={16} />
+            ) : (
+              <Clock3 size={16} />
+            )}
+            <span>{saveMessage || 'Result ready.'}</span>
+          </div>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={startGame}>
+              <RotateCcw size={16} />
+              <span>Play Snake again</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleLeaveGame}>
+              <ArrowLeft size={16} />
+              <span>Back to home</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const snakeCells = []
+  const snakeCellMap = new Map(snake.map((cell, index) => [`${cell.x},${cell.y}`, index]))
+
+  for (let y = 0; y < SNAKE_BOARD_SIZE; y += 1) {
+    for (let x = 0; x < SNAKE_BOARD_SIZE; x += 1) {
+      const key = `${x},${y}`
+      const snakeIndex = snakeCellMap.get(key)
+      snakeCells.push({
+        key,
+        isHead: snakeIndex === 0,
+        isBody: typeof snakeIndex === 'number' && snakeIndex > 0,
+        isApple: apple.x === x && apple.y === y,
+      })
+    }
+  }
+
+  return (
+    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <CoinBurst visible={showCoinAnimation} />
+
+      <div className="game-topbar">
+        <div className="hud-pill">
+          <span className="hud-label">Apples</span>
+          <strong>
+            {String(applesEaten).padStart(2, '0')} / {String(goalApples).padStart(2, '0')}
+          </strong>
+        </div>
+
+        <div className="hud-progress">
+          <div className="hud-row">
+            <span>Hello, {studentName || 'Student'}</span>
+            <span>{Math.round((applesEaten / goalApples) * 100)}%</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${(applesEaten / goalApples) * 100}%` }} />
+          </div>
+          <small>
+            Games · Snake · Reach {goalApples} apples. Crash questions: {collisionQuestionCount}
+          </small>
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </div>
+
+        <div className="hud-actions">
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => void handleFullscreenToggle()}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost icon-only"
+            onClick={() => setSoundEnabled((value) => !value)}
+            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+          >
+            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger-soft"
+            onClick={handleLeaveGame}
+            title="Leave Snake"
+          >
+            <ArrowLeft size={16} />
+            <span>Leave game</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="game-board snake-layout">
+        <div className="snake-stage-card">
+          <div className="snake-stage-header">
+            <div>
+              <strong>Snake</strong>
+              <small>Use arrow keys or WASD to move.</small>
+            </div>
+            <span className="badge badge-live">Goal: {goalApples} apples</span>
+          </div>
+
+          <div className="snake-board-stage">
+            <div className="snake-grid" role="img" aria-label="Snake board">
+              {snakeCells.map((cell) => (
+                <div
+                  key={cell.key}
+                  className={`snake-cell ${cell.isHead ? 'is-head' : ''} ${cell.isBody ? 'is-body' : ''} ${cell.isApple ? 'is-apple' : ''}`}
+                />
+              ))}
+            </div>
+
+            {(phase === 'question' || phase === 'resume' || phase === 'restart') && (
+              <div className="snake-overlay">
+                <div className="snake-overlay-card">
+                  {phase === 'question' && currentQuestion && (
+                    <>
+                      <div className="snake-overlay-header">
+                        <div>
+                          <small>Crash challenge</small>
+                          <h3>{currentQuestion.sourceLabel}</h3>
+                        </div>
+                        <span className="badge badge-live">Answer to continue</span>
+                      </div>
+                      {currentQuestion.context && <p className="snake-context">{currentQuestion.context}</p>}
+                      <p className="snake-prompt">{currentQuestion.prompt}</p>
+                      <div className="answers-grid">
+                        {currentOptions.map((option, index) => (
+                          <button
+                            key={`${currentQuestion.id}_${index}`}
+                            type="button"
+                            className={`answer-btn answer-text ${option.isHidden ? 'is-hidden' : ''}`}
+                            disabled={Boolean(questionFeedback)}
+                            onClick={() => handleQuestionGuess(option.value)}
+                          >
+                            {option.value}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {phase === 'resume' && (
+                    <>
+                      <div className="snake-overlay-header">
+                        <div>
+                          <small>Correct answer</small>
+                          <h3>Continue your run</h3>
+                        </div>
+                        <span className="badge badge-live">Saved your spot</span>
+                      </div>
+                      <p className="snake-prompt">
+                        You can keep playing from the same place. Change direction first if you need to avoid another crash.
+                      </p>
+                      <div className="snake-resume-row">
+                        <span className="snake-direction-pill">Current direction: {getSnakeDirectionLabel(direction)}</span>
+                        <button type="button" className="btn btn-primary" onClick={handleResumeGame}>
+                          <Sparkles size={16} />
+                          <span>Continue Snake</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {phase === 'restart' && (
+                    <>
+                      <div className="snake-overlay-header">
+                        <div>
+                          <small>Wrong answer</small>
+                          <h3>Restart from zero apples</h3>
+                        </div>
+                        <span className="badge badge-soon">Run reset</span>
+                      </div>
+                      <p className="snake-prompt">
+                        That answer was not correct. The snake must restart from the beginning before reaching {goalApples} apples.
+                      </p>
+                      <button type="button" className="btn btn-primary" onClick={handleRestartRun}>
+                        <RotateCcw size={16} />
+                        <span>Restart run</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="snake-side-panel">
+          <div className="story-card">
+            <div className="story-card-header">
+              <div className="story-card-title">
+                <Gamepad2 size={18} />
+                <div>
+                  <small>Arcade rules</small>
+                  <h3>How this works</h3>
+                </div>
+              </div>
+            </div>
+            <div className="story-card-body">
+              <p>Eat {goalApples} apples to win.</p>
+              <p>Every crash opens one mixed question from the Full Test pool.</p>
+              <p>If you answer correctly, you continue from the same board position.</p>
+              <p>If you answer incorrectly, the snake restarts from zero apples.</p>
+            </div>
+          </div>
+
+          <div className="study-card">
+            <div className="study-card-header">
+              <Trophy size={16} />
+              <h3>Run stats</h3>
+            </div>
+            <div className="snake-stats">
+              <div className="snake-stat-item">
+                <span>Apples eaten</span>
+                <strong>{applesEaten}</strong>
+              </div>
+              <div className="snake-stat-item">
+                <span>Collision questions</span>
+                <strong>{collisionQuestionCount}</strong>
+              </div>
+              <div className="snake-stat-item">
+                <span>Restarts</span>
+                <strong>{restartCount}</strong>
+              </div>
+              <div className="snake-stat-item">
+                <span>Direction</span>
+                <strong>{getSnakeDirectionLabel(direction)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const questionCount = FULL_TEST_QUESTION_COUNT
 
@@ -5951,6 +6792,12 @@ function App() {
     setScreen('full-test')
   }
 
+  function openSnakeGame() {
+    setSelectedSubjectId(null)
+    setSelectedTestId(null)
+    setScreen('snake')
+  }
+
   function goToDashboard() {
     setScreen('dashboard')
     setSelectedSubjectId(null)
@@ -5984,6 +6831,7 @@ function App() {
   const studentDisplayName = getStudentDisplayName(studentProfile, currentUser)
   const rankingSourceResults = globalResults.length ? globalResults : personalResults
   const fullTestTopRecord = getTopRecordForTest(rankingSourceResults, 'full', 'full-test')
+  const snakeTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'snake')
   const selectedTestTopRecord =
     selectedSubject && selectedTest
       ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
@@ -6028,6 +6876,7 @@ function App() {
             globalResultsLoading={globalResultsLoading}
             globalResultsError={globalResultsError}
             onStartFullTest={openFullTest}
+            onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
           />
         )}
@@ -6038,6 +6887,15 @@ function App() {
             onSaveResult={saveAssessmentResult}
             studentName={studentDisplayName}
             topTestRecord={fullTestTopRecord}
+          />
+        )}
+
+        {screen === 'snake' && (
+          <SnakeChallenge
+            onBack={goToDashboard}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={snakeTopRecord}
           />
         )}
 
