@@ -207,7 +207,7 @@ const SPELLING_TEST_CONFIGS = {
     testId: 'spelling-spanish',
     testName: 'Spanish',
     languageLabel: 'Spanish',
-    voiceLang: 'es-ES',
+    voiceLang: 'es-MX',
     words: [
       'casa',
       'gato',
@@ -1390,6 +1390,22 @@ function getPreferredSpeechVoice(voiceLang, options = {}) {
 
       if (requestedBase === 'es') {
         if (name.includes('español') || name.includes('spanish')) score += 18
+        if (lang === 'es-mx') score += 48
+        if (lang === 'es-us') score += 34
+        if (lang === 'es-419') score += 34
+        if (lang.startsWith('es-mx')) score += 24
+        if (lang.startsWith('es-us')) score += 18
+        if (lang.startsWith('es-419')) score += 18
+        if (
+          name.includes('mexico') ||
+          name.includes('mexican') ||
+          name.includes('latam') ||
+          name.includes('latin')
+        ) {
+          score += 20
+        }
+        if (name.includes('us') || name.includes('america')) score += 8
+        if (lang === 'es-es' || name.includes('spain') || name.includes('castilian')) score -= 20
       }
       if (requestedBase === 'en') {
         if (name.includes('english')) score += 18
@@ -1418,7 +1434,7 @@ function speakDictationWord(word, voiceLang, enabled) {
   try {
     window.speechSynthesis.cancel()
     const utterance = new UtteranceCtor(word)
-    const preferredVoice = getPreferredSpeechVoice(voiceLang)
+    const preferredVoice = getPreferredSpeechVoice(voiceLang, { preferGoogle: true })
 
     if (preferredVoice) {
       utterance.voice = preferredVoice
