@@ -6574,6 +6574,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
 function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTestRecord }) {
   const goalApples = SNAKE_GOAL_APPLES
+  const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'
 
   const [phase, setPhase] = useState('playing')
   const [snake, setSnake] = useState([])
@@ -6660,11 +6661,11 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   useEffect(() => {
     function syncMobileConsole() {
       if (typeof window === 'undefined') return
-      setIsMobileConsole(window.matchMedia('(max-width: 900px), (pointer: coarse)').matches)
+      setIsMobileConsole(window.matchMedia(mobileConsoleQuery).matches)
     }
 
     syncMobileConsole()
-    const mediaQuery = window.matchMedia('(max-width: 900px), (pointer: coarse)')
+    const mediaQuery = window.matchMedia(mobileConsoleQuery)
     mediaQuery.addEventListener?.('change', syncMobileConsole)
 
     function syncFullscreenState() {

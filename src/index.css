@@ -2855,7 +2855,7 @@ button {
 
 }
 
-@media (max-width: 700px) {
+@media (max-width: 1024px), (pointer: coarse) and (max-width: 1366px) {
   .avatar-stage {
     grid-template-columns: 1fr;
     min-height: 560px;
