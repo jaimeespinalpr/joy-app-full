@@ -201,6 +201,209 @@ const GAMES_CARD = {
   icon: Gamepad2,
 }
 
+const AVATAR_BASE_ITEM_IDS = ['top-classic', 'shoes-classic']
+const AVATAR_REWARD_CATALOG = [
+  {
+    id: 'hat-red-cap',
+    slot: 'hat',
+    name: 'Red Cap',
+    rewardLabel: 'Unlocked at 10 runs',
+    style: { fill: '#ff6f61', accent: '#c94b45', trim: '#ffd9cf' },
+  },
+  {
+    id: 'top-mint-hoodie',
+    slot: 'top',
+    name: 'Mint Hoodie',
+    rewardLabel: 'Unlocked at 20 runs',
+    style: { fill: '#5fd8be', accent: '#2f9f8d', trim: '#e8fff9' },
+  },
+  {
+    id: 'accessory-star-glasses',
+    slot: 'accessory',
+    name: 'Star Glasses',
+    rewardLabel: 'Unlocked at 30 runs',
+    style: { fill: '#ffd54f', accent: '#7a5b00', trim: '#fff7d2' },
+  },
+  {
+    id: 'shoes-rocket',
+    slot: 'shoes',
+    name: 'Rocket Shoes',
+    rewardLabel: 'Unlocked at 40 runs',
+    style: { fill: '#5b8cff', accent: '#2e4ba7', trim: '#e6eeff' },
+  },
+  {
+    id: 'hat-explorer',
+    slot: 'hat',
+    name: 'Explorer Hat',
+    rewardLabel: 'Unlocked at 50 runs',
+    style: { fill: '#d6a15f', accent: '#8b5e2c', trim: '#f9ead6' },
+  },
+  {
+    id: 'top-sun-jacket',
+    slot: 'top',
+    name: 'Sun Jacket',
+    rewardLabel: 'Unlocked at 60 runs',
+    style: { fill: '#ffb24d', accent: '#d77700', trim: '#fff0d9' },
+  },
+  {
+    id: 'accessory-rainbow-scarf',
+    slot: 'accessory',
+    name: 'Rainbow Scarf',
+    rewardLabel: 'Unlocked at 70 runs',
+    style: { fill: '#ff7ab6', accent: '#7e57c2', trim: '#ffe3f2' },
+  },
+  {
+    id: 'shoes-trail-boots',
+    slot: 'shoes',
+    name: 'Trail Boots',
+    rewardLabel: 'Unlocked at 80 runs',
+    style: { fill: '#8d6e63', accent: '#5d4037', trim: '#eee1dc' },
+  },
+  {
+    id: 'hat-headphones',
+    slot: 'hat',
+    name: 'Headphones',
+    rewardLabel: 'Unlocked at 90 runs',
+    style: { fill: '#7c4dff', accent: '#4527a0', trim: '#efe7ff' },
+  },
+  {
+    id: 'accessory-gold-cape',
+    slot: 'accessory',
+    name: 'Gold Cape',
+    rewardLabel: 'Unlocked at 100 runs',
+    style: { fill: '#ffd166', accent: '#cc8f00', trim: '#fff4d8' },
+  },
+]
+
+const AVATAR_CATALOG = [
+  {
+    id: 'top-classic',
+    slot: 'top',
+    name: 'Classic Tee',
+    rewardLabel: 'Starter item',
+    style: { fill: '#5b8cff', accent: '#3857be', trim: '#e6eeff' },
+  },
+  {
+    id: 'shoes-classic',
+    slot: 'shoes',
+    name: 'Classic Sneakers',
+    rewardLabel: 'Starter item',
+    style: { fill: '#546e7a', accent: '#37474f', trim: '#dfe7ea' },
+  },
+  ...AVATAR_REWARD_CATALOG,
+]
+
+const AVATAR_ITEM_MAP = Object.fromEntries(AVATAR_CATALOG.map((item) => [item.id, item]))
+const AVATAR_SLOT_LABELS = {
+  hat: 'Hat',
+  top: 'Top',
+  accessory: 'Accessory',
+  shoes: 'Shoes',
+}
+
+function getDefaultAvatarState() {
+  return {
+    totalCompletedRuns: 0,
+    unlockedItemIds: [...AVATAR_BASE_ITEM_IDS],
+    equipped: {
+      hat: '',
+      top: 'top-classic',
+      accessory: '',
+      shoes: 'shoes-classic',
+    },
+  }
+}
+
+function countCompletedRuns(results) {
+  return results.filter((result) => result.attemptStatus !== 'abandoned').length
+}
+
+function getAvatarRewardForRunCount(totalCompletedRuns) {
+  if (totalCompletedRuns < 10 || totalCompletedRuns % 10 !== 0) return null
+  return AVATAR_REWARD_CATALOG[(totalCompletedRuns / 10) - 1] ?? null
+}
+
+function buildUnlockedAvatarItemIds(totalCompletedRuns, existingItemIds = []) {
+  const unlockedItems = new Set(AVATAR_BASE_ITEM_IDS)
+
+  existingItemIds.forEach((itemId) => {
+    if (AVATAR_ITEM_MAP[itemId]) unlockedItems.add(itemId)
+  })
+
+  AVATAR_REWARD_CATALOG.slice(0, Math.floor(totalCompletedRuns / 10)).forEach((item) => {
+    unlockedItems.add(item.id)
+  })
+
+  return Array.from(unlockedItems)
+}
+
+function normalizeAvatarState(rawAvatar, totalCompletedRuns) {
+  const fallbackAvatar = getDefaultAvatarState()
+  const nextRunCount = Math.max(0, Number(totalCompletedRuns ?? rawAvatar?.totalCompletedRuns ?? 0))
+  const unlockedItemIds = buildUnlockedAvatarItemIds(nextRunCount, rawAvatar?.unlockedItemIds ?? [])
+  const unlockedSet = new Set(unlockedItemIds)
+  const equipped = {
+    hat: unlockedSet.has(rawAvatar?.equipped?.hat) ? rawAvatar.equipped.hat : fallbackAvatar.equipped.hat,
+    top: unlockedSet.has(rawAvatar?.equipped?.top) ? rawAvatar.equipped.top : fallbackAvatar.equipped.top,
+    accessory: unlockedSet.has(rawAvatar?.equipped?.accessory)
+      ? rawAvatar.equipped.accessory
+      : fallbackAvatar.equipped.accessory,
+    shoes: unlockedSet.has(rawAvatar?.equipped?.shoes) ? rawAvatar.equipped.shoes : fallbackAvatar.equipped.shoes,
+  }
+
+  return {
+    totalCompletedRuns: nextRunCount,
+    unlockedItemIds,
+    equipped,
+  }
+}
+
+function normalizeStudentProfileWithAvatar(profile, totalCompletedRuns) {
+  const safeProfile = profile ?? {}
+  return {
+    ...safeProfile,
+    avatar: normalizeAvatarState(safeProfile.avatar, totalCompletedRuns),
+  }
+}
+
+function getAvatarItemsForSlot(slot, avatarState) {
+  const unlockedSet = new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS)
+  return AVATAR_CATALOG
+    .filter((item) => item.slot === slot)
+    .map((item) => ({
+      ...item,
+      isUnlocked: unlockedSet.has(item.id),
+    }))
+}
+
+function getNextAvatarReward(totalCompletedRuns) {
+  return AVATAR_REWARD_CATALOG[Math.floor(totalCompletedRuns / 10)] ?? null
+}
+
+function getAvatarProgressSummary(avatarState) {
+  const totalCompletedRuns = avatarState?.totalCompletedRuns ?? 0
+  const nextReward = getNextAvatarReward(totalCompletedRuns)
+  const progressInBlock = totalCompletedRuns % 10
+
+  if (!nextReward) {
+    return {
+      totalCompletedRuns,
+      nextReward: null,
+      progressPercent: 100,
+      remainingRuns: 0,
+      unlockedCount: new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS).size,
+    }
+  }
+
+  return {
+    totalCompletedRuns,
+    nextReward,
+    progressPercent: progressInBlock * 10,
+    remainingRuns: progressInBlock === 0 ? 10 : 10 - progressInBlock,
+    unlockedCount: new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS).size,
+  }
+}
+
 const FULL_TEST_SOURCE_TESTS = [
   { testId: 'multiplication', label: 'Multiplication' },
   { testId: 'word-problems', label: 'Word Problems' },
@@ -2253,6 +2456,223 @@ function TestCard({ test, onSelect }) {
   )
 }
 
+function AvatarPreview({ avatar, studentName }) {
+  const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
+  const topItem = AVATAR_ITEM_MAP[safeAvatar.equipped.top] ?? AVATAR_ITEM_MAP['top-classic']
+  const shoesItem = AVATAR_ITEM_MAP[safeAvatar.equipped.shoes] ?? AVATAR_ITEM_MAP['shoes-classic']
+  const hatItem = safeAvatar.equipped.hat ? AVATAR_ITEM_MAP[safeAvatar.equipped.hat] : null
+  const accessoryItem = safeAvatar.equipped.accessory ? AVATAR_ITEM_MAP[safeAvatar.equipped.accessory] : null
+
+  return (
+    <div className="avatar-stage">
+      <div className="avatar-stage-glow" aria-hidden="true" />
+      <svg className="avatar-canvas" viewBox="0 0 220 250" role="img" aria-label={`${studentName} avatar`}>
+        <ellipse cx="110" cy="220" rx="62" ry="15" fill="rgba(31, 48, 108, 0.12)" />
+
+        {accessoryItem?.id === 'accessory-gold-cape' && (
+          <path
+            d="M72 110 C76 162, 80 188, 62 210 L100 202 L120 214 L140 202 L178 210 C160 186, 164 162, 168 110 Z"
+            fill={accessoryItem.style.fill}
+            opacity="0.95"
+          />
+        )}
+
+        {hatItem?.id === 'hat-red-cap' && (
+          <>
+            <path d="M79 52 C91 30, 130 28, 145 52 L145 66 L79 66 Z" fill={hatItem.style.fill} />
+            <path d="M133 63 C149 64, 162 69, 166 79 L128 77 Z" fill={hatItem.style.accent} />
+          </>
+        )}
+
+        {hatItem?.id === 'hat-explorer' && (
+          <>
+            <ellipse cx="110" cy="54" rx="40" ry="12" fill={hatItem.style.accent} />
+            <path d="M84 58 C86 36, 134 35, 138 58 L138 73 L84 73 Z" fill={hatItem.style.fill} />
+            <ellipse cx="110" cy="73" rx="46" ry="11" fill={hatItem.style.trim} />
+          </>
+        )}
+
+        <circle cx="110" cy="80" r="33" fill="#ffd8c0" />
+        <path d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z" fill="#4c3567" />
+        <circle cx="98" cy="82" r="3.8" fill="#213057" />
+        <circle cx="122" cy="82" r="3.8" fill="#213057" />
+        <path d="M101 98 C106 102, 115 102, 120 98" stroke="#c06c59" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+
+        {hatItem?.id === 'hat-headphones' && (
+          <>
+            <path d="M80 79 C80 52, 140 52, 140 79" stroke={hatItem.style.fill} strokeWidth="8" fill="none" strokeLinecap="round" />
+            <rect x="71" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
+            <rect x="137" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
+          </>
+        )}
+
+        <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill="#ffd8c0" />
+        <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill="#ffd8c0" />
+
+        <rect x="78" y="106" width="64" height="74" rx="20" fill={topItem.style.fill} />
+        <rect x="78" y="106" width="64" height="17" rx="8" fill={topItem.style.trim} opacity="0.55" />
+        <path d="M100 106 L120 106 L124 123 L96 123 Z" fill="#f5f8ff" opacity="0.78" />
+
+        {topItem.id === 'top-mint-hoodie' && (
+          <>
+            <path d="M88 107 C92 92, 128 92, 132 107" stroke={topItem.style.accent} strokeWidth="6" fill="none" />
+            <path d="M110 120 L110 148" stroke={topItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+          </>
+        )}
+
+        {topItem.id === 'top-sun-jacket' && (
+          <>
+            <path d="M110 106 L110 178" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+            <path d="M88 138 L101 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+            <path d="M119 138 L132 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+          </>
+        )}
+
+        {accessoryItem?.id === 'accessory-star-glasses' && (
+          <>
+            <path d="M92 82 L96 88 L103 88 L97 93 L99 100 L92 96 L85 100 L87 93 L81 88 L88 88 Z" fill={accessoryItem.style.fill} />
+            <path d="M128 82 L132 88 L139 88 L133 93 L135 100 L128 96 L121 100 L123 93 L117 88 L124 88 Z" fill={accessoryItem.style.fill} />
+            <path d="M100 90 L120 90" stroke={accessoryItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+          </>
+        )}
+
+        {accessoryItem?.id === 'accessory-rainbow-scarf' && (
+          <>
+            <rect x="86" y="117" width="48" height="12" rx="6" fill={accessoryItem.style.fill} />
+            <path d="M126 118 L138 161" stroke={accessoryItem.style.accent} strokeWidth="10" strokeLinecap="round" />
+            <path d="M86 123 H134" stroke={accessoryItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+          </>
+        )}
+
+        <rect x="89" y="178" width="17" height="36" rx="8" fill="#293454" />
+        <rect x="114" y="178" width="17" height="36" rx="8" fill="#293454" />
+
+        <path d="M84 210 H108 V223 H82 C82 216, 83 213, 84 210 Z" fill={shoesItem.style.fill} />
+        <path d="M112 210 H136 V223 H110 C110 216, 111 213, 112 210 Z" fill={shoesItem.style.fill} />
+        <path d="M84 217 H108" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+        <path d="M112 217 H136" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+
+        {shoesItem.id === 'shoes-rocket' && (
+          <>
+            <path d="M81 221 L75 226 L83 226 Z" fill="#ff9f43" />
+            <path d="M139 221 L145 226 L137 226 Z" fill="#ff9f43" />
+          </>
+        )}
+
+        {shoesItem.id === 'shoes-trail-boots' && (
+          <>
+            <path d="M86 213 H106" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+            <path d="M114 213 H134" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+          </>
+        )}
+      </svg>
+      <div className="avatar-stage-caption">
+        <strong>{studentName}</strong>
+        <span>Custom outfit unlocked every 10 completed runs.</span>
+      </div>
+    </div>
+  )
+}
+
+function AvatarStudio({ studentName, avatar, onEquipItem }) {
+  const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
+  const progress = getAvatarProgressSummary(safeAvatar)
+
+  return (
+    <section className="panel-card avatar-panel">
+      <div className="panel-card-header">
+        <div>
+          <h2>Avatar Closet</h2>
+          <p>Each 10 completed runs unlocks a new clothing piece for this student.</p>
+        </div>
+        <div className="avatar-progress-chip">
+          <Sparkles size={16} />
+          <span>{progress.totalCompletedRuns} completed runs</span>
+        </div>
+      </div>
+
+      <div className="avatar-layout">
+        <AvatarPreview avatar={safeAvatar} studentName={studentName} />
+
+        <div className="avatar-controls">
+          <div className="avatar-summary-grid">
+            <div className="avatar-summary-card">
+              <span>Unlocked pieces</span>
+              <strong>{progress.unlockedCount}</strong>
+            </div>
+            <div className="avatar-summary-card">
+              <span>Next gift</span>
+              <strong>{progress.nextReward?.name ?? 'Closet complete'}</strong>
+            </div>
+          </div>
+
+          <div className="avatar-progress-bar" aria-hidden="true">
+            <div style={{ width: `${progress.progressPercent}%` }} />
+          </div>
+
+          <p className="avatar-progress-copy">
+            {progress.nextReward
+              ? `${progress.remainingRuns} more completed runs to unlock ${progress.nextReward.name}.`
+              : 'All avatar rewards are unlocked.'}
+          </p>
+
+          <div className="avatar-slot-list">
+            {Object.entries(AVATAR_SLOT_LABELS).map(([slot, label]) => {
+              const items = getAvatarItemsForSlot(slot, safeAvatar)
+              const supportsEmpty = slot === 'hat' || slot === 'accessory'
+              const selectedItemId = safeAvatar.equipped[slot] ?? ''
+
+              return (
+                <div key={slot} className="avatar-slot-card">
+                  <div className="avatar-slot-header">
+                    <strong>{label}</strong>
+                    <span>{items.filter((item) => item.isUnlocked).length} unlocked</span>
+                  </div>
+
+                  <div className="avatar-wardrobe-grid">
+                    {supportsEmpty && (
+                      <button
+                        type="button"
+                        className={`avatar-item-chip ${selectedItemId === '' ? 'is-selected' : ''}`}
+                        onClick={() => onEquipItem(slot, '')}
+                      >
+                        <span className="avatar-item-swatch is-none" />
+                        <span>None</span>
+                        <small>No extra item</small>
+                      </button>
+                    )}
+
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`avatar-item-chip ${selectedItemId === item.id ? 'is-selected' : ''} ${item.isUnlocked ? '' : 'is-locked'}`}
+                        onClick={() => item.isUnlocked && onEquipItem(slot, item.id)}
+                        disabled={!item.isUnlocked}
+                      >
+                        <span
+                          className="avatar-item-swatch"
+                          style={{
+                            '--swatch-fill': item.style.fill,
+                            '--swatch-accent': item.style.accent,
+                            '--swatch-trim': item.style.trim,
+                          }}
+                        />
+                        <span>{item.name}</span>
+                        <small>{item.isUnlocked ? item.rewardLabel : item.rewardLabel}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function ResultsList({ results, loading }) {
   return (
     <section className="panel-card">
@@ -2385,6 +2805,7 @@ function Dashboard({
   onStartFullTest,
   onStartSnakeGame,
   onSelectSubject,
+  onEquipAvatarItem,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
@@ -2435,6 +2856,12 @@ function Dashboard({
           <span>{globalResultsError}</span>
         </div>
       )}
+
+      <AvatarStudio
+        studentName={studentProfile?.alias ?? 'Student'}
+        avatar={studentProfile?.avatar}
+        onEquipItem={onEquipAvatarItem}
+      />
 
       <section className="panel-card">
         <div className="panel-card-header">
@@ -6780,16 +7207,40 @@ function App() {
         getDocs(resultsRef),
       ])
 
-      if (profileSnapshot.exists()) {
-        setStudentProfile(profileSnapshot.data())
-      } else {
-        const fallbackAlias = user.email?.split('@')[0] ?? 'Student'
-        setStudentProfile({ alias: fallbackAlias })
+      const allPersonalResults = sortResultsByNewest(resultSnapshot.docs.map(toResultRecord))
+      const totalCompletedRuns = countCompletedRuns(allPersonalResults)
+      const fallbackAlias = user.email?.split('@')[0] ?? 'Student'
+      const rawProfile = profileSnapshot.exists() ? profileSnapshot.data() : {}
+      const baseProfile = {
+        ...rawProfile,
+        alias: rawProfile.alias ?? fallbackAlias,
+        aliasSlug: rawProfile.aliasSlug ?? normalizeAlias(rawProfile.alias ?? fallbackAlias),
+      }
+      const normalizedProfile = normalizeStudentProfileWithAvatar(baseProfile, totalCompletedRuns)
+      const nextPersonalResults = allPersonalResults.slice(0, 20)
+
+      setStudentProfile(normalizedProfile)
+      setPersonalResults(nextPersonalResults)
+
+      const rawAvatar = profileSnapshot.exists() ? rawProfile.avatar ?? null : null
+      if (
+        !profileSnapshot.exists() ||
+        JSON.stringify(rawAvatar) !== JSON.stringify(normalizedProfile.avatar) ||
+        baseProfile.alias !== normalizedProfile.alias ||
+        baseProfile.aliasSlug !== normalizedProfile.aliasSlug
+      ) {
+        await setDoc(
+          profileRef,
+          {
+            alias: normalizedProfile.alias,
+            aliasSlug: normalizedProfile.aliasSlug ?? normalizeAlias(normalizedProfile.alias ?? fallbackAlias),
+            avatar: normalizedProfile.avatar,
+          },
+          { merge: true },
+        )
       }
 
-      const nextPersonalResults = sortResultsByNewest(resultSnapshot.docs.map(toResultRecord)).slice(0, 20)
-      setPersonalResults(nextPersonalResults)
-      void mirrorResultsToPublicCollection(user.uid, nextPersonalResults).then(() => {
+      void mirrorResultsToPublicCollection(user.uid, allPersonalResults).then(() => {
         void loadGlobalResults()
       })
     } catch (error) {
@@ -6807,9 +7258,9 @@ function App() {
       if (!user) {
         setStudentProfile(null)
         setPersonalResults([])
-      setGlobalResults([])
-      setGlobalResultsError('')
-      setScreen('dashboard')
+        setGlobalResults([])
+        setGlobalResultsError('')
+        setScreen('dashboard')
         setSelectedSubjectId(null)
         setSelectedTestId(null)
         setAuthReady(true)
@@ -6842,6 +7293,7 @@ function App() {
         aliasSlug: normalizeAlias(alias),
         createdAt: serverTimestamp(),
         createdAtMs: Date.now(),
+        avatar: getDefaultAvatarState(),
       }
 
       await setDoc(doc(db, 'students', credential.user.uid), profile, { merge: true })
@@ -6883,6 +7335,46 @@ function App() {
     }
   }
 
+  async function handleEquipAvatarItem(slot, itemId) {
+    if (!currentUser) return
+
+    const currentAvatar = normalizeAvatarState(
+      studentProfile?.avatar,
+      studentProfile?.avatar?.totalCompletedRuns ?? 0,
+    )
+    const unlockedSet = new Set(currentAvatar.unlockedItemIds)
+
+    if (itemId) {
+      if (!unlockedSet.has(itemId)) return
+    } else if (slot !== 'hat' && slot !== 'accessory') {
+      return
+    }
+
+    const nextAvatar = normalizeAvatarState(
+      {
+        ...currentAvatar,
+        equipped: {
+          ...currentAvatar.equipped,
+          [slot]: itemId,
+        },
+      },
+      currentAvatar.totalCompletedRuns,
+    )
+
+    const previousProfile = studentProfile
+    setStudentProfile((previous) => ({
+      ...(previous ?? { alias: getStudentDisplayName(previousProfile, currentUser) }),
+      avatar: nextAvatar,
+    }))
+
+    try {
+      await setDoc(doc(db, 'students', currentUser.uid), { avatar: nextAvatar }, { merge: true })
+    } catch (error) {
+      console.error('Could not save avatar selection:', error)
+      setStudentProfile(previousProfile)
+    }
+  }
+
   async function saveAssessmentResult(summary) {
     if (!currentUser) {
       throw new Error('No authenticated user.')
@@ -6900,6 +7392,7 @@ function App() {
 
     const docRef = await addDoc(collection(db, 'students', currentUser.uid, 'results'), payload)
     const savedRecord = { id: docRef.id, ...payload }
+    const isCompletedRun = summary.attemptStatus !== 'abandoned'
 
     setPersonalResults((previous) => upsertResultRecord(previous, savedRecord))
 
@@ -6917,6 +7410,40 @@ function App() {
         setGlobalResultsError(
           'Global leaderboard is blocked by Firestore rules. Allow authenticated access to publicResults.',
         )
+      }
+    }
+
+    if (isCompletedRun) {
+      const currentAvatar = normalizeAvatarState(
+        studentProfile?.avatar,
+        studentProfile?.avatar?.totalCompletedRuns ?? 0,
+      )
+      const nextRunCount = currentAvatar.totalCompletedRuns + 1
+      const unlockedReward = getAvatarRewardForRunCount(nextRunCount)
+      const nextAvatar = normalizeAvatarState(
+        {
+          ...currentAvatar,
+          unlockedItemIds: unlockedReward
+            ? [...currentAvatar.unlockedItemIds, unlockedReward.id]
+            : currentAvatar.unlockedItemIds,
+          equipped: unlockedReward
+            ? {
+                ...currentAvatar.equipped,
+                [unlockedReward.slot]: unlockedReward.id,
+              }
+            : currentAvatar.equipped,
+        },
+        nextRunCount,
+      )
+
+      try {
+        await setDoc(doc(db, 'students', currentUser.uid), { avatar: nextAvatar }, { merge: true })
+        setStudentProfile((previous) => ({
+          ...(previous ?? { alias: studentName, aliasSlug: normalizeAlias(studentName) }),
+          avatar: nextAvatar,
+        }))
+      } catch (error) {
+        console.error('Could not update avatar rewards:', error)
       }
     }
 
@@ -7026,6 +7553,7 @@ function App() {
             onStartFullTest={openFullTest}
             onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
+            onEquipAvatarItem={handleEquipAvatarItem}
           />
         )}
 
