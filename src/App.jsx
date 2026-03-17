@@ -6495,6 +6495,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [coinsAwarded, setCoinsAwarded] = useState(0)
+  const [countdownValue, setCountdownValue] = useState(3)
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
@@ -6515,6 +6516,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const finishInProgressRef = useRef(false)
   const coinTimerRef = useRef(null)
   const storeRedirectTimerRef = useRef(null)
+  const countdownTimerRef = useRef(null)
 
   useEffect(() => {
     snakeRef.current = snake
@@ -6576,6 +6578,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     return () => {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       if (storeRedirectTimerRef.current) window.clearTimeout(storeRedirectTimerRef.current)
+      if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current)
       stopBackgroundMusic()
       mediaQuery.removeEventListener?.('change', syncMobileConsole)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
@@ -6617,6 +6620,10 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
       window.clearTimeout(storeRedirectTimerRef.current)
       storeRedirectTimerRef.current = null
     }
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
   }
 
   function refillQuestionDeck() {
@@ -6630,7 +6637,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     return questionDeckRef.current.shift() ?? null
   }
 
-  function resetSnakeBoard() {
+  function resetSnakeBoard(options = {}) {
     const nextState = createSnakeRunState()
     snakeRef.current = nextState.snake
     directionRef.current = nextState.direction
@@ -6644,7 +6651,32 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setCurrentOptions([])
     setQuestionFeedback(null)
     setShowCoinAnimation(false)
-    setPhase('playing')
+    setPhase(options.phase ?? 'playing')
+  }
+
+  function beginCountdown() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
+
+    setCountdownValue(3)
+    setPhase('countdown')
+
+    let nextValue = 3
+    countdownTimerRef.current = window.setInterval(() => {
+      nextValue -= 1
+
+      if (nextValue <= 0) {
+        window.clearInterval(countdownTimerRef.current)
+        countdownTimerRef.current = null
+        setCountdownValue(0)
+        setPhase('playing')
+        return
+      }
+
+      setCountdownValue(nextValue)
+    }, 700)
   }
 
   async function enterFullscreenMode() {
@@ -6695,7 +6727,8 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setSaveMessage('')
     setCoinsAwarded(0)
     setLastResult(null)
-    resetSnakeBoard()
+    resetSnakeBoard({ phase: 'countdown' })
+    beginCountdown()
   }
 
   function buildSnakeSummary(options = {}) {
@@ -7001,7 +7034,8 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setQuestionFeedback(null)
     currentAppleStreakRef.current = 0
     setCurrentAppleStreak(0)
-    resetSnakeBoard()
+    resetSnakeBoard({ phase: 'countdown' })
+    beginCountdown()
   }
 
   function handleLeaveGame() {
@@ -7352,6 +7386,15 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
                       </button>
                     </>
                   )}
+                </div>
+              </div>
+            )}
+
+            {phase === 'countdown' && (
+              <div className="snake-overlay snake-countdown-overlay" aria-live="assertive">
+                <div className="snake-countdown-card">
+                  <small>Get ready</small>
+                  <strong>{countdownValue}</strong>
                 </div>
               </div>
             )}
