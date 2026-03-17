@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   BookOpen,
   Calculator,
   CheckCircle2,
@@ -6102,6 +6105,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [saveMessage, setSaveMessage] = useState('')
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isMobileConsole, setIsMobileConsole] = useState(false)
 
   const snakeRef = useRef([])
   const appleRef = useRef({ x: 0, y: 0 })
@@ -6113,6 +6117,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const reviewExercisesRef = useRef([])
   const questionDeckRef = useRef([])
   const autoStartRef = useRef(false)
+  const mobileFullscreenRef = useRef(false)
   const finishInProgressRef = useRef(false)
   const coinTimerRef = useRef(null)
 
@@ -6149,6 +6154,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }, [reviewExercises])
 
   useEffect(() => {
+    function syncMobileConsole() {
+      if (typeof window === 'undefined') return
+      setIsMobileConsole(window.matchMedia('(max-width: 900px), (pointer: coarse)').matches)
+    }
+
+    syncMobileConsole()
+    const mediaQuery = window.matchMedia('(max-width: 900px), (pointer: coarse)')
+    mediaQuery.addEventListener?.('change', syncMobileConsole)
+
     function syncFullscreenState() {
       setIsFullscreen(Boolean(document.fullscreenElement))
     }
@@ -6159,9 +6173,30 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     return () => {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       stopBackgroundMusic()
+      mediaQuery.removeEventListener?.('change', syncMobileConsole)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
+
+  useEffect(() => {
+    if (!isMobileConsole) return undefined
+
+    const previousOverflow = document.body.style.overflow
+    const previousTouchAction = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'manipulation'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.touchAction = previousTouchAction
+    }
+  }, [isMobileConsole])
+
+  useEffect(() => {
+    if (!isMobileConsole || mobileFullscreenRef.current) return
+    mobileFullscreenRef.current = true
+    void enterFullscreenMode()
+  }, [isMobileConsole])
 
   useLayoutEffect(() => {
     if (autoStartRef.current) return
@@ -6384,6 +6419,24 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setApple(nextApple)
   }
 
+  function handleDirectionalInput(nextDirection) {
+    if (!nextDirection) return
+    if (phaseRef.current !== 'playing' && phaseRef.current !== 'resume') return
+
+    const currentDirection = directionRef.current
+    if (isOppositeSnakeDirection(nextDirection, currentDirection)) return
+
+    directionRef.current = nextDirection
+    setDirection(nextDirection)
+
+    if (phaseRef.current === 'resume') {
+      setCurrentQuestion(null)
+      setCurrentOptions([])
+      setQuestionFeedback(null)
+      setPhase('playing')
+    }
+  }
+
   useEffect(() => {
     if (phase === 'playing' || phase === 'resume') {
       startBackgroundMusic('snake', musicEnabled)
@@ -6417,18 +6470,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
       if (nextDirection) {
         event.preventDefault()
-        const currentDirection = directionRef.current
-        if (!isOppositeSnakeDirection(nextDirection, currentDirection)) {
-          directionRef.current = nextDirection
-          setDirection(nextDirection)
-
-          if (phaseRef.current === 'resume') {
-            setCurrentQuestion(null)
-            setCurrentOptions([])
-            setQuestionFeedback(null)
-            setPhase('playing')
-          }
-        }
+        handleDirectionalInput(nextDirection)
         return
       }
     }
@@ -6471,16 +6513,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }
 
   function handleResumeWithDirection(nextDirection) {
-    const currentDirection = directionRef.current
-    if (!nextDirection) return
-    if (isOppositeSnakeDirection(nextDirection, currentDirection)) return
-
-    directionRef.current = nextDirection
-    setDirection(nextDirection)
-    setCurrentQuestion(null)
-    setCurrentOptions([])
-    setQuestionFeedback(null)
-    setPhase('playing')
+    handleDirectionalInput(nextDirection)
   }
 
   function handleRestartRun() {
@@ -6621,7 +6654,9 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }
 
   return (
-    <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+    <section
+      className={`game-shell snake-shell ${isFullscreen ? 'is-fullscreen' : ''} ${isMobileConsole ? 'is-mobile-console' : ''}`}
+    >
       <CoinBurst visible={showCoinAnimation} />
 
       <div className="game-topbar">
@@ -6691,7 +6726,9 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           <div className="snake-stage-header">
             <div>
               <strong>Snake</strong>
-              <small>Use arrow keys or WASD to move.</small>
+              <small>
+                {isMobileConsole ? 'Tap the touch pad below to move.' : 'Use arrow keys or WASD to move.'}
+              </small>
             </div>
             <span className="badge badge-live">Goal: {goalApples} apples</span>
           </div>
@@ -6810,6 +6847,11 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
               </div>
             )}
           </div>
+
+          <div className="snake-console-footer" aria-hidden="true">
+            <span>JOY BOY</span>
+            <small>Arcade learning mode</small>
+          </div>
         </div>
 
         <div className="snake-side-panel">
@@ -6854,6 +6896,60 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
                 <strong>{getSnakeDirectionLabel(direction)}</strong>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="snake-mobile-controls" aria-label="Snake touch controls">
+          <div className="snake-mobile-controls-header">
+            <strong>Touch pad</strong>
+            <span>{phase === 'resume' ? 'Choose a direction to continue' : 'Tap to steer'}</span>
+          </div>
+
+          <div className="snake-mobile-dpad">
+            <button
+              type="button"
+              className="snake-mobile-btn up"
+              onClick={() => handleDirectionalInput('up')}
+              disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('up', direction)}
+              aria-label="Move up"
+            >
+              <ArrowUp size={22} />
+            </button>
+            <button
+              type="button"
+              className="snake-mobile-btn left"
+              onClick={() => handleDirectionalInput('left')}
+              disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('left', direction)}
+              aria-label="Move left"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <button
+              type="button"
+              className="snake-mobile-btn center"
+              disabled
+              aria-hidden="true"
+            >
+              <span>+</span>
+            </button>
+            <button
+              type="button"
+              className="snake-mobile-btn right"
+              onClick={() => handleDirectionalInput('right')}
+              disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('right', direction)}
+              aria-label="Move right"
+            >
+              <ArrowRight size={22} />
+            </button>
+            <button
+              type="button"
+              className="snake-mobile-btn down"
+              onClick={() => handleDirectionalInput('down')}
+              disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('down', direction)}
+              aria-label="Move down"
+            >
+              <ArrowDown size={22} />
+            </button>
           </div>
         </div>
       </div>
