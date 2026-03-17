@@ -2788,6 +2788,46 @@ function TestCard({ test, onSelect }) {
   )
 }
 
+function mixHexColors(colorA, colorB, weight = 0.5) {
+  const safeWeight = Math.max(0, Math.min(1, weight))
+  const normalizeHex = (value) => {
+    if (typeof value !== 'string') return null
+    const clean = value.replace('#', '').trim()
+    if (clean.length === 3) {
+      return clean.split('').map((part) => `${part}${part}`).join('')
+    }
+    return clean.length === 6 ? clean : null
+  }
+
+  const parseHex = (value) => {
+    const hex = normalizeHex(value)
+    if (!hex) return null
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+    }
+  }
+
+  const colorOne = parseHex(colorA)
+  const colorTwo = parseHex(colorB)
+  if (!colorOne || !colorTwo) return colorA || colorB || '#000000'
+
+  const mixChannel = (first, second) => Math.round(first * (1 - safeWeight) + second * safeWeight)
+  return `#${[mixChannel(colorOne.r, colorTwo.r), mixChannel(colorOne.g, colorTwo.g), mixChannel(colorOne.b, colorTwo.b)]
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+function colorWithAlpha(hexColor, alpha) {
+  const normalized = mixHexColors(hexColor, '#000000', 0)
+  const clean = normalized.replace('#', '')
+  const red = Number.parseInt(clean.slice(0, 2), 16)
+  const green = Number.parseInt(clean.slice(2, 4), 16)
+  const blue = Number.parseInt(clean.slice(4, 6), 16)
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
 function AvatarPreview({ avatar, studentName }) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
   const character =
@@ -2802,6 +2842,21 @@ function AvatarPreview({ avatar, studentName }) {
     { label: 'Items', name: accessoryItem?.name || hatItem?.name || 'No extras', accent: accessoryItem?.style.fill || hatItem?.style.fill || '#c9d3f5' },
     { label: 'Shoes', name: shoesItem.name, accent: shoesItem.style.fill },
   ]
+  const gradientSeed = `avatar_${character.id}_${topItem.id}_${shoesItem.id}`
+  const skinLight = mixHexColors(character.style.skin, '#ffffff', 0.32)
+  const skinShade = mixHexColors(character.style.skin, '#8f5a47', 0.24)
+  const hairLight = mixHexColors(character.style.hair, '#ffffff', 0.14)
+  const hairShade = mixHexColors(character.style.hair, '#000000', 0.28)
+  const topLight = mixHexColors(topItem.style.fill, '#ffffff', 0.22)
+  const topShade = mixHexColors(topItem.style.accent, '#000000', 0.12)
+  const topTrim = mixHexColors(topItem.style.trim, '#ffffff', 0.18)
+  const shortsBase = mixHexColors(character.style.accent, '#243a74', 0.48)
+  const shortsShade = mixHexColors(shortsBase, '#000000', 0.22)
+  const sockTone = mixHexColors(shoesItem.style.trim, '#ffffff', 0.35)
+  const shoeLight = mixHexColors(shoesItem.style.fill, '#ffffff', 0.18)
+  const shoeShade = mixHexColors(shoesItem.style.accent, '#000000', 0.18)
+  const mouthTone = mixHexColors(character.style.blush, '#b25659', 0.38)
+  const stageShadow = colorWithAlpha(character.style.accent, 0.14)
 
   return (
     <div className="avatar-stage" style={{ '--avatar-stage-glow': character.style.stageGlow }}>
@@ -2827,195 +2882,239 @@ function AvatarPreview({ avatar, studentName }) {
 
       <div className="avatar-figure-wrap">
         <div className="avatar-stage-glow" aria-hidden="true" />
-        <svg className="avatar-canvas" viewBox="0 0 220 250" role="img" aria-label={`${studentName} avatar`}>
-          <ellipse cx="110" cy="220" rx="62" ry="15" fill="rgba(31, 48, 108, 0.12)" />
+        <svg className="avatar-canvas" viewBox="0 0 220 260" role="img" aria-label={`${studentName} avatar`}>
+          <defs>
+            <linearGradient id={`${gradientSeed}_skin`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={skinLight} />
+              <stop offset="100%" stopColor={skinShade} />
+            </linearGradient>
+            <linearGradient id={`${gradientSeed}_hair`} x1="0" y1="0" x2="0.9" y2="1">
+              <stop offset="0%" stopColor={hairLight} />
+              <stop offset="100%" stopColor={hairShade} />
+            </linearGradient>
+            <linearGradient id={`${gradientSeed}_top`} x1="0" y1="0" x2="0.9" y2="1">
+              <stop offset="0%" stopColor={topLight} />
+              <stop offset="100%" stopColor={topShade} />
+            </linearGradient>
+            <linearGradient id={`${gradientSeed}_shorts`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={shortsBase} />
+              <stop offset="100%" stopColor={shortsShade} />
+            </linearGradient>
+            <linearGradient id={`${gradientSeed}_shoe`} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor={shoeLight} />
+              <stop offset="100%" stopColor={shoeShade} />
+            </linearGradient>
+            <filter id={`${gradientSeed}_shadow`} x="-30%" y="-20%" width="160%" height="180%">
+              <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor={colorWithAlpha('#16204f', 0.22)} />
+            </filter>
+          </defs>
+
+          <ellipse cx="110" cy="228" rx="58" ry="14" fill={stageShadow} />
 
           {accessoryItem?.id === 'accessory-gold-cape' && (
             <path
-              d="M72 110 C76 162, 80 188, 62 210 L100 202 L120 214 L140 202 L178 210 C160 186, 164 162, 168 110 Z"
+              d="M75 116 C78 160, 82 194, 66 216 L100 207 L120 219 L142 207 L174 216 C159 194, 162 160, 145 116 Z"
               fill={accessoryItem.style.fill}
-              opacity="0.95"
+              opacity="0.96"
             />
-          )}
-
-          {['hat-red-cap', 'hat-sun-cap'].includes(hatItem?.id) && (
-            <>
-              <path d="M79 52 C91 30, 130 28, 145 52 L145 66 L79 66 Z" fill={hatItem.style.fill} />
-              <path d="M133 63 C149 64, 162 69, 166 79 L128 77 Z" fill={hatItem.style.accent} />
-            </>
-          )}
-
-          {hatItem?.id === 'hat-explorer' && (
-            <>
-              <ellipse cx="110" cy="54" rx="40" ry="12" fill={hatItem.style.accent} />
-              <path d="M84 58 C86 36, 134 35, 138 58 L138 73 L84 73 Z" fill={hatItem.style.fill} />
-              <ellipse cx="110" cy="73" rx="46" ry="11" fill={hatItem.style.trim} />
-            </>
-          )}
-
-          <circle cx="110" cy="80" r="33" fill={character.style.skin} />
-          <path
-            d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z"
-            fill={character.style.hair}
-          />
-          <circle cx="98" cy="82" r="3.8" fill="#213057" />
-          <circle cx="122" cy="82" r="3.8" fill="#213057" />
-          <circle cx="91" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
-          <circle cx="129" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
-          <path d="M101 98 C106 102, 115 102, 120 98" stroke="#c06c59" strokeWidth="3.2" strokeLinecap="round" fill="none" />
-
-          {hatItem?.id === 'hat-headphones' && (
-            <>
-              <path d="M80 79 C80 52, 140 52, 140 79" stroke={hatItem.style.fill} strokeWidth="8" fill="none" strokeLinecap="round" />
-              <rect x="71" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
-              <rect x="137" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
-            </>
-          )}
-
-          {hatItem?.id === 'hat-cozy-beanie' && (
-            <>
-              <path d="M81 57 C87 34, 133 34, 139 57 L139 72 L81 72 Z" fill={hatItem.style.fill} />
-              <rect x="79" y="68" width="62" height="10" rx="5" fill={hatItem.style.accent} />
-              <circle cx="110" cy="43" r="9" fill={hatItem.style.trim} />
-            </>
           )}
 
           {accessoryItem?.id === 'accessory-school-backpack' && (
             <>
-              <path d="M73 112 C69 122, 67 140, 67 168 L84 172 L86 110 Z" fill={accessoryItem.style.accent} opacity="0.94" />
-              <path d="M139 112 C143 122, 145 140, 145 168 L128 172 L126 110 Z" fill={accessoryItem.style.accent} opacity="0.94" />
-              <rect x="74" y="126" width="24" height="32" rx="8" fill={accessoryItem.style.fill} />
+              <path d="M76 122 C72 136, 71 158, 74 184 L89 184 L92 123 Z" fill={accessoryItem.style.accent} opacity="0.92" />
+              <path d="M146 122 C149 136, 150 158, 147 184 L132 184 L129 123 Z" fill={accessoryItem.style.accent} opacity="0.92" />
+              <path d="M72 136 C74 128, 82 124, 90 126 L90 177 C81 180, 74 175, 72 166 Z" fill={accessoryItem.style.fill} />
             </>
           )}
 
-          <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill={character.style.skin} />
-          <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill={character.style.skin} />
+          <g filter={`url(#${gradientSeed}_shadow)`}>
+            <path d="M80 85 C76 56, 92 40, 111 40 C132 40, 146 55, 142 88 L136 134 H84 Z" fill={`url(#${gradientSeed}_hair)`} />
+            <path d="M98 104 H122 V120 H98 Z" fill={`url(#${gradientSeed}_skin)`} />
+            <ellipse cx="82" cy="87" rx="6" ry="9" fill={`url(#${gradientSeed}_skin)`} />
+            <ellipse cx="138" cy="87" rx="6" ry="9" fill={`url(#${gradientSeed}_skin)`} />
+            <ellipse cx="110" cy="84" rx="31" ry="35" fill={`url(#${gradientSeed}_skin)`} />
+            <ellipse cx="100" cy="78" rx="10" ry="6" fill="rgba(255,255,255,0.22)" />
+            <path d="M78 83 C82 53, 102 46, 114 47 C134 49, 145 60, 142 87 C135 75, 125 66, 110 65 C96 65, 86 72, 78 90 Z" fill={`url(#${gradientSeed}_hair)`} />
+            <path d="M77 80 C82 60, 73 57, 71 87 C72 102, 77 110, 86 116 Z" fill={`url(#${gradientSeed}_hair)`} />
+            <path d="M143 80 C139 60, 149 57, 151 88 C149 102, 144 109, 135 116 Z" fill={`url(#${gradientSeed}_hair)`} />
 
-          <rect x="78" y="106" width="64" height="74" rx="20" fill={topItem.style.fill} />
-          <rect x="78" y="106" width="64" height="17" rx="8" fill={topItem.style.trim} opacity="0.55" />
-          <path d="M100 106 L120 106 L124 123 L96 123 Z" fill="#f5f8ff" opacity="0.78" />
+            {['hat-red-cap', 'hat-sun-cap'].includes(hatItem?.id) && (
+              <>
+                <path d="M82 52 C91 34, 126 30, 140 51 L140 64 L82 64 Z" fill={hatItem.style.fill} />
+                <path d="M131 61 C146 62, 156 67, 161 76 L127 75 Z" fill={hatItem.style.accent} />
+              </>
+            )}
 
-          {topItem.id === 'top-mint-hoodie' && (
-            <>
-              <path d="M88 107 C92 92, 128 92, 132 107" stroke={topItem.style.accent} strokeWidth="6" fill="none" />
-              <path d="M110 120 L110 148" stroke={topItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-            </>
-          )}
+            {hatItem?.id === 'hat-explorer' && (
+              <>
+                <ellipse cx="110" cy="55" rx="41" ry="12" fill={hatItem.style.accent} />
+                <path d="M86 58 C88 36, 134 35, 137 58 L137 73 L86 73 Z" fill={hatItem.style.fill} />
+                <ellipse cx="110" cy="73" rx="46" ry="11" fill={hatItem.style.trim} />
+              </>
+            )}
 
-          {topItem.id === 'top-sun-jacket' && (
-            <>
-              <path d="M110 106 L110 178" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-              <path d="M88 138 L101 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-              <path d="M119 138 L132 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-            </>
-          )}
+            {hatItem?.id === 'hat-cozy-beanie' && (
+              <>
+                <path d="M82 57 C87 35, 133 35, 138 57 L138 72 L82 72 Z" fill={hatItem.style.fill} />
+                <rect x="80" y="68" width="60" height="10" rx="5" fill={hatItem.style.accent} />
+                <circle cx="110" cy="43" r="8" fill={hatItem.style.trim} />
+              </>
+            )}
 
-          {topItem.id === 'top-striped-tee' && (
-            <>
-              {['#ff6f61', '#70d39a', '#5bc0eb', '#ffd166'].map((stripeColor, index) => (
-                <path
-                  key={`${stripeColor}_${index}`}
-                  d={`M82 ${118 + index * 11} H138`}
-                  stroke={stripeColor}
-                  strokeWidth="6"
-                  strokeLinecap="round"
-                />
-              ))}
-            </>
-          )}
+            {hatItem?.id === 'hat-headphones' && (
+              <>
+                <path d="M82 82 C82 54, 138 54, 138 82" stroke={hatItem.style.fill} strokeWidth="7" fill="none" strokeLinecap="round" />
+                <rect x="73" y="82" width="11" height="24" rx="6" fill={hatItem.style.accent} />
+                <rect x="136" y="82" width="11" height="24" rx="6" fill={hatItem.style.accent} />
+              </>
+            )}
 
-          {topItem.id === 'top-denim-jacket' && (
-            <>
-              <path d="M110 106 L110 180" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-              <path d="M90 127 L99 127" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
-              <path d="M121 127 L130 127" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
-            </>
-          )}
+            <path d="M90 82 C93 79, 98 79, 101 82" stroke="#25315d" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+            <path d="M119 82 C122 79, 127 79, 130 82" stroke="#25315d" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+            <ellipse cx="98" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
+            <ellipse cx="122" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
+            <circle cx="99.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
+            <circle cx="123.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
+            <ellipse cx="91" cy="97" rx="5" ry="4.2" fill={character.style.blush} opacity="0.38" />
+            <ellipse cx="129" cy="97" rx="5" ry="4.2" fill={character.style.blush} opacity="0.38" />
+            <path d="M109 89 C108 95, 108 99, 112 102" stroke={skinShade} strokeWidth="2.1" strokeLinecap="round" fill="none" opacity="0.7" />
+            <path d="M99 103 C104 108, 116 108, 121 103" stroke={mouthTone} strokeWidth="3" strokeLinecap="round" fill="none" />
 
-          {topItem.id === 'top-dino-shirt' && (
-            <>
-              <path d="M102 136 C110 128, 121 131, 122 142 C119 148, 111 149, 104 145 Z" fill={topItem.style.accent} />
-              <circle cx="121" cy="139" r="2" fill="#243c2f" />
-            </>
-          )}
+            {['accessory-star-glasses', 'accessory-violet-glasses'].includes(accessoryItem?.id) && (
+              <>
+                <rect x="84" y="82" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
+                <rect x="118" y="82" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
+                <path d="M102 88 H118" stroke={accessoryItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+              </>
+            )}
 
-          {topItem.id === 'top-flower-dress' && (
-            <>
-              <path d="M82 150 L138 150 L150 191 H70 Z" fill={topItem.style.fill} />
-              {[88, 105, 122, 136].map((cx, index) => (
-                <g key={`flower_${cx}_${index}`}>
-                  <circle cx={cx} cy={165 + (index % 2) * 10} r="4.5" fill={topItem.style.accent} />
-                  <circle cx={cx - 5} cy={165 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
-                  <circle cx={cx + 5} cy={165 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
-                  <circle cx={cx} cy={160 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
-                  <circle cx={cx} cy={170 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
-                </g>
-              ))}
-            </>
-          )}
+            <path d="M78 127 C73 137, 71 154, 77 170 C80 179, 90 183, 97 177 L94 122 C87 120, 81 122, 78 127 Z" fill={`url(#${gradientSeed}_skin)`} />
+            <path d="M142 127 C147 137, 149 154, 143 170 C140 179, 130 183, 123 177 L126 122 C133 120, 139 122, 142 127 Z" fill={`url(#${gradientSeed}_skin)`} />
+            <path d="M93 121 C95 114, 100 110, 108 110 H112 C120 110, 126 114, 128 121" stroke={topTrim} strokeWidth="10" strokeLinecap="round" opacity="0.72" />
+            <path d="M78 121 C83 107, 95 101, 110 101 C125 101, 137 107, 142 121 L147 179 C137 185, 83 185, 73 179 Z" fill={`url(#${gradientSeed}_top)`} />
+            <path d="M86 123 C93 133, 127 133, 134 123" stroke={topTrim} strokeWidth="7" strokeLinecap="round" opacity="0.62" />
+            <path d="M88 129 C100 138, 120 138, 132 129" stroke={topShade} strokeWidth="2" strokeLinecap="round" opacity="0.22" />
 
-          {['accessory-star-glasses', 'accessory-violet-glasses'].includes(accessoryItem?.id) && (
-            <>
-              <rect x="84" y="81" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
-              <rect x="118" y="81" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
-              <path d="M102 87 H118" stroke={accessoryItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-            </>
-          )}
+            {topItem.id === 'top-mint-hoodie' && (
+              <>
+                <path d="M91 114 C94 101, 126 101, 129 114" stroke={topItem.style.accent} strokeWidth="5" fill="none" strokeLinecap="round" />
+                <path d="M110 125 V153" stroke={topItem.style.accent} strokeWidth="2.6" strokeLinecap="round" />
+              </>
+            )}
 
-          {accessoryItem?.id === 'accessory-rainbow-scarf' && (
-            <>
-              <rect x="86" y="117" width="48" height="12" rx="6" fill={accessoryItem.style.fill} />
-              <path d="M126 118 L138 161" stroke={accessoryItem.style.accent} strokeWidth="10" strokeLinecap="round" />
-              <path d="M86 123 H134" stroke={accessoryItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-            </>
-          )}
+            {topItem.id === 'top-sun-jacket' && (
+              <>
+                <path d="M110 112 V180" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+                <path d="M91 139 H101" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+                <path d="M119 139 H129" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+              </>
+            )}
 
-          {accessoryItem?.id === 'accessory-lightning-badge' && (
-            <path d="M112 134 L104 148 H111 L106 159 L120 143 H113 L118 134 Z" fill={accessoryItem.style.fill} />
-          )}
+            {topItem.id === 'top-striped-tee' && (
+              <>
+                {['#ff6f61', '#70d39a', '#5bc0eb', '#ffd166'].map((stripeColor, index) => (
+                  <path
+                    key={`${stripeColor}_${index}`}
+                    d={`M84 ${126 + index * 11} H136`}
+                    stroke={stripeColor}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                  />
+                ))}
+              </>
+            )}
 
-          {accessoryItem?.id === 'accessory-water-bottle' && (
-            <>
-              <rect x="138" y="140" width="13" height="28" rx="6" fill={accessoryItem.style.fill} />
-              <rect x="141" y="134" width="7" height="8" rx="2" fill={accessoryItem.style.accent} />
-            </>
-          )}
+            {topItem.id === 'top-denim-jacket' && (
+              <>
+                <path d="M110 112 V181" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+                <path d="M92 129 H101" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
+                <path d="M119 129 H128" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
+              </>
+            )}
 
-          {accessoryItem?.id === 'accessory-story-book' && (
-            <>
-              <rect x="69" y="142" width="18" height="24" rx="3" fill={accessoryItem.style.fill} />
-              <path d="M78 146 V162" stroke={accessoryItem.style.trim} strokeWidth="2" strokeLinecap="round" />
-            </>
-          )}
+            {topItem.id === 'top-dino-shirt' && (
+              <>
+                <path d="M101 142 C109 134, 121 138, 122 148 C118 154, 111 155, 104 151 Z" fill={topItem.style.accent} />
+                <circle cx="121" cy="145" r="2" fill="#223d2f" />
+              </>
+            )}
 
-          <rect x="89" y="178" width="17" height="36" rx="8" fill="#293454" />
-          <rect x="114" y="178" width="17" height="36" rx="8" fill="#293454" />
+            {topItem.id === 'top-flower-dress' && (
+              <>
+                <path d="M78 155 C95 149, 125 149, 142 155 L151 199 C134 207, 86 207, 69 199 Z" fill={`url(#${gradientSeed}_top)`} />
+                {[88, 104, 120, 136].map((cx, index) => (
+                  <g key={`flower_${cx}_${index}`}>
+                    <circle cx={cx} cy={170 + (index % 2) * 11} r="4.6" fill={topItem.style.accent} />
+                    <circle cx={cx - 5} cy={170 + (index % 2) * 11} r="2.5" fill={topItem.style.trim} />
+                    <circle cx={cx + 5} cy={170 + (index % 2) * 11} r="2.5" fill={topItem.style.trim} />
+                    <circle cx={cx} cy={165 + (index % 2) * 11} r="2.5" fill={topItem.style.trim} />
+                    <circle cx={cx} cy={175 + (index % 2) * 11} r="2.5" fill={topItem.style.trim} />
+                  </g>
+                ))}
+              </>
+            )}
 
-          <path d="M84 210 H108 V223 H82 C82 216, 83 213, 84 210 Z" fill={shoesItem.style.fill} />
-          <path d="M112 210 H136 V223 H110 C110 216, 111 213, 112 210 Z" fill={shoesItem.style.fill} />
-          <path d="M84 217 H108" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-          <path d="M112 217 H136" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+            {accessoryItem?.id === 'accessory-rainbow-scarf' && (
+              <>
+                <rect x="84" y="122" width="52" height="13" rx="6" fill={accessoryItem.style.fill} />
+                <path d="M128 124 L139 165" stroke={accessoryItem.style.accent} strokeWidth="9" strokeLinecap="round" />
+                <path d="M84 128 H136" stroke={accessoryItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+              </>
+            )}
 
-          {shoesItem.id === 'shoes-rocket' && (
-            <>
-              <path d="M81 221 L75 226 L83 226 Z" fill="#ff9f43" />
-              <path d="M139 221 L145 226 L137 226 Z" fill="#ff9f43" />
-            </>
-          )}
+            {accessoryItem?.id === 'accessory-lightning-badge' && (
+              <path d="M111 139 L103 153 H110 L106 165 L120 149 H113 L118 139 Z" fill={accessoryItem.style.fill} />
+            )}
 
-          {['shoes-trail-boots', 'shoes-cloud-boots'].includes(shoesItem.id) && (
-            <>
-              <path d="M86 213 H106" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-              <path d="M114 213 H134" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-            </>
-          )}
+            {accessoryItem?.id === 'accessory-water-bottle' && (
+              <>
+                <rect x="139" y="145" width="13" height="29" rx="6" fill={accessoryItem.style.fill} />
+                <rect x="142" y="139" width="7" height="8" rx="2" fill={accessoryItem.style.accent} />
+              </>
+            )}
 
-          {shoesItem.id === 'shoes-red-runners' && (
-            <>
-              <path d="M88 214 H104" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-              <path d="M116 214 H132" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-            </>
-          )}
+            {accessoryItem?.id === 'accessory-story-book' && (
+              <>
+                <rect x="67" y="146" width="18" height="24" rx="4" fill={accessoryItem.style.fill} />
+                <path d="M76 149 V166" stroke={accessoryItem.style.trim} strokeWidth="2" strokeLinecap="round" />
+              </>
+            )}
+
+            <path d="M84 180 C92 176, 100 176, 108 180 L104 226 C97 229, 90 229, 86 225 Z" fill={`url(#${gradientSeed}_skin)`} />
+            <path d="M112 180 C120 176, 128 176, 136 180 L134 225 C130 229, 122 229, 115 226 Z" fill={`url(#${gradientSeed}_skin)`} />
+            <path d="M82 179 C93 176, 101 176, 110 179" stroke={shortsShade} strokeWidth="2" strokeLinecap="round" opacity="0.35" />
+            <path d="M110 179 C119 176, 127 176, 138 179" stroke={shortsShade} strokeWidth="2" strokeLinecap="round" opacity="0.35" />
+            <path d="M80 175 C90 170, 130 170, 140 175 L138 194 C126 198, 94 198, 82 194 Z" fill={`url(#${gradientSeed}_shorts)`} />
+            <path d="M80 175 C92 179, 128 179, 140 175" stroke="rgba(255,255,255,0.22)" strokeWidth="3" strokeLinecap="round" />
+            <path d="M89 196 H103 V222 H86 Z" fill={sockTone} />
+            <path d="M118 196 H132 V222 H117 Z" fill={sockTone} />
+
+            <path d="M82 222 C93 218, 106 219, 110 228 C103 233, 86 234, 79 231 C79 226, 80 223, 82 222 Z" fill={`url(#${gradientSeed}_shoe)`} />
+            <path d="M110 228 C118 221, 129 219, 138 222 C141 223, 142 226, 142 231 C135 234, 118 233, 110 228 Z" fill={`url(#${gradientSeed}_shoe)`} />
+            <path d="M83 228 H109" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+            <path d="M111 228 H138" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+
+            {shoesItem.id === 'shoes-rocket' && (
+              <>
+                <path d="M78 229 L72 235 L82 234 Z" fill="#ff9f43" />
+                <path d="M142 229 L148 235 L138 234 Z" fill="#ff9f43" />
+              </>
+            )}
+
+            {['shoes-trail-boots', 'shoes-cloud-boots'].includes(shoesItem.id) && (
+              <>
+                <path d="M85 220 H106" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+                <path d="M114 220 H135" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+              </>
+            )}
+
+            {shoesItem.id === 'shoes-red-runners' && (
+              <>
+                <path d="M87 221 H103" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+                <path d="M117 221 H133" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+              </>
+            )}
+          </g>
         </svg>
       </div>
 
