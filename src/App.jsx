@@ -3049,6 +3049,8 @@ function AvatarStudio({
   onPurchaseItem,
   requestedPanel,
   panelFocusKey,
+  storeNotice,
+  onDismissStoreNotice,
 }) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
   const progress = getAvatarProgressSummary(safeAvatar)
@@ -3286,25 +3288,32 @@ function AvatarStudio({
                     <span>Everything in this section is already owned.</span>
                   </div>
                 ) : (
-                  storeEntries.map((entry) => (
-                    <button
+                  storeEntries.map((entry) => {
+                    const canAfford = entry.isOwned || progress.coins >= (entry.price ?? 0)
+                    const missingCoins = Math.max(0, (entry.price ?? 0) - progress.coins)
+                    const actionLabel =
+                      entry.kind === 'character'
+                        ? entry.isOwned
+                          ? 'Use avatar'
+                          : canAfford
+                            ? `Buy for ${entry.price} coins`
+                            : `Need ${missingCoins} more`
+                        : entry.kind === 'sticker'
+                          ? entry.isOwned
+                            ? 'Owned'
+                            : canAfford
+                              ? `Buy for ${entry.price} coins`
+                              : `Need ${missingCoins} more`
+                          : entry.isOwned
+                            ? 'Equip item'
+                            : canAfford
+                              ? `Buy for ${entry.price} coins`
+                              : `Need ${missingCoins} more`
+
+                    return (
+                    <article
                       key={`${entry.kind}_${entry.id}`}
-                      type="button"
                       className={`avatar-catalog-card avatar-store-card ${entry.isOwned ? 'is-owned' : ''}`}
-                      onClick={() => {
-                        if (entry.kind === 'character') {
-                          entry.isOwned ? onSelectCharacter(entry.id) : onPurchaseItem('character', entry.id)
-                          return
-                        }
-                        if (entry.kind === 'sticker') {
-                          if (!entry.isOwned) onPurchaseItem('sticker', entry.id)
-                          return
-                        }
-                        entry.isOwned
-                          ? onEquipItem(entry.slot, entry.id)
-                          : onPurchaseItem('item', entry.id)
-                      }}
-                      disabled={entry.kind === 'sticker' && entry.isOwned}
                     >
                       <span className="avatar-store-pill" style={{ '--store-accent': entry.accent }}>
                         {entry.kind === 'character'
@@ -3318,10 +3327,47 @@ function AvatarStudio({
                       <span className="avatar-store-price">
                         {entry.isOwned ? 'Owned' : `${entry.price} coins`}
                       </span>
-                    </button>
-                  ))
+                      <button
+                        type="button"
+                        className={`btn ${entry.isOwned ? 'btn-ghost' : 'btn-primary'} avatar-store-action`}
+                        onClick={() => {
+                          if (entry.kind === 'character') {
+                            entry.isOwned ? onSelectCharacter(entry.id) : onPurchaseItem('character', entry.id)
+                            return
+                          }
+                          if (entry.kind === 'sticker') {
+                            if (!entry.isOwned) onPurchaseItem('sticker', entry.id)
+                            return
+                          }
+                          entry.isOwned
+                            ? onEquipItem(entry.slot, entry.id)
+                            : onPurchaseItem('item', entry.id)
+                        }}
+                        disabled={!entry.isOwned && !canAfford}
+                      >
+                        {actionLabel}
+                      </button>
+                    </article>
+                  )})
                 )}
               </div>
+
+              <div className="avatar-store-wallet">
+                <strong>{progress.coins} coins</strong>
+                <span>Use the buy buttons below to unlock new avatar items.</span>
+              </div>
+
+              {storeNotice && (
+                <div className="banner success avatar-store-banner">
+                  <CheckCircle2 size={16} />
+                  <span>
+                    +{storeNotice.coinsEarned} coins added from {storeNotice.sourceLabel}. Your new balance is {progress.coins}.
+                  </span>
+                  <button type="button" className="btn btn-ghost" onClick={onDismissStoreNotice}>
+                    Dismiss
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3461,12 +3507,15 @@ function Dashboard({
   globalResultsError,
   avatarRequestedPanel,
   avatarPanelFocusKey,
+  storeNotice,
   onStartFullTest,
   onStartSnakeGame,
   onSelectSubject,
   onEquipAvatarItem,
   onSelectAvatarCharacter,
   onPurchaseAvatarThing,
+  onOpenAvatarStore,
+  onDismissStoreNotice,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
@@ -3499,6 +3548,10 @@ function Dashboard({
             <strong>{globalResults.length}</strong>
           </div>
         </div>
+        <button type="button" className="btn btn-primary hero-store-btn" onClick={onOpenAvatarStore}>
+          <Sparkles size={16} />
+          <span>Open Store</span>
+        </button>
       </section>
 
       {!usingGlobalPanels && (
@@ -3526,6 +3579,8 @@ function Dashboard({
         onPurchaseItem={onPurchaseAvatarThing}
         requestedPanel={avatarRequestedPanel}
         panelFocusKey={avatarPanelFocusKey}
+        storeNotice={storeNotice}
+        onDismissStoreNotice={onDismissStoreNotice}
       />
 
       <section className="panel-card">
@@ -6440,7 +6495,6 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [coinsAwarded, setCoinsAwarded] = useState(0)
-  const [postSaveDestination, setPostSaveDestination] = useState(null)
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
@@ -6640,7 +6694,6 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setSaveStatus('idle')
     setSaveMessage('')
     setCoinsAwarded(0)
-    setPostSaveDestination(null)
     setLastResult(null)
     resetSnakeBoard()
   }
@@ -6704,7 +6757,6 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setSaveStatus('saving')
     setSaveMessage(options.saveMessage ?? 'Saving result...')
     setCoinsAwarded(0)
-    setPostSaveDestination(options.destination ?? null)
     setPhase(options.showFinishedScreen === false ? 'saving' : 'finished')
 
     if (options.playWinSound) {
@@ -6720,6 +6772,30 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
         options.successMessage?.(coinsEarned) ??
           `Result saved. ${coinsEarned} coins added.`,
       )
+
+      if (options.destination === 'store') {
+        storeRedirectTimerRef.current = window.setTimeout(() => {
+          void (async () => {
+            await exitFullscreenMode()
+            stopBackgroundMusic()
+            onOpenStore({
+              coinsEarned,
+              sourceLabel: 'Snake',
+            })
+          })()
+        }, 1200)
+        return
+      }
+
+      if (options.destination === 'dashboard') {
+        storeRedirectTimerRef.current = window.setTimeout(() => {
+          void (async () => {
+            await exitFullscreenMode()
+            stopBackgroundMusic()
+            onBack()
+          })()
+        }, 700)
+      }
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
@@ -6952,31 +7028,6 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
       onBack()
     })()
   }
-
-  useEffect(() => {
-    if (saveStatus !== 'saved' || !postSaveDestination) return undefined
-
-    storeRedirectTimerRef.current = window.setTimeout(() => {
-      void (async () => {
-        await exitFullscreenMode()
-        stopBackgroundMusic()
-
-        if (postSaveDestination === 'store') {
-          onOpenStore()
-          return
-        }
-
-        onBack()
-      })()
-    }, postSaveDestination === 'store' ? 1800 : 900)
-
-    return () => {
-      if (storeRedirectTimerRef.current) {
-        window.clearTimeout(storeRedirectTimerRef.current)
-        storeRedirectTimerRef.current = null
-      }
-    }
-  }, [saveStatus, postSaveDestination, onBack, onOpenStore])
 
   if (phase === 'finished') {
     const summary = lastResult ?? {
@@ -8039,6 +8090,7 @@ function App() {
   const [selectedTestId, setSelectedTestId] = useState(null)
   const [dashboardAvatarPanel, setDashboardAvatarPanel] = useState('closet')
   const [dashboardAvatarFocusKey, setDashboardAvatarFocusKey] = useState(0)
+  const [storeNotice, setStoreNotice] = useState(null)
 
   async function loadGlobalResults() {
     setGlobalResultsLoading(true)
@@ -8458,6 +8510,7 @@ function App() {
 
   function openSubject(subjectId) {
     setDashboardAvatarPanel('closet')
+    setStoreNotice(null)
     setSelectedSubjectId(subjectId)
     setSelectedTestId(null)
     setScreen('subject')
@@ -8465,12 +8518,14 @@ function App() {
 
   function openTest(testId) {
     setDashboardAvatarPanel('closet')
+    setStoreNotice(null)
     setSelectedTestId(testId)
     setScreen('test')
   }
 
   function openFullTest() {
     setDashboardAvatarPanel('closet')
+    setStoreNotice(null)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('full-test')
@@ -8478,14 +8533,16 @@ function App() {
 
   function openSnakeGame() {
     setDashboardAvatarPanel('closet')
+    setStoreNotice(null)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('snake')
   }
 
-  function openAvatarStoreDashboard() {
+  function openAvatarStoreDashboard(notice = null) {
     setDashboardAvatarPanel('store')
     setDashboardAvatarFocusKey((previous) => previous + 1)
+    setStoreNotice(notice)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('dashboard')
@@ -8493,12 +8550,14 @@ function App() {
 
   function goToDashboard() {
     setDashboardAvatarPanel('closet')
+    setStoreNotice(null)
     setScreen('dashboard')
     setSelectedSubjectId(null)
     setSelectedTestId(null)
   }
 
   function goToSubjectMenu() {
+    setStoreNotice(null)
     setScreen('subject')
     setSelectedTestId(null)
   }
@@ -8571,12 +8630,15 @@ function App() {
             globalResultsError={globalResultsError}
             avatarRequestedPanel={dashboardAvatarPanel}
             avatarPanelFocusKey={dashboardAvatarFocusKey}
+            storeNotice={storeNotice}
             onStartFullTest={openFullTest}
             onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
             onEquipAvatarItem={handleEquipAvatarItem}
             onSelectAvatarCharacter={handleSelectAvatarCharacter}
             onPurchaseAvatarThing={handlePurchaseAvatarThing}
+            onOpenAvatarStore={() => openAvatarStoreDashboard()}
+            onDismissStoreNotice={() => setStoreNotice(null)}
           />
         )}
 

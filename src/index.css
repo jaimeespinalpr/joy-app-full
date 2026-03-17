@@ -1186,12 +1186,40 @@ button {
   font-weight: 700;
 }
 
+.avatar-store-wallet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #eef4ff, #f7fbff);
+  border: 1px solid rgba(61, 97, 216, 0.15);
+  color: #20336e;
+}
+
+.avatar-store-wallet strong {
+  font-size: 1.2rem;
+}
+
+.avatar-store-wallet span {
+  color: #5d6c98;
+  font-weight: 600;
+}
+
 .avatar-store-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .avatar-store-card.is-owned {
   opacity: 0.78;
+}
+
+.avatar-store-action {
+  margin-top: 0.35rem;
+  width: 100%;
+  justify-content: center;
 }
 
 .avatar-store-pill {
@@ -1208,6 +1236,14 @@ button {
   margin-top: 0.2rem;
   font-weight: 800;
   color: #3650b6;
+}
+
+.avatar-store-banner {
+  align-items: center;
+}
+
+.hero-store-btn {
+  justify-self: start;
 }
 
 .avatar-showroom-character {
