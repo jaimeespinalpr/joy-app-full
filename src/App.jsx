@@ -3041,12 +3041,21 @@ function AvatarPreview({ avatar, studentName }) {
   )
 }
 
-function AvatarStudio({ studentName, avatar, onEquipItem, onSelectCharacter, onPurchaseItem }) {
+function AvatarStudio({
+  studentName,
+  avatar,
+  onEquipItem,
+  onSelectCharacter,
+  onPurchaseItem,
+  requestedPanel,
+  panelFocusKey,
+}) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
   const progress = getAvatarProgressSummary(safeAvatar)
   const [activePanel, setActivePanel] = useState('closet')
   const [activeClosetTab, setActiveClosetTab] = useState('avatars')
   const [activeStoreFilter, setActiveStoreFilter] = useState('all')
+  const panelRef = useRef(null)
   const selectedCharacterId = safeAvatar.selectedCharacterId ?? AVATAR_BASE_CHARACTER_IDS[0]
   const shopWardrobeItems = getShopWardrobeItems(safeAvatar)
   const shopCharacters = getShopCharacters(safeAvatar)
@@ -3065,6 +3074,18 @@ function AvatarStudio({ studentName, avatar, onEquipItem, onSelectCharacter, onP
       .filter((sticker) => activeStoreFilter === 'all' || activeStoreFilter === 'stickers')
       .map((sticker) => ({ kind: 'sticker', id: sticker.id, title: sticker.name, price: sticker.price, isOwned: sticker.isOwned, accent: sticker.palette[0], subtitle: 'Sticker' })),
   ].filter((entry) => activeStoreFilter === 'all' || entry.kind === 'sticker' || entry.kind === 'character' || entry.kind === 'item')
+
+  useEffect(() => {
+    if (!requestedPanel) return
+    setActivePanel(requestedPanel)
+  }, [requestedPanel])
+
+  useEffect(() => {
+    if (requestedPanel !== 'store') return
+    setActivePanel('store')
+    setActiveStoreFilter('all')
+    panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [panelFocusKey, requestedPanel])
 
   function renderClosetCards(items, options = {}) {
     return (
@@ -3109,7 +3130,7 @@ function AvatarStudio({ studentName, avatar, onEquipItem, onSelectCharacter, onP
   }
 
   return (
-    <section className="panel-card avatar-panel avatar-panel-showroom">
+    <section ref={panelRef} className="panel-card avatar-panel avatar-panel-showroom">
       <div className="avatar-panel-top">
         <div>
           <div className="brand-pill">
@@ -3438,6 +3459,8 @@ function Dashboard({
   personalResultsLoading,
   globalResultsLoading,
   globalResultsError,
+  avatarRequestedPanel,
+  avatarPanelFocusKey,
   onStartFullTest,
   onStartSnakeGame,
   onSelectSubject,
@@ -3501,6 +3524,8 @@ function Dashboard({
         onEquipItem={onEquipAvatarItem}
         onSelectCharacter={onSelectAvatarCharacter}
         onPurchaseItem={onPurchaseAvatarThing}
+        requestedPanel={avatarRequestedPanel}
+        panelFocusKey={avatarPanelFocusKey}
       />
 
       <section className="panel-card">
@@ -6393,7 +6418,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
-function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTestRecord }) {
   const goalApples = SNAKE_GOAL_APPLES
 
   const [phase, setPhase] = useState('playing')
@@ -6433,6 +6458,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const mobileFullscreenRef = useRef(false)
   const finishInProgressRef = useRef(false)
   const coinTimerRef = useRef(null)
+  const storeRedirectTimerRef = useRef(null)
 
   useEffect(() => {
     snakeRef.current = snake
@@ -6493,6 +6519,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     return () => {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
+      if (storeRedirectTimerRef.current) window.clearTimeout(storeRedirectTimerRef.current)
       stopBackgroundMusic()
       mediaQuery.removeEventListener?.('change', syncMobileConsole)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
@@ -6529,6 +6556,10 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     if (coinTimerRef.current) {
       window.clearTimeout(coinTimerRef.current)
       coinTimerRef.current = null
+    }
+    if (storeRedirectTimerRef.current) {
+      window.clearTimeout(storeRedirectTimerRef.current)
+      storeRedirectTimerRef.current = null
     }
   }
 
@@ -6661,9 +6692,17 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setSaveMessage('Saving result...')
 
     try {
-      await onSaveResult(summary)
+      const savedRecord = await onSaveResult(summary)
+      const coinsEarned = savedRecord?.coinsEarned ?? 0
       setSaveStatus('saved')
-      setSaveMessage('Result saved to Firebase.')
+      setSaveMessage(`Result saved. ${coinsEarned} coins added. Opening the store...`)
+      storeRedirectTimerRef.current = window.setTimeout(() => {
+        void (async () => {
+          await exitFullscreenMode()
+          stopBackgroundMusic()
+          onOpenStore()
+        })()
+      }, 1200)
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
@@ -7917,6 +7956,8 @@ function App() {
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
+  const [dashboardAvatarPanel, setDashboardAvatarPanel] = useState('closet')
+  const [dashboardAvatarFocusKey, setDashboardAvatarFocusKey] = useState(0)
 
   async function loadGlobalResults() {
     setGlobalResultsLoading(true)
@@ -8335,29 +8376,42 @@ function App() {
   }
 
   function openSubject(subjectId) {
+    setDashboardAvatarPanel('closet')
     setSelectedSubjectId(subjectId)
     setSelectedTestId(null)
     setScreen('subject')
   }
 
   function openTest(testId) {
+    setDashboardAvatarPanel('closet')
     setSelectedTestId(testId)
     setScreen('test')
   }
 
   function openFullTest() {
+    setDashboardAvatarPanel('closet')
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('full-test')
   }
 
   function openSnakeGame() {
+    setDashboardAvatarPanel('closet')
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('snake')
   }
 
+  function openAvatarStoreDashboard() {
+    setDashboardAvatarPanel('store')
+    setDashboardAvatarFocusKey((previous) => previous + 1)
+    setSelectedSubjectId(null)
+    setSelectedTestId(null)
+    setScreen('dashboard')
+  }
+
   function goToDashboard() {
+    setDashboardAvatarPanel('closet')
     setScreen('dashboard')
     setSelectedSubjectId(null)
     setSelectedTestId(null)
@@ -8434,6 +8488,8 @@ function App() {
             personalResultsLoading={personalResultsLoading}
             globalResultsLoading={globalResultsLoading}
             globalResultsError={globalResultsError}
+            avatarRequestedPanel={dashboardAvatarPanel}
+            avatarPanelFocusKey={dashboardAvatarFocusKey}
             onStartFullTest={openFullTest}
             onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
@@ -8456,6 +8512,7 @@ function App() {
           <SnakeChallenge
             onBack={goToDashboard}
             onSaveResult={saveAssessmentResult}
+            onOpenStore={openAvatarStoreDashboard}
             studentName={studentDisplayName}
             topTestRecord={snakeTopRecord}
           />
