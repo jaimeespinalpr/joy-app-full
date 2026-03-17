@@ -201,7 +201,76 @@ const GAMES_CARD = {
   icon: Gamepad2,
 }
 
+const AVATAR_BASE_CHARACTER_IDS = ['avatar-sunny']
 const AVATAR_BASE_ITEM_IDS = ['top-classic', 'shoes-classic']
+const AVATAR_CHARACTER_CATALOG = [
+  {
+    id: 'avatar-sunny',
+    name: 'Sunny',
+    price: 0,
+    unlockLabel: 'Starter avatar',
+    style: {
+      skin: '#ffd8c0',
+      hair: '#4c3567',
+      blush: '#ff9e80',
+      stageGlow: '#ffe48e',
+      accent: '#5b8cff',
+    },
+  },
+  {
+    id: 'avatar-river',
+    name: 'River',
+    price: 28,
+    unlockLabel: 'Shop avatar',
+    style: {
+      skin: '#d6a07a',
+      hair: '#24345a',
+      blush: '#d87f69',
+      stageGlow: '#8fe4ff',
+      accent: '#4c6fff',
+    },
+  },
+  {
+    id: 'avatar-luna',
+    name: 'Luna',
+    price: 32,
+    unlockLabel: 'Shop avatar',
+    style: {
+      skin: '#f2c9b0',
+      hair: '#2b1f52',
+      blush: '#f0a48d',
+      stageGlow: '#d9b8ff',
+      accent: '#7b52ff',
+    },
+  },
+  {
+    id: 'avatar-ember',
+    name: 'Ember',
+    price: 35,
+    unlockLabel: 'Shop avatar',
+    style: {
+      skin: '#a86f50',
+      hair: '#2a1d17',
+      blush: '#ce7c5d',
+      stageGlow: '#ffc28f',
+      accent: '#ff8a3d',
+    },
+  },
+  {
+    id: 'avatar-sage',
+    name: 'Sage',
+    price: 38,
+    unlockLabel: 'Shop avatar',
+    style: {
+      skin: '#e6c4a2',
+      hair: '#345b4b',
+      blush: '#dc9c7d',
+      stageGlow: '#b9f4c5',
+      accent: '#2eb872',
+    },
+  },
+]
+
 const AVATAR_REWARD_CATALOG = [
   {
     id: 'hat-red-cap',
@@ -290,10 +359,53 @@ const AVATAR_CATALOG = [
     rewardLabel: 'Starter item',
     style: { fill: '#546e7a', accent: '#37474f', trim: '#dfe7ea' },
   },
+  {
+    id: 'top-cosmic-hoodie',
+    slot: 'top',
+    name: 'Cosmic Hoodie',
+    rewardLabel: 'Buy for 22 coins',
+    purchasePrice: 22,
+    style: { fill: '#7c4dff', accent: '#4527a0', trim: '#efe7ff' },
+  },
+  {
+    id: 'top-cloud-jacket',
+    slot: 'top',
+    name: 'Cloud Jacket',
+    rewardLabel: 'Buy for 24 coins',
+    purchasePrice: 24,
+    style: { fill: '#90caf9', accent: '#3c78d8', trim: '#eef7ff' },
+  },
+  {
+    id: 'hat-sport-visor',
+    slot: 'hat',
+    name: 'Sport Visor',
+    rewardLabel: 'Buy for 18 coins',
+    purchasePrice: 18,
+    style: { fill: '#ff8a65', accent: '#d45c38', trim: '#ffe5db' },
+  },
+  {
+    id: 'accessory-lightning-badge',
+    slot: 'accessory',
+    name: 'Lightning Badge',
+    rewardLabel: 'Buy for 16 coins',
+    purchasePrice: 16,
+    style: { fill: '#ffe066', accent: '#b67d00', trim: '#fff7d1' },
+  },
+  {
+    id: 'shoes-sky-runners',
+    slot: 'shoes',
+    name: 'Sky Runners',
+    rewardLabel: 'Buy for 20 coins',
+    purchasePrice: 20,
+    style: { fill: '#4fc3f7', accent: '#0277bd', trim: '#dff7ff' },
+  },
   ...AVATAR_REWARD_CATALOG,
 ]
 
 const AVATAR_ITEM_MAP = Object.fromEntries(AVATAR_CATALOG.map((item) => [item.id, item]))
+const AVATAR_CHARACTER_MAP = Object.fromEntries(
+  AVATAR_CHARACTER_CATALOG.map((character) => [character.id, character]),
+)
 const AVATAR_SLOT_LABELS = {
   hat: 'Hat',
   top: 'Top',
@@ -301,10 +413,49 @@ const AVATAR_SLOT_LABELS = {
   shoes: 'Shoes',
 }
 
+const STICKER_CATALOG = [
+  {
+    id: 'sticker-dino-club',
+    name: 'Dino Club',
+    price: 8,
+    palette: ['#9be37c', '#4a8f2d'],
+  },
+  {
+    id: 'sticker-star-burst',
+    name: 'Star Burst',
+    price: 10,
+    palette: ['#ffd54f', '#c88a00'],
+  },
+  {
+    id: 'sticker-book-buddy',
+    name: 'Book Buddy',
+    price: 9,
+    palette: ['#90caf9', '#3158d4'],
+  },
+  {
+    id: 'sticker-rocket-club',
+    name: 'Rocket Club',
+    price: 12,
+    palette: ['#ff9f43', '#d35400'],
+  },
+  {
+    id: 'sticker-rainbow-smile',
+    name: 'Rainbow Smile',
+    price: 11,
+    palette: ['#ff7ab6', '#7e57c2'],
+  },
+]
+
+const STICKER_MAP = Object.fromEntries(STICKER_CATALOG.map((sticker) => [sticker.id, sticker]))
+
 function getDefaultAvatarState() {
   return {
     totalCompletedRuns: 0,
+    coins: 0,
     unlockedItemIds: [...AVATAR_BASE_ITEM_IDS],
+    ownedCharacterIds: [...AVATAR_BASE_CHARACTER_IDS],
+    selectedCharacterId: AVATAR_BASE_CHARACTER_IDS[0],
+    ownedStickerIds: [],
     equipped: {
       hat: '',
       top: 'top-classic',
@@ -342,6 +493,18 @@ function normalizeAvatarState(rawAvatar, totalCompletedRuns) {
   const nextRunCount = Math.max(0, Number(totalCompletedRuns ?? rawAvatar?.totalCompletedRuns ?? 0))
   const unlockedItemIds = buildUnlockedAvatarItemIds(nextRunCount, rawAvatar?.unlockedItemIds ?? [])
   const unlockedSet = new Set(unlockedItemIds)
+  const ownedCharacterIds = Array.from(
+    new Set([
+      ...AVATAR_BASE_CHARACTER_IDS,
+      ...(rawAvatar?.ownedCharacterIds ?? []).filter((characterId) => AVATAR_CHARACTER_MAP[characterId]),
+    ]),
+  )
+  const ownedStickerIds = Array.from(
+    new Set((rawAvatar?.ownedStickerIds ?? []).filter((stickerId) => STICKER_MAP[stickerId])),
+  )
+  const selectedCharacterId = ownedCharacterIds.includes(rawAvatar?.selectedCharacterId)
+    ? rawAvatar.selectedCharacterId
+    : fallbackAvatar.selectedCharacterId
   const equipped = {
     hat: unlockedSet.has(rawAvatar?.equipped?.hat) ? rawAvatar.equipped.hat : fallbackAvatar.equipped.hat,
     top: unlockedSet.has(rawAvatar?.equipped?.top) ? rawAvatar.equipped.top : fallbackAvatar.equipped.top,
@@ -353,7 +516,11 @@ function normalizeAvatarState(rawAvatar, totalCompletedRuns) {
 
   return {
     totalCompletedRuns: nextRunCount,
+    coins: Math.max(0, Number(rawAvatar?.coins ?? 0)),
     unlockedItemIds,
+    ownedCharacterIds,
+    selectedCharacterId,
+    ownedStickerIds,
     equipped,
   }
 }
@@ -380,6 +547,16 @@ function getNextAvatarReward(totalCompletedRuns) {
   return AVATAR_REWARD_CATALOG[Math.floor(totalCompletedRuns / 10)] ?? null
 }
 
+function getCoinsForAssessment(summary) {
+  const totalScore = Math.max(0, Number(summary?.totalScore ?? 0))
+  const percentage = Math.max(0, Number(summary?.percentage ?? 0))
+  const baseReward = summary?.attemptStatus === 'abandoned' ? 1 : 4
+  const scoreReward = Math.round(totalScore / 12)
+  const accuracyReward = Math.round(percentage / 25)
+
+  return Math.max(baseReward, baseReward + scoreReward + accuracyReward)
+}
+
 function getAvatarProgressSummary(avatarState) {
   const totalCompletedRuns = avatarState?.totalCompletedRuns ?? 0
   const nextReward = getNextAvatarReward(totalCompletedRuns)
@@ -391,6 +568,9 @@ function getAvatarProgressSummary(avatarState) {
       nextReward: null,
       progressPercent: 100,
       remainingRuns: 0,
+      coins: avatarState?.coins ?? 0,
+      ownedCharacters: avatarState?.ownedCharacterIds?.length ?? AVATAR_BASE_CHARACTER_IDS.length,
+      ownedStickers: avatarState?.ownedStickerIds?.length ?? 0,
       unlockedCount: new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS).size,
     }
   }
@@ -400,8 +580,35 @@ function getAvatarProgressSummary(avatarState) {
     nextReward,
     progressPercent: progressInBlock * 10,
     remainingRuns: progressInBlock === 0 ? 10 : 10 - progressInBlock,
+    coins: avatarState?.coins ?? 0,
+    ownedCharacters: avatarState?.ownedCharacterIds?.length ?? AVATAR_BASE_CHARACTER_IDS.length,
+    ownedStickers: avatarState?.ownedStickerIds?.length ?? 0,
     unlockedCount: new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS).size,
   }
+}
+
+function getShopWardrobeItems(avatarState) {
+  const unlockedSet = new Set(avatarState?.unlockedItemIds ?? AVATAR_BASE_ITEM_IDS)
+  return AVATAR_CATALOG.filter((item) => item.purchasePrice).map((item) => ({
+    ...item,
+    isOwned: unlockedSet.has(item.id),
+  }))
+}
+
+function getShopCharacters(avatarState) {
+  const ownedCharacters = new Set(avatarState?.ownedCharacterIds ?? AVATAR_BASE_CHARACTER_IDS)
+  return AVATAR_CHARACTER_CATALOG.map((character) => ({
+    ...character,
+    isOwned: ownedCharacters.has(character.id),
+  }))
+}
+
+function getShopStickers(avatarState) {
+  const ownedStickers = new Set(avatarState?.ownedStickerIds ?? [])
+  return STICKER_CATALOG.map((sticker) => ({
+    ...sticker,
+    isOwned: ownedStickers.has(sticker.id),
+  }))
 }
 
 const FULL_TEST_SOURCE_TESTS = [
@@ -2458,6 +2665,8 @@ function TestCard({ test, onSelect }) {
 
 function AvatarPreview({ avatar, studentName }) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
+  const character =
+    AVATAR_CHARACTER_MAP[safeAvatar.selectedCharacterId] ?? AVATAR_CHARACTER_MAP[AVATAR_BASE_CHARACTER_IDS[0]]
   const topItem = AVATAR_ITEM_MAP[safeAvatar.equipped.top] ?? AVATAR_ITEM_MAP['top-classic']
   const shoesItem = AVATAR_ITEM_MAP[safeAvatar.equipped.shoes] ?? AVATAR_ITEM_MAP['shoes-classic']
   const hatItem = safeAvatar.equipped.hat ? AVATAR_ITEM_MAP[safeAvatar.equipped.hat] : null
@@ -2492,10 +2701,15 @@ function AvatarPreview({ avatar, studentName }) {
           </>
         )}
 
-        <circle cx="110" cy="80" r="33" fill="#ffd8c0" />
-        <path d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z" fill="#4c3567" />
+        <circle cx="110" cy="80" r="33" fill={character.style.skin} />
+        <path
+          d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z"
+          fill={character.style.hair}
+        />
         <circle cx="98" cy="82" r="3.8" fill="#213057" />
         <circle cx="122" cy="82" r="3.8" fill="#213057" />
+        <circle cx="91" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
+        <circle cx="129" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
         <path d="M101 98 C106 102, 115 102, 120 98" stroke="#c06c59" strokeWidth="3.2" strokeLinecap="round" fill="none" />
 
         {hatItem?.id === 'hat-headphones' && (
@@ -2506,8 +2720,8 @@ function AvatarPreview({ avatar, studentName }) {
           </>
         )}
 
-        <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill="#ffd8c0" />
-        <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill="#ffd8c0" />
+        <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill={character.style.skin} />
+        <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill={character.style.skin} />
 
         <rect x="78" y="106" width="64" height="74" rx="20" fill={topItem.style.fill} />
         <rect x="78" y="106" width="64" height="17" rx="8" fill={topItem.style.trim} opacity="0.55" />
@@ -2567,16 +2781,23 @@ function AvatarPreview({ avatar, studentName }) {
         )}
       </svg>
       <div className="avatar-stage-caption">
-        <strong>{studentName}</strong>
-        <span>Custom outfit unlocked every 10 completed runs.</span>
+        <strong>
+          {studentName} as {character.name}
+        </strong>
+        <span>Earn coins from tests, buy gear, and unlock free clothes every 10 completed runs.</span>
       </div>
     </div>
   )
 }
 
-function AvatarStudio({ studentName, avatar, onEquipItem }) {
+function AvatarStudio({ studentName, avatar, onEquipItem, onSelectCharacter, onPurchaseItem }) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
   const progress = getAvatarProgressSummary(safeAvatar)
+  const selectedCharacterId = safeAvatar.selectedCharacterId ?? AVATAR_BASE_CHARACTER_IDS[0]
+  const shopWardrobeItems = getShopWardrobeItems(safeAvatar)
+  const shopCharacters = getShopCharacters(safeAvatar)
+  const shopStickers = getShopStickers(safeAvatar)
+  const ownedStickerIds = new Set(safeAvatar.ownedStickerIds ?? [])
 
   return (
     <section className="panel-card avatar-panel">
@@ -2587,7 +2808,7 @@ function AvatarStudio({ studentName, avatar, onEquipItem }) {
         </div>
         <div className="avatar-progress-chip">
           <Sparkles size={16} />
-          <span>{progress.totalCompletedRuns} completed runs</span>
+          <span>{progress.coins} coins</span>
         </div>
       </div>
 
@@ -2597,12 +2818,20 @@ function AvatarStudio({ studentName, avatar, onEquipItem }) {
         <div className="avatar-controls">
           <div className="avatar-summary-grid">
             <div className="avatar-summary-card">
-              <span>Unlocked pieces</span>
-              <strong>{progress.unlockedCount}</strong>
+              <span>Completed runs</span>
+              <strong>{progress.totalCompletedRuns}</strong>
             </div>
             <div className="avatar-summary-card">
               <span>Next gift</span>
               <strong>{progress.nextReward?.name ?? 'Closet complete'}</strong>
+            </div>
+            <div className="avatar-summary-card">
+              <span>Owned clothes</span>
+              <strong>{progress.unlockedCount}</strong>
+            </div>
+            <div className="avatar-summary-card">
+              <span>Owned avatars</span>
+              <strong>{progress.ownedCharacters}</strong>
             </div>
           </div>
 
@@ -2615,6 +2844,35 @@ function AvatarStudio({ studentName, avatar, onEquipItem }) {
               ? `${progress.remainingRuns} more completed runs to unlock ${progress.nextReward.name}.`
               : 'All avatar rewards are unlocked.'}
           </p>
+
+          <div className="avatar-slot-card">
+            <div className="avatar-slot-header">
+              <strong>Choose avatar</strong>
+              <span>{progress.ownedCharacters} owned</span>
+            </div>
+
+            <div className="avatar-character-grid">
+              {shopCharacters.map((character) => (
+                <button
+                  key={character.id}
+                  type="button"
+                  className={`avatar-character-card ${selectedCharacterId === character.id ? 'is-selected' : ''} ${character.isOwned ? '' : 'is-locked'}`}
+                  onClick={() => (character.isOwned ? onSelectCharacter(character.id) : onPurchaseItem('character', character.id))}
+                >
+                  <span
+                    className="avatar-character-swatch"
+                    style={{
+                      '--character-skin': character.style.skin,
+                      '--character-hair': character.style.hair,
+                      '--character-accent': character.style.accent,
+                    }}
+                  />
+                  <strong>{character.name}</strong>
+                  <small>{character.isOwned ? character.unlockLabel : `${character.price} coins`}</small>
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="avatar-slot-list">
             {Object.entries(AVATAR_SLOT_LABELS).map(([slot, label]) => {
@@ -2666,6 +2924,72 @@ function AvatarStudio({ studentName, avatar, onEquipItem }) {
                 </div>
               )
             })}
+          </div>
+
+          <div className="avatar-market-grid">
+            <div className="avatar-slot-card">
+              <div className="avatar-slot-header">
+                <strong>Shop: clothes</strong>
+                <span>Use coins from tests</span>
+              </div>
+
+              <div className="avatar-shop-grid">
+                {shopWardrobeItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`avatar-item-chip ${item.isOwned ? 'is-selected' : ''}`}
+                    onClick={() => (item.isOwned ? onEquipItem(item.slot, item.id) : onPurchaseItem('item', item.id))}
+                  >
+                    <span
+                      className="avatar-item-swatch"
+                      style={{
+                        '--swatch-fill': item.style.fill,
+                        '--swatch-accent': item.style.accent,
+                        '--swatch-trim': item.style.trim,
+                      }}
+                    />
+                    <span>{item.name}</span>
+                    <small>{item.isOwned ? 'Owned - click to equip' : `${item.purchasePrice} coins`}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="avatar-slot-card">
+              <div className="avatar-slot-header">
+                <strong>Sticker album</strong>
+                <span>{progress.ownedStickers} owned</span>
+              </div>
+
+              <div className="sticker-grid">
+                {shopStickers.map((sticker) => (
+                  <button
+                    key={sticker.id}
+                    type="button"
+                    className={`sticker-card ${ownedStickerIds.has(sticker.id) ? 'is-owned' : ''}`}
+                    onClick={() => !ownedStickerIds.has(sticker.id) && onPurchaseItem('sticker', sticker.id)}
+                    disabled={ownedStickerIds.has(sticker.id)}
+                  >
+                    <span
+                      className="sticker-mark"
+                      style={{
+                        '--sticker-fill': sticker.palette[0],
+                        '--sticker-accent': sticker.palette[1],
+                      }}
+                    >
+                      {sticker.name
+                        .split(' ')
+                        .map((word) => word[0])
+                        .join('')
+                        .slice(0, 2)}
+                    </span>
+                    <strong>{sticker.name}</strong>
+                    <small>{ownedStickerIds.has(sticker.id) ? 'Collected' : `${sticker.price} coins`}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2806,6 +3130,8 @@ function Dashboard({
   onStartSnakeGame,
   onSelectSubject,
   onEquipAvatarItem,
+  onSelectAvatarCharacter,
+  onPurchaseAvatarThing,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
@@ -2861,6 +3187,8 @@ function Dashboard({
         studentName={studentProfile?.alias ?? 'Student'}
         avatar={studentProfile?.avatar}
         onEquipItem={onEquipAvatarItem}
+        onSelectCharacter={onSelectAvatarCharacter}
+        onPurchaseItem={onPurchaseAvatarThing}
       />
 
       <section className="panel-card">
@@ -7335,6 +7663,49 @@ function App() {
     }
   }
 
+  async function persistAvatarState(nextAvatar, fallbackAlias = getStudentDisplayName(studentProfile, currentUser)) {
+    if (!currentUser) return false
+
+    const normalizedAvatar = normalizeAvatarState(nextAvatar, nextAvatar?.totalCompletedRuns ?? 0)
+    const nextProfile = {
+      ...(studentProfile ?? {
+        alias: fallbackAlias,
+        aliasSlug: normalizeAlias(fallbackAlias),
+      }),
+      avatar: normalizedAvatar,
+    }
+
+    setStudentProfile(nextProfile)
+
+    try {
+      await setDoc(doc(db, 'students', currentUser.uid), { avatar: normalizedAvatar }, { merge: true })
+      return true
+    } catch (error) {
+      console.error('Could not save avatar state:', error)
+      void loadStudentData(currentUser)
+      return false
+    }
+  }
+
+  async function handleSelectAvatarCharacter(characterId) {
+    if (!currentUser || !AVATAR_CHARACTER_MAP[characterId]) return
+
+    const currentAvatar = normalizeAvatarState(
+      studentProfile?.avatar,
+      studentProfile?.avatar?.totalCompletedRuns ?? 0,
+    )
+
+    if (!(currentAvatar.ownedCharacterIds ?? []).includes(characterId)) return
+
+    await persistAvatarState(
+      {
+        ...currentAvatar,
+        selectedCharacterId: characterId,
+      },
+      getStudentDisplayName(studentProfile, currentUser),
+    )
+  }
+
   async function handleEquipAvatarItem(slot, itemId) {
     if (!currentUser) return
 
@@ -7361,18 +7732,82 @@ function App() {
       currentAvatar.totalCompletedRuns,
     )
 
-    const previousProfile = studentProfile
-    setStudentProfile((previous) => ({
-      ...(previous ?? { alias: getStudentDisplayName(previousProfile, currentUser) }),
-      avatar: nextAvatar,
-    }))
+    await persistAvatarState(nextAvatar, getStudentDisplayName(studentProfile, currentUser))
+  }
 
-    try {
-      await setDoc(doc(db, 'students', currentUser.uid), { avatar: nextAvatar }, { merge: true })
-    } catch (error) {
-      console.error('Could not save avatar selection:', error)
-      setStudentProfile(previousProfile)
+  async function handlePurchaseAvatarThing(kind, entityId) {
+    if (!currentUser) return
+
+    const currentAvatar = normalizeAvatarState(
+      studentProfile?.avatar,
+      studentProfile?.avatar?.totalCompletedRuns ?? 0,
+    )
+
+    let nextAvatar = currentAvatar
+
+    if (kind === 'item') {
+      const item = AVATAR_ITEM_MAP[entityId]
+      if (!item?.purchasePrice) return
+      if ((currentAvatar.unlockedItemIds ?? []).includes(entityId)) {
+        await handleEquipAvatarItem(item.slot, entityId)
+        return
+      }
+      if ((currentAvatar.coins ?? 0) < item.purchasePrice) return
+
+      nextAvatar = normalizeAvatarState(
+        {
+          ...currentAvatar,
+          coins: currentAvatar.coins - item.purchasePrice,
+          unlockedItemIds: [...(currentAvatar.unlockedItemIds ?? []), entityId],
+          equipped: {
+            ...currentAvatar.equipped,
+            [item.slot]: entityId,
+          },
+        },
+        currentAvatar.totalCompletedRuns,
+      )
     }
+
+    if (kind === 'character') {
+      const character = AVATAR_CHARACTER_MAP[entityId]
+      if (!character || character.price <= 0) {
+        await handleSelectAvatarCharacter(entityId)
+        return
+      }
+      if ((currentAvatar.ownedCharacterIds ?? []).includes(entityId)) {
+        await handleSelectAvatarCharacter(entityId)
+        return
+      }
+      if ((currentAvatar.coins ?? 0) < character.price) return
+
+      nextAvatar = normalizeAvatarState(
+        {
+          ...currentAvatar,
+          coins: currentAvatar.coins - character.price,
+          ownedCharacterIds: [...(currentAvatar.ownedCharacterIds ?? []), entityId],
+          selectedCharacterId: entityId,
+        },
+        currentAvatar.totalCompletedRuns,
+      )
+    }
+
+    if (kind === 'sticker') {
+      const sticker = STICKER_MAP[entityId]
+      if (!sticker) return
+      if ((currentAvatar.ownedStickerIds ?? []).includes(entityId)) return
+      if ((currentAvatar.coins ?? 0) < sticker.price) return
+
+      nextAvatar = normalizeAvatarState(
+        {
+          ...currentAvatar,
+          coins: currentAvatar.coins - sticker.price,
+          ownedStickerIds: [...(currentAvatar.ownedStickerIds ?? []), entityId],
+        },
+        currentAvatar.totalCompletedRuns,
+      )
+    }
+
+    await persistAvatarState(nextAvatar, getStudentDisplayName(studentProfile, currentUser))
   }
 
   async function saveAssessmentResult(summary) {
@@ -7381,11 +7816,13 @@ function App() {
     }
 
     const studentName = getStudentDisplayName(studentProfile, currentUser)
+    const coinsEarned = getCoinsForAssessment(summary)
     const payload = {
       ...summary,
       studentAlias: studentName,
       studentName,
       score: summary.totalScore,
+      coinsEarned,
       createdAtMs: Date.now(),
       createdAt: serverTimestamp(),
     }
@@ -7423,6 +7860,7 @@ function App() {
       const nextAvatar = normalizeAvatarState(
         {
           ...currentAvatar,
+          coins: currentAvatar.coins + coinsEarned,
           unlockedItemIds: unlockedReward
             ? [...currentAvatar.unlockedItemIds, unlockedReward.id]
             : currentAvatar.unlockedItemIds,
@@ -7436,15 +7874,19 @@ function App() {
         nextRunCount,
       )
 
-      try {
-        await setDoc(doc(db, 'students', currentUser.uid), { avatar: nextAvatar }, { merge: true })
-        setStudentProfile((previous) => ({
-          ...(previous ?? { alias: studentName, aliasSlug: normalizeAlias(studentName) }),
-          avatar: nextAvatar,
-        }))
-      } catch (error) {
-        console.error('Could not update avatar rewards:', error)
-      }
+      await persistAvatarState(nextAvatar, studentName)
+    } else {
+      const currentAvatar = normalizeAvatarState(
+        studentProfile?.avatar,
+        studentProfile?.avatar?.totalCompletedRuns ?? 0,
+      )
+      await persistAvatarState(
+        {
+          ...currentAvatar,
+          coins: currentAvatar.coins + coinsEarned,
+        },
+        studentName,
+      )
     }
 
     return savedRecord
@@ -7554,6 +7996,8 @@ function App() {
             onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
             onEquipAvatarItem={handleEquipAvatarItem}
+            onSelectAvatarCharacter={handleSelectAvatarCharacter}
+            onPurchaseAvatarThing={handlePurchaseAvatarThing}
           />
         )}
 
