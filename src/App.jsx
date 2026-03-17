@@ -363,6 +363,38 @@ const AVATAR_CATALOG = [
     style: { fill: '#546e7a', accent: '#37474f', trim: '#dfe7ea' },
   },
   {
+    id: 'top-striped-tee',
+    slot: 'top',
+    name: 'Striped Tee',
+    rewardLabel: 'Buy for 16 coins',
+    purchasePrice: 16,
+    style: { fill: '#ffd166', accent: '#ff6f61', trim: '#e6fff5' },
+  },
+  {
+    id: 'top-denim-jacket',
+    slot: 'top',
+    name: 'Denim Jacket',
+    rewardLabel: 'Buy for 26 coins',
+    purchasePrice: 26,
+    style: { fill: '#74a8ff', accent: '#3158d4', trim: '#edf3ff' },
+  },
+  {
+    id: 'top-dino-shirt',
+    slot: 'top',
+    name: 'Dino Shirt',
+    rewardLabel: 'Buy for 18 coins',
+    purchasePrice: 18,
+    style: { fill: '#444', accent: '#9be37c', trim: '#ffe082' },
+  },
+  {
+    id: 'top-flower-dress',
+    slot: 'top',
+    name: 'Flower Dress',
+    rewardLabel: 'Buy for 24 coins',
+    purchasePrice: 24,
+    style: { fill: '#ff8fb1', accent: '#ffcd5d', trim: '#fff3e0' },
+  },
+  {
     id: 'top-cosmic-hoodie',
     slot: 'top',
     name: 'Cosmic Hoodie',
@@ -387,6 +419,22 @@ const AVATAR_CATALOG = [
     style: { fill: '#ff8a65', accent: '#d45c38', trim: '#ffe5db' },
   },
   {
+    id: 'hat-sun-cap',
+    slot: 'hat',
+    name: 'Sun Cap',
+    rewardLabel: 'Buy for 14 coins',
+    purchasePrice: 14,
+    style: { fill: '#ffd54f', accent: '#e09b00', trim: '#fff4c2' },
+  },
+  {
+    id: 'hat-cozy-beanie',
+    slot: 'hat',
+    name: 'Cozy Beanie',
+    rewardLabel: 'Buy for 15 coins',
+    purchasePrice: 15,
+    style: { fill: '#d17b49', accent: '#9a4d20', trim: '#ffe2c9' },
+  },
+  {
     id: 'accessory-lightning-badge',
     slot: 'accessory',
     name: 'Lightning Badge',
@@ -395,12 +443,60 @@ const AVATAR_CATALOG = [
     style: { fill: '#ffe066', accent: '#b67d00', trim: '#fff7d1' },
   },
   {
+    id: 'accessory-school-backpack',
+    slot: 'accessory',
+    name: 'School Backpack',
+    rewardLabel: 'Buy for 20 coins',
+    purchasePrice: 20,
+    style: { fill: '#63c2a1', accent: '#2f8f73', trim: '#e8fff8' },
+  },
+  {
+    id: 'accessory-violet-glasses',
+    slot: 'accessory',
+    name: 'Violet Glasses',
+    rewardLabel: 'Buy for 14 coins',
+    purchasePrice: 14,
+    style: { fill: '#b388ff', accent: '#6a1b9a', trim: '#f4ecff' },
+  },
+  {
+    id: 'accessory-water-bottle',
+    slot: 'accessory',
+    name: 'Water Bottle',
+    rewardLabel: 'Buy for 11 coins',
+    purchasePrice: 11,
+    style: { fill: '#5bc0eb', accent: '#1976d2', trim: '#e8f8ff' },
+  },
+  {
+    id: 'accessory-story-book',
+    slot: 'accessory',
+    name: 'Story Book',
+    rewardLabel: 'Buy for 13 coins',
+    purchasePrice: 13,
+    style: { fill: '#ffb74d', accent: '#ef6c00', trim: '#fff1df' },
+  },
+  {
     id: 'shoes-sky-runners',
     slot: 'shoes',
     name: 'Sky Runners',
     rewardLabel: 'Buy for 20 coins',
     purchasePrice: 20,
     style: { fill: '#4fc3f7', accent: '#0277bd', trim: '#dff7ff' },
+  },
+  {
+    id: 'shoes-red-runners',
+    slot: 'shoes',
+    name: 'Red Runners',
+    rewardLabel: 'Buy for 18 coins',
+    purchasePrice: 18,
+    style: { fill: '#ff6f61', accent: '#c63c35', trim: '#ffe0dc' },
+  },
+  {
+    id: 'shoes-cloud-boots',
+    slot: 'shoes',
+    name: 'Cloud Boots',
+    rewardLabel: 'Buy for 21 coins',
+    purchasePrice: 21,
+    style: { fill: '#eceff1', accent: '#90a4ae', trim: '#ffffff' },
   },
   ...AVATAR_REWARD_CATALOG,
 ]
@@ -450,6 +546,26 @@ const STICKER_CATALOG = [
 ]
 
 const STICKER_MAP = Object.fromEntries(STICKER_CATALOG.map((sticker) => [sticker.id, sticker]))
+const AVATAR_CLOSET_TABS = [
+  { id: 'avatars', label: 'Avatars' },
+  { id: 'clothes', label: 'Clothes' },
+  { id: 'items', label: 'Items' },
+  { id: 'shoes', label: 'Shoes' },
+]
+const AVATAR_STORE_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'avatars', label: 'Avatars' },
+  { id: 'clothes', label: 'Clothes' },
+  { id: 'items', label: 'Items' },
+  { id: 'shoes', label: 'Shoes' },
+  { id: 'stickers', label: 'Stickers' },
+]
+
+function getAvatarCategoryFromSlot(slot) {
+  if (slot === 'top') return 'clothes'
+  if (slot === 'shoes') return 'shoes'
+  return 'items'
+}
 
 function getDefaultAvatarState() {
   return {
@@ -551,6 +667,12 @@ function getNextAvatarReward(totalCompletedRuns) {
 }
 
 function getCoinsForAssessment(summary) {
+  if (summary?.mode === 'snake') {
+    const bestAppleStreak = Math.max(0, Number(summary?.bestAppleStreak ?? summary?.applesEaten ?? 0))
+    const reachedGoalBonus = bestAppleStreak >= SNAKE_GOAL_APPLES ? 18 : 0
+    return Math.max(4, bestAppleStreak * 5 + reachedGoalBonus)
+  }
+
   const totalScore = Math.max(0, Number(summary?.totalScore ?? 0))
   const percentage = Math.max(0, Number(summary?.percentage ?? 0))
   const baseReward = summary?.attemptStatus === 'abandoned' ? 1 : 4
@@ -2674,115 +2796,241 @@ function AvatarPreview({ avatar, studentName }) {
   const shoesItem = AVATAR_ITEM_MAP[safeAvatar.equipped.shoes] ?? AVATAR_ITEM_MAP['shoes-classic']
   const hatItem = safeAvatar.equipped.hat ? AVATAR_ITEM_MAP[safeAvatar.equipped.hat] : null
   const accessoryItem = safeAvatar.equipped.accessory ? AVATAR_ITEM_MAP[safeAvatar.equipped.accessory] : null
+  const quickItems = [
+    { label: 'Avatar', name: character.name, accent: character.style.accent },
+    { label: 'Clothes', name: topItem.name, accent: topItem.style.fill },
+    { label: 'Items', name: accessoryItem?.name || hatItem?.name || 'No extras', accent: accessoryItem?.style.fill || hatItem?.style.fill || '#c9d3f5' },
+    { label: 'Shoes', name: shoesItem.name, accent: shoesItem.style.fill },
+  ]
 
   return (
-    <div className="avatar-stage">
-      <div className="avatar-stage-glow" aria-hidden="true" />
-      <svg className="avatar-canvas" viewBox="0 0 220 250" role="img" aria-label={`${studentName} avatar`}>
-        <ellipse cx="110" cy="220" rx="62" ry="15" fill="rgba(31, 48, 108, 0.12)" />
+    <div className="avatar-stage" style={{ '--avatar-stage-glow': character.style.stageGlow }}>
+      <div className="avatar-classroom-bg" aria-hidden="true">
+        <div className="avatar-bunting">
+          {['#ff6f61', '#ffd166', '#5bc0eb', '#70d39a', '#b388ff'].map((color, index) => (
+            <span key={`${color}_${index}`} style={{ '--bunting-color': color }} />
+          ))}
+        </div>
+        <div className="avatar-chalkboard">
+          <small>WELCOME</small>
+          <strong>3RD GRADE</strong>
+        </div>
+        <div className="avatar-classroom-shelf">
+          <span className="shelf-book blue" />
+          <span className="shelf-book gold" />
+          <span className="shelf-book coral" />
+          <span className="shelf-block">A</span>
+          <span className="shelf-block">3</span>
+        </div>
+        <div className="avatar-floor" />
+      </div>
 
-        {accessoryItem?.id === 'accessory-gold-cape' && (
+      <div className="avatar-figure-wrap">
+        <div className="avatar-stage-glow" aria-hidden="true" />
+        <svg className="avatar-canvas" viewBox="0 0 220 250" role="img" aria-label={`${studentName} avatar`}>
+          <ellipse cx="110" cy="220" rx="62" ry="15" fill="rgba(31, 48, 108, 0.12)" />
+
+          {accessoryItem?.id === 'accessory-gold-cape' && (
+            <path
+              d="M72 110 C76 162, 80 188, 62 210 L100 202 L120 214 L140 202 L178 210 C160 186, 164 162, 168 110 Z"
+              fill={accessoryItem.style.fill}
+              opacity="0.95"
+            />
+          )}
+
+          {['hat-red-cap', 'hat-sun-cap'].includes(hatItem?.id) && (
+            <>
+              <path d="M79 52 C91 30, 130 28, 145 52 L145 66 L79 66 Z" fill={hatItem.style.fill} />
+              <path d="M133 63 C149 64, 162 69, 166 79 L128 77 Z" fill={hatItem.style.accent} />
+            </>
+          )}
+
+          {hatItem?.id === 'hat-explorer' && (
+            <>
+              <ellipse cx="110" cy="54" rx="40" ry="12" fill={hatItem.style.accent} />
+              <path d="M84 58 C86 36, 134 35, 138 58 L138 73 L84 73 Z" fill={hatItem.style.fill} />
+              <ellipse cx="110" cy="73" rx="46" ry="11" fill={hatItem.style.trim} />
+            </>
+          )}
+
+          <circle cx="110" cy="80" r="33" fill={character.style.skin} />
           <path
-            d="M72 110 C76 162, 80 188, 62 210 L100 202 L120 214 L140 202 L178 210 C160 186, 164 162, 168 110 Z"
-            fill={accessoryItem.style.fill}
-            opacity="0.95"
+            d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z"
+            fill={character.style.hair}
           />
-        )}
+          <circle cx="98" cy="82" r="3.8" fill="#213057" />
+          <circle cx="122" cy="82" r="3.8" fill="#213057" />
+          <circle cx="91" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
+          <circle cx="129" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
+          <path d="M101 98 C106 102, 115 102, 120 98" stroke="#c06c59" strokeWidth="3.2" strokeLinecap="round" fill="none" />
 
-        {hatItem?.id === 'hat-red-cap' && (
-          <>
-            <path d="M79 52 C91 30, 130 28, 145 52 L145 66 L79 66 Z" fill={hatItem.style.fill} />
-            <path d="M133 63 C149 64, 162 69, 166 79 L128 77 Z" fill={hatItem.style.accent} />
-          </>
-        )}
+          {hatItem?.id === 'hat-headphones' && (
+            <>
+              <path d="M80 79 C80 52, 140 52, 140 79" stroke={hatItem.style.fill} strokeWidth="8" fill="none" strokeLinecap="round" />
+              <rect x="71" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
+              <rect x="137" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
+            </>
+          )}
 
-        {hatItem?.id === 'hat-explorer' && (
-          <>
-            <ellipse cx="110" cy="54" rx="40" ry="12" fill={hatItem.style.accent} />
-            <path d="M84 58 C86 36, 134 35, 138 58 L138 73 L84 73 Z" fill={hatItem.style.fill} />
-            <ellipse cx="110" cy="73" rx="46" ry="11" fill={hatItem.style.trim} />
-          </>
-        )}
+          {hatItem?.id === 'hat-cozy-beanie' && (
+            <>
+              <path d="M81 57 C87 34, 133 34, 139 57 L139 72 L81 72 Z" fill={hatItem.style.fill} />
+              <rect x="79" y="68" width="62" height="10" rx="5" fill={hatItem.style.accent} />
+              <circle cx="110" cy="43" r="9" fill={hatItem.style.trim} />
+            </>
+          )}
 
-        <circle cx="110" cy="80" r="33" fill={character.style.skin} />
-        <path
-          d="M80 78 C82 49, 138 46, 141 77 L141 88 C132 72, 120 66, 110 66 C99 66, 89 70, 79 88 Z"
-          fill={character.style.hair}
-        />
-        <circle cx="98" cy="82" r="3.8" fill="#213057" />
-        <circle cx="122" cy="82" r="3.8" fill="#213057" />
-        <circle cx="91" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
-        <circle cx="129" cy="93" r="4.2" fill={character.style.blush} opacity="0.45" />
-        <path d="M101 98 C106 102, 115 102, 120 98" stroke="#c06c59" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+          {accessoryItem?.id === 'accessory-school-backpack' && (
+            <>
+              <path d="M73 112 C69 122, 67 140, 67 168 L84 172 L86 110 Z" fill={accessoryItem.style.accent} opacity="0.94" />
+              <path d="M139 112 C143 122, 145 140, 145 168 L128 172 L126 110 Z" fill={accessoryItem.style.accent} opacity="0.94" />
+              <rect x="74" y="126" width="24" height="32" rx="8" fill={accessoryItem.style.fill} />
+            </>
+          )}
 
-        {hatItem?.id === 'hat-headphones' && (
-          <>
-            <path d="M80 79 C80 52, 140 52, 140 79" stroke={hatItem.style.fill} strokeWidth="8" fill="none" strokeLinecap="round" />
-            <rect x="71" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
-            <rect x="137" y="78" width="12" height="28" rx="6" fill={hatItem.style.accent} />
-          </>
-        )}
+          <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill={character.style.skin} />
+          <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill={character.style.skin} />
 
-        <path d="M72 120 C74 106, 84 101, 92 106 L92 152 C84 156, 76 149, 74 139 Z" fill={character.style.skin} />
-        <path d="M148 120 C146 106, 136 101, 128 106 L128 152 C136 156, 144 149, 146 139 Z" fill={character.style.skin} />
+          <rect x="78" y="106" width="64" height="74" rx="20" fill={topItem.style.fill} />
+          <rect x="78" y="106" width="64" height="17" rx="8" fill={topItem.style.trim} opacity="0.55" />
+          <path d="M100 106 L120 106 L124 123 L96 123 Z" fill="#f5f8ff" opacity="0.78" />
 
-        <rect x="78" y="106" width="64" height="74" rx="20" fill={topItem.style.fill} />
-        <rect x="78" y="106" width="64" height="17" rx="8" fill={topItem.style.trim} opacity="0.55" />
-        <path d="M100 106 L120 106 L124 123 L96 123 Z" fill="#f5f8ff" opacity="0.78" />
+          {topItem.id === 'top-mint-hoodie' && (
+            <>
+              <path d="M88 107 C92 92, 128 92, 132 107" stroke={topItem.style.accent} strokeWidth="6" fill="none" />
+              <path d="M110 120 L110 148" stroke={topItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+            </>
+          )}
 
-        {topItem.id === 'top-mint-hoodie' && (
-          <>
-            <path d="M88 107 C92 92, 128 92, 132 107" stroke={topItem.style.accent} strokeWidth="6" fill="none" />
-            <path d="M110 120 L110 148" stroke={topItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-          </>
-        )}
+          {topItem.id === 'top-sun-jacket' && (
+            <>
+              <path d="M110 106 L110 178" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+              <path d="M88 138 L101 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+              <path d="M119 138 L132 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+            </>
+          )}
 
-        {topItem.id === 'top-sun-jacket' && (
-          <>
-            <path d="M110 106 L110 178" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-            <path d="M88 138 L101 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-            <path d="M119 138 L132 138" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
-          </>
-        )}
+          {topItem.id === 'top-striped-tee' && (
+            <>
+              {['#ff6f61', '#70d39a', '#5bc0eb', '#ffd166'].map((stripeColor, index) => (
+                <path
+                  key={`${stripeColor}_${index}`}
+                  d={`M82 ${118 + index * 11} H138`}
+                  stroke={stripeColor}
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                />
+              ))}
+            </>
+          )}
 
-        {accessoryItem?.id === 'accessory-star-glasses' && (
-          <>
-            <path d="M92 82 L96 88 L103 88 L97 93 L99 100 L92 96 L85 100 L87 93 L81 88 L88 88 Z" fill={accessoryItem.style.fill} />
-            <path d="M128 82 L132 88 L139 88 L133 93 L135 100 L128 96 L121 100 L123 93 L117 88 L124 88 Z" fill={accessoryItem.style.fill} />
-            <path d="M100 90 L120 90" stroke={accessoryItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-          </>
-        )}
+          {topItem.id === 'top-denim-jacket' && (
+            <>
+              <path d="M110 106 L110 180" stroke={topItem.style.accent} strokeWidth="4" strokeLinecap="round" />
+              <path d="M90 127 L99 127" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
+              <path d="M121 127 L130 127" stroke={topItem.style.trim} strokeWidth="4" strokeLinecap="round" />
+            </>
+          )}
 
-        {accessoryItem?.id === 'accessory-rainbow-scarf' && (
-          <>
-            <rect x="86" y="117" width="48" height="12" rx="6" fill={accessoryItem.style.fill} />
-            <path d="M126 118 L138 161" stroke={accessoryItem.style.accent} strokeWidth="10" strokeLinecap="round" />
-            <path d="M86 123 H134" stroke={accessoryItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-          </>
-        )}
+          {topItem.id === 'top-dino-shirt' && (
+            <>
+              <path d="M102 136 C110 128, 121 131, 122 142 C119 148, 111 149, 104 145 Z" fill={topItem.style.accent} />
+              <circle cx="121" cy="139" r="2" fill="#243c2f" />
+            </>
+          )}
 
-        <rect x="89" y="178" width="17" height="36" rx="8" fill="#293454" />
-        <rect x="114" y="178" width="17" height="36" rx="8" fill="#293454" />
+          {topItem.id === 'top-flower-dress' && (
+            <>
+              <path d="M82 150 L138 150 L150 191 H70 Z" fill={topItem.style.fill} />
+              {[88, 105, 122, 136].map((cx, index) => (
+                <g key={`flower_${cx}_${index}`}>
+                  <circle cx={cx} cy={165 + (index % 2) * 10} r="4.5" fill={topItem.style.accent} />
+                  <circle cx={cx - 5} cy={165 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
+                  <circle cx={cx + 5} cy={165 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
+                  <circle cx={cx} cy={160 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
+                  <circle cx={cx} cy={170 + (index % 2) * 10} r="2.7" fill={topItem.style.trim} />
+                </g>
+              ))}
+            </>
+          )}
 
-        <path d="M84 210 H108 V223 H82 C82 216, 83 213, 84 210 Z" fill={shoesItem.style.fill} />
-        <path d="M112 210 H136 V223 H110 C110 216, 111 213, 112 210 Z" fill={shoesItem.style.fill} />
-        <path d="M84 217 H108" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
-        <path d="M112 217 H136" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+          {['accessory-star-glasses', 'accessory-violet-glasses'].includes(accessoryItem?.id) && (
+            <>
+              <rect x="84" y="81" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
+              <rect x="118" y="81" width="18" height="12" rx="5" stroke={accessoryItem.style.accent} strokeWidth="3" fill="none" />
+              <path d="M102 87 H118" stroke={accessoryItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+            </>
+          )}
 
-        {shoesItem.id === 'shoes-rocket' && (
-          <>
-            <path d="M81 221 L75 226 L83 226 Z" fill="#ff9f43" />
-            <path d="M139 221 L145 226 L137 226 Z" fill="#ff9f43" />
-          </>
-        )}
+          {accessoryItem?.id === 'accessory-rainbow-scarf' && (
+            <>
+              <rect x="86" y="117" width="48" height="12" rx="6" fill={accessoryItem.style.fill} />
+              <path d="M126 118 L138 161" stroke={accessoryItem.style.accent} strokeWidth="10" strokeLinecap="round" />
+              <path d="M86 123 H134" stroke={accessoryItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+            </>
+          )}
 
-        {shoesItem.id === 'shoes-trail-boots' && (
-          <>
-            <path d="M86 213 H106" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-            <path d="M114 213 H134" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
-          </>
-        )}
-      </svg>
+          {accessoryItem?.id === 'accessory-lightning-badge' && (
+            <path d="M112 134 L104 148 H111 L106 159 L120 143 H113 L118 134 Z" fill={accessoryItem.style.fill} />
+          )}
+
+          {accessoryItem?.id === 'accessory-water-bottle' && (
+            <>
+              <rect x="138" y="140" width="13" height="28" rx="6" fill={accessoryItem.style.fill} />
+              <rect x="141" y="134" width="7" height="8" rx="2" fill={accessoryItem.style.accent} />
+            </>
+          )}
+
+          {accessoryItem?.id === 'accessory-story-book' && (
+            <>
+              <rect x="69" y="142" width="18" height="24" rx="3" fill={accessoryItem.style.fill} />
+              <path d="M78 146 V162" stroke={accessoryItem.style.trim} strokeWidth="2" strokeLinecap="round" />
+            </>
+          )}
+
+          <rect x="89" y="178" width="17" height="36" rx="8" fill="#293454" />
+          <rect x="114" y="178" width="17" height="36" rx="8" fill="#293454" />
+
+          <path d="M84 210 H108 V223 H82 C82 216, 83 213, 84 210 Z" fill={shoesItem.style.fill} />
+          <path d="M112 210 H136 V223 H110 C110 216, 111 213, 112 210 Z" fill={shoesItem.style.fill} />
+          <path d="M84 217 H108" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+          <path d="M112 217 H136" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+
+          {shoesItem.id === 'shoes-rocket' && (
+            <>
+              <path d="M81 221 L75 226 L83 226 Z" fill="#ff9f43" />
+              <path d="M139 221 L145 226 L137 226 Z" fill="#ff9f43" />
+            </>
+          )}
+
+          {['shoes-trail-boots', 'shoes-cloud-boots'].includes(shoesItem.id) && (
+            <>
+              <path d="M86 213 H106" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+              <path d="M114 213 H134" stroke={shoesItem.style.accent} strokeWidth="3" strokeLinecap="round" />
+            </>
+          )}
+
+          {shoesItem.id === 'shoes-red-runners' && (
+            <>
+              <path d="M88 214 H104" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+              <path d="M116 214 H132" stroke={shoesItem.style.trim} strokeWidth="3" strokeLinecap="round" />
+            </>
+          )}
+        </svg>
+      </div>
+
+      <div className="avatar-quick-column">
+        {quickItems.map((quickItem) => (
+          <div key={quickItem.label} className="avatar-quick-card">
+            <span className="avatar-quick-dot" style={{ '--quick-accent': quickItem.accent }} />
+            <div>
+              <small>{quickItem.label}</small>
+              <strong>{quickItem.name}</strong>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="avatar-stage-caption">
         <strong>
           {studentName} as {character.name}
@@ -2796,204 +3044,265 @@ function AvatarPreview({ avatar, studentName }) {
 function AvatarStudio({ studentName, avatar, onEquipItem, onSelectCharacter, onPurchaseItem }) {
   const safeAvatar = normalizeAvatarState(avatar, avatar?.totalCompletedRuns ?? 0)
   const progress = getAvatarProgressSummary(safeAvatar)
+  const [activePanel, setActivePanel] = useState('closet')
+  const [activeClosetTab, setActiveClosetTab] = useState('avatars')
+  const [activeStoreFilter, setActiveStoreFilter] = useState('all')
   const selectedCharacterId = safeAvatar.selectedCharacterId ?? AVATAR_BASE_CHARACTER_IDS[0]
   const shopWardrobeItems = getShopWardrobeItems(safeAvatar)
   const shopCharacters = getShopCharacters(safeAvatar)
   const shopStickers = getShopStickers(safeAvatar)
-  const ownedStickerIds = new Set(safeAvatar.ownedStickerIds ?? [])
+  const clothesItems = getAvatarItemsForSlot('top', safeAvatar)
+  const itemItems = [...getAvatarItemsForSlot('hat', safeAvatar), ...getAvatarItemsForSlot('accessory', safeAvatar)]
+  const shoeItems = getAvatarItemsForSlot('shoes', safeAvatar)
+  const storeEntries = [
+    ...shopCharacters
+      .filter((character) => activeStoreFilter === 'all' || activeStoreFilter === 'avatars')
+      .map((character) => ({ kind: 'character', id: character.id, title: character.name, price: character.price, isOwned: character.isOwned, accent: character.style.accent, subtitle: character.unlockLabel })),
+    ...shopWardrobeItems
+      .filter((item) => activeStoreFilter === 'all' || getAvatarCategoryFromSlot(item.slot) === activeStoreFilter)
+      .map((item) => ({ kind: 'item', id: item.id, title: item.name, price: item.purchasePrice ?? 0, isOwned: item.isOwned, accent: item.style.fill, subtitle: item.rewardLabel, slot: item.slot })),
+    ...shopStickers
+      .filter((sticker) => activeStoreFilter === 'all' || activeStoreFilter === 'stickers')
+      .map((sticker) => ({ kind: 'sticker', id: sticker.id, title: sticker.name, price: sticker.price, isOwned: sticker.isOwned, accent: sticker.palette[0], subtitle: 'Sticker' })),
+  ].filter((entry) => activeStoreFilter === 'all' || entry.kind === 'sticker' || entry.kind === 'character' || entry.kind === 'item')
+
+  function renderClosetCards(items, options = {}) {
+    return (
+      <div className="avatar-catalog-grid">
+        {options.includeNone && (
+          <button
+            type="button"
+            className={`avatar-catalog-card ${(options.selectedIds ?? []).includes('') ? 'is-selected' : ''}`}
+            onClick={() => options.onClear?.()}
+          >
+            <span className="avatar-item-swatch is-none" />
+            <strong>No extra item</strong>
+            <small>Clear the slot</small>
+          </button>
+        )}
+
+        {items.map((item) => {
+          const isSelected = options.selectedIds?.includes(item.id)
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`avatar-catalog-card ${isSelected ? 'is-selected' : ''} ${item.isUnlocked ? '' : 'is-locked'}`}
+              onClick={() => item.isUnlocked && onEquipItem(item.slot, item.id)}
+              disabled={!item.isUnlocked}
+            >
+              <span
+                className="avatar-item-swatch"
+                style={{
+                  '--swatch-fill': item.style.fill,
+                  '--swatch-accent': item.style.accent,
+                  '--swatch-trim': item.style.trim,
+                }}
+              />
+              <strong>{item.name}</strong>
+              <small>{item.rewardLabel}</small>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
-    <section className="panel-card avatar-panel">
-      <div className="panel-card-header">
+    <section className="panel-card avatar-panel avatar-panel-showroom">
+      <div className="avatar-panel-top">
         <div>
-          <h2>Avatar Closet</h2>
-          <p>Each 10 completed runs unlocks a new clothing piece for this student.</p>
+          <div className="brand-pill">
+            <Sparkles size={16} />
+            <span>My Avatar</span>
+          </div>
+          <h2>Build a classroom look and spend coins in the store.</h2>
+          <p>Every 10 completed tests unlocks a free clothing piece. The store uses the coins the student wins.</p>
         </div>
-        <div className="avatar-progress-chip">
+        <div className="avatar-progress-chip avatar-progress-chip-large">
           <Sparkles size={16} />
-          <span>{progress.coins} coins</span>
+          <span>{progress.coins} coins ready to spend</span>
         </div>
       </div>
 
-      <div className="avatar-layout">
+      <div className="avatar-summary-grid avatar-summary-grid-showroom">
+        <div className="avatar-summary-card">
+          <span>Completed runs</span>
+          <strong>{progress.totalCompletedRuns}</strong>
+        </div>
+        <div className="avatar-summary-card">
+          <span>Next free gift</span>
+          <strong>{progress.nextReward?.name ?? 'Everything unlocked'}</strong>
+        </div>
+        <div className="avatar-summary-card">
+          <span>Owned avatars</span>
+          <strong>{progress.ownedCharacters}</strong>
+        </div>
+        <div className="avatar-summary-card">
+          <span>Stickers collected</span>
+          <strong>{progress.ownedStickers}</strong>
+        </div>
+      </div>
+
+      <div className="avatar-progress-bar avatar-progress-bar-showroom" aria-hidden="true">
+        <div style={{ width: `${progress.progressPercent}%` }} />
+      </div>
+      <p className="avatar-progress-copy avatar-progress-copy-showroom">
+        {progress.nextReward
+          ? `${progress.remainingRuns} more completed runs to unlock ${progress.nextReward.name}.`
+          : 'All milestone rewards are already unlocked.'}
+      </p>
+
+      <div className="avatar-layout avatar-layout-showroom">
         <AvatarPreview avatar={safeAvatar} studentName={studentName} />
 
-        <div className="avatar-controls">
-          <div className="avatar-summary-grid">
-            <div className="avatar-summary-card">
-              <span>Completed runs</span>
-              <strong>{progress.totalCompletedRuns}</strong>
-            </div>
-            <div className="avatar-summary-card">
-              <span>Next gift</span>
-              <strong>{progress.nextReward?.name ?? 'Closet complete'}</strong>
-            </div>
-            <div className="avatar-summary-card">
-              <span>Owned clothes</span>
-              <strong>{progress.unlockedCount}</strong>
-            </div>
-            <div className="avatar-summary-card">
-              <span>Owned avatars</span>
-              <strong>{progress.ownedCharacters}</strong>
-            </div>
+        <div className="avatar-catalog-panel">
+          <div className="avatar-mode-tabs">
+            <button
+              type="button"
+              className={activePanel === 'closet' ? 'is-active' : ''}
+              onClick={() => setActivePanel('closet')}
+            >
+              Closet
+            </button>
+            <button
+              type="button"
+              className={activePanel === 'store' ? 'is-active' : ''}
+              onClick={() => setActivePanel('store')}
+            >
+              Store
+            </button>
           </div>
 
-          <div className="avatar-progress-bar" aria-hidden="true">
-            <div style={{ width: `${progress.progressPercent}%` }} />
-          </div>
-
-          <p className="avatar-progress-copy">
-            {progress.nextReward
-              ? `${progress.remainingRuns} more completed runs to unlock ${progress.nextReward.name}.`
-              : 'All avatar rewards are unlocked.'}
-          </p>
-
-          <div className="avatar-slot-card">
-            <div className="avatar-slot-header">
-              <strong>Choose avatar</strong>
-              <span>{progress.ownedCharacters} owned</span>
-            </div>
-
-            <div className="avatar-character-grid">
-              {shopCharacters.map((character) => (
-                <button
-                  key={character.id}
-                  type="button"
-                  className={`avatar-character-card ${selectedCharacterId === character.id ? 'is-selected' : ''} ${character.isOwned ? '' : 'is-locked'}`}
-                  onClick={() => (character.isOwned ? onSelectCharacter(character.id) : onPurchaseItem('character', character.id))}
-                >
-                  <span
-                    className="avatar-character-swatch"
-                    style={{
-                      '--character-skin': character.style.skin,
-                      '--character-hair': character.style.hair,
-                      '--character-accent': character.style.accent,
-                    }}
-                  />
-                  <strong>{character.name}</strong>
-                  <small>{character.isOwned ? character.unlockLabel : `${character.price} coins`}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="avatar-slot-list">
-            {Object.entries(AVATAR_SLOT_LABELS).map(([slot, label]) => {
-              const items = getAvatarItemsForSlot(slot, safeAvatar)
-              const supportsEmpty = slot === 'hat' || slot === 'accessory'
-              const selectedItemId = safeAvatar.equipped[slot] ?? ''
-
-              return (
-                <div key={slot} className="avatar-slot-card">
-                  <div className="avatar-slot-header">
-                    <strong>{label}</strong>
-                    <span>{items.filter((item) => item.isUnlocked).length} unlocked</span>
-                  </div>
-
-                  <div className="avatar-wardrobe-grid">
-                    {supportsEmpty && (
-                      <button
-                        type="button"
-                        className={`avatar-item-chip ${selectedItemId === '' ? 'is-selected' : ''}`}
-                        onClick={() => onEquipItem(slot, '')}
-                      >
-                        <span className="avatar-item-swatch is-none" />
-                        <span>None</span>
-                        <small>No extra item</small>
-                      </button>
-                    )}
-
-                    {items.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`avatar-item-chip ${selectedItemId === item.id ? 'is-selected' : ''} ${item.isUnlocked ? '' : 'is-locked'}`}
-                        onClick={() => item.isUnlocked && onEquipItem(slot, item.id)}
-                        disabled={!item.isUnlocked}
-                      >
-                        <span
-                          className="avatar-item-swatch"
-                          style={{
-                            '--swatch-fill': item.style.fill,
-                            '--swatch-accent': item.style.accent,
-                            '--swatch-trim': item.style.trim,
-                          }}
-                        />
-                        <span>{item.name}</span>
-                        <small>{item.isUnlocked ? item.rewardLabel : item.rewardLabel}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="avatar-market-grid">
-            <div className="avatar-slot-card">
-              <div className="avatar-slot-header">
-                <strong>Shop: clothes</strong>
-                <span>Use coins from tests</span>
-              </div>
-
-              <div className="avatar-shop-grid">
-                {shopWardrobeItems.map((item) => (
+          {activePanel === 'closet' ? (
+            <div className="avatar-catalog-surface">
+              <div className="avatar-catalog-tabs">
+                {AVATAR_CLOSET_TABS.map((tab) => (
                   <button
-                    key={item.id}
+                    key={tab.id}
                     type="button"
-                    className={`avatar-item-chip ${item.isOwned ? 'is-selected' : ''}`}
-                    onClick={() => (item.isOwned ? onEquipItem(item.slot, item.id) : onPurchaseItem('item', item.id))}
+                    className={activeClosetTab === tab.id ? `is-active tab-${tab.id}` : `tab-${tab.id}`}
+                    onClick={() => setActiveClosetTab(tab.id)}
                   >
-                    <span
-                      className="avatar-item-swatch"
-                      style={{
-                        '--swatch-fill': item.style.fill,
-                        '--swatch-accent': item.style.accent,
-                        '--swatch-trim': item.style.trim,
-                      }}
-                    />
-                    <span>{item.name}</span>
-                    <small>{item.isOwned ? 'Owned - click to equip' : `${item.purchasePrice} coins`}</small>
+                    {tab.label}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <div className="avatar-slot-card">
-              <div className="avatar-slot-header">
-                <strong>Sticker album</strong>
-                <span>{progress.ownedStickers} owned</span>
-              </div>
-
-              <div className="sticker-grid">
-                {shopStickers.map((sticker) => (
-                  <button
-                    key={sticker.id}
-                    type="button"
-                    className={`sticker-card ${ownedStickerIds.has(sticker.id) ? 'is-owned' : ''}`}
-                    onClick={() => !ownedStickerIds.has(sticker.id) && onPurchaseItem('sticker', sticker.id)}
-                    disabled={ownedStickerIds.has(sticker.id)}
-                  >
-                    <span
-                      className="sticker-mark"
-                      style={{
-                        '--sticker-fill': sticker.palette[0],
-                        '--sticker-accent': sticker.palette[1],
-                      }}
+              {activeClosetTab === 'avatars' && (
+                <div className="avatar-catalog-grid avatar-catalog-grid-characters">
+                  {shopCharacters.map((character) => (
+                    <button
+                      key={character.id}
+                      type="button"
+                      className={`avatar-character-card avatar-showroom-character ${selectedCharacterId === character.id ? 'is-selected' : ''} ${character.isOwned ? '' : 'is-locked'}`}
+                      onClick={() => (character.isOwned ? onSelectCharacter(character.id) : onPurchaseItem('character', character.id))}
                     >
-                      {sticker.name
-                        .split(' ')
-                        .map((word) => word[0])
-                        .join('')
-                        .slice(0, 2)}
-                    </span>
-                    <strong>{sticker.name}</strong>
-                    <small>{ownedStickerIds.has(sticker.id) ? 'Collected' : `${sticker.price} coins`}</small>
+                      <span
+                        className="avatar-character-swatch"
+                        style={{
+                          '--character-skin': character.style.skin,
+                          '--character-hair': character.style.hair,
+                          '--character-accent': character.style.accent,
+                        }}
+                      />
+                      <strong>{character.name}</strong>
+                      <small>{character.isOwned ? 'Owned avatar' : `${character.price} coins`}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeClosetTab === 'clothes' && renderClosetCards(clothesItems, { selectedIds: [safeAvatar.equipped.top] })}
+
+              {activeClosetTab === 'items' && (
+                <>
+                  <div className="avatar-inline-actions">
+                    <button
+                      type="button"
+                      className={`btn btn-ghost ${safeAvatar.equipped.hat === '' ? 'is-active-soft' : ''}`}
+                      onClick={() => onEquipItem('hat', '')}
+                    >
+                      Clear hat
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-ghost ${safeAvatar.equipped.accessory === '' ? 'is-active-soft' : ''}`}
+                      onClick={() => onEquipItem('accessory', '')}
+                    >
+                      Clear item
+                    </button>
+                  </div>
+                  {renderClosetCards(itemItems, { selectedIds: [safeAvatar.equipped.hat, safeAvatar.equipped.accessory] })}
+                </>
+              )}
+
+              {activeClosetTab === 'shoes' && renderClosetCards(shoeItems, { selectedIds: [safeAvatar.equipped.shoes] })}
+            </div>
+          ) : (
+            <div className="avatar-catalog-surface">
+              <div className="avatar-catalog-tabs avatar-catalog-tabs-store">
+                {AVATAR_STORE_FILTERS.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    className={activeStoreFilter === filter.id ? 'is-active' : ''}
+                    onClick={() => setActiveStoreFilter(filter.id)}
+                  >
+                    {filter.label}
                   </button>
                 ))}
               </div>
+
+              <div className="avatar-store-note">
+                Spend coins earned from tests. Snake coins are based on the best consecutive apple streak.
+              </div>
+
+              <div className="avatar-catalog-grid avatar-store-grid">
+                {storeEntries.length === 0 ? (
+                  <div className="empty-state compact">
+                    <Sparkles size={16} />
+                    <span>Everything in this section is already owned.</span>
+                  </div>
+                ) : (
+                  storeEntries.map((entry) => (
+                    <button
+                      key={`${entry.kind}_${entry.id}`}
+                      type="button"
+                      className={`avatar-catalog-card avatar-store-card ${entry.isOwned ? 'is-owned' : ''}`}
+                      onClick={() => {
+                        if (entry.kind === 'character') {
+                          entry.isOwned ? onSelectCharacter(entry.id) : onPurchaseItem('character', entry.id)
+                          return
+                        }
+                        if (entry.kind === 'sticker') {
+                          if (!entry.isOwned) onPurchaseItem('sticker', entry.id)
+                          return
+                        }
+                        entry.isOwned
+                          ? onEquipItem(entry.slot, entry.id)
+                          : onPurchaseItem('item', entry.id)
+                      }}
+                      disabled={entry.kind === 'sticker' && entry.isOwned}
+                    >
+                      <span className="avatar-store-pill" style={{ '--store-accent': entry.accent }}>
+                        {entry.kind === 'character'
+                          ? 'Avatar'
+                          : entry.kind === 'sticker'
+                            ? 'Sticker'
+                            : getAvatarCategoryFromSlot(entry.slot)}
+                      </span>
+                      <strong>{entry.title}</strong>
+                      <small>{entry.subtitle}</small>
+                      <span className="avatar-store-price">
+                        {entry.isOwned ? 'Owned' : `${entry.price} coins`}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </section>
@@ -6092,6 +6401,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [direction, setDirection] = useState('right')
   const [apple, setApple] = useState({ x: 0, y: 0 })
   const [applesEaten, setApplesEaten] = useState(0)
+  const [currentAppleStreak, setCurrentAppleStreak] = useState(0)
+  const [bestAppleStreak, setBestAppleStreak] = useState(0)
   const [collisionQuestionCount, setCollisionQuestionCount] = useState(0)
   const [restartCount, setRestartCount] = useState(0)
   const [currentQuestion, setCurrentQuestion] = useState(null)
@@ -6112,6 +6423,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const directionRef = useRef('right')
   const phaseRef = useRef('playing')
   const applesEatenRef = useRef(0)
+  const currentAppleStreakRef = useRef(0)
+  const bestAppleStreakRef = useRef(0)
   const collisionQuestionCountRef = useRef(0)
   const restartCountRef = useRef(0)
   const reviewExercisesRef = useRef([])
@@ -6140,6 +6453,14 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   useEffect(() => {
     applesEatenRef.current = applesEaten
   }, [applesEaten])
+
+  useEffect(() => {
+    currentAppleStreakRef.current = currentAppleStreak
+  }, [currentAppleStreak])
+
+  useEffect(() => {
+    bestAppleStreakRef.current = bestAppleStreak
+  }, [bestAppleStreak])
 
   useEffect(() => {
     collisionQuestionCountRef.current = collisionQuestionCount
@@ -6275,9 +6596,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     refillQuestionDeck()
     collisionQuestionCountRef.current = 0
     restartCountRef.current = 0
+    currentAppleStreakRef.current = 0
+    bestAppleStreakRef.current = 0
     reviewExercisesRef.current = []
     setCollisionQuestionCount(0)
     setRestartCount(0)
+    setCurrentAppleStreak(0)
+    setBestAppleStreak(0)
     setReviewExercises([])
     setSaveStatus('idle')
     setSaveMessage('')
@@ -6300,7 +6625,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     const maxScore = 100
     const penalty = collisionQuestionCountRef.current * 4 + restartCountRef.current * 12
     const totalScore = Math.max(20, maxScore - penalty)
-    const percentage = Math.min(totalScore, 100)
+    const percentage = 100
     const gradeInfo = getGrade(percentage)
 
     const summary = {
@@ -6313,7 +6638,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       totalScore,
       maxScore,
       percentage,
-      grade: gradeInfo.grade,
+      grade: 'PLUS',
       perfectOriginalCount: applesEatenRef.current,
       questionCount: goalApples,
       answeredOriginalCount: applesEatenRef.current,
@@ -6325,6 +6650,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       pendingExercises: [],
       applesGoal: goalApples,
       applesEaten: applesEatenRef.current,
+      bestAppleStreak: bestAppleStreakRef.current,
       collisionQuestionCount: collisionQuestionCountRef.current,
       restartCount: restartCountRef.current,
       finishedAtMs: Date.now(),
@@ -6405,6 +6731,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     const nextAppleCount = applesEatenRef.current + 1
     applesEatenRef.current = nextAppleCount
     setApplesEaten(nextAppleCount)
+
+    const nextAppleStreak = currentAppleStreakRef.current + 1
+    currentAppleStreakRef.current = nextAppleStreak
+    setCurrentAppleStreak(nextAppleStreak)
+
+    if (nextAppleStreak > bestAppleStreakRef.current) {
+      bestAppleStreakRef.current = nextAppleStreak
+      setBestAppleStreak(nextAppleStreak)
+    }
 
     if (nextAppleCount >= goalApples) {
       const nextApple = getRandomOpenSnakeCell(nextSnake)
@@ -6520,6 +6855,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setCurrentQuestion(null)
     setCurrentOptions([])
     setQuestionFeedback(null)
+    currentAppleStreakRef.current = 0
+    setCurrentAppleStreak(0)
     resetSnakeBoard()
   }
 
@@ -6539,9 +6876,10 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       totalScore: 0,
       maxScore: 100,
       percentage: 0,
-      grade: 'F',
+      grade: 'PLUS',
       applesGoal: goalApples,
       applesEaten: applesEaten,
+      bestAppleStreak,
       collisionQuestionCount,
       restartCount,
       reviewExercises,
@@ -6557,7 +6895,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           </div>
           <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
           <p className="results-message">
-            Snake cleared. You ate {summary.applesGoal} apples and finished the arcade challenge.
+            Snake cleared. You reached the 10-apple goal and earned a PLUS result.
           </p>
 
           <div className="story-result-chip">
@@ -6578,7 +6916,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             <div className="score-meta">
               <span>{summary.percentage}%</span>
               <span>
-                {summary.collisionQuestionCount} collision questions · {summary.restartCount} restarts
+                Best streak: {summary.bestAppleStreak ?? 0} apples · {summary.collisionQuestionCount} collision questions · {summary.restartCount} restarts
               </span>
             </div>
           </div>
@@ -6882,6 +7220,14 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
               <div className="snake-stat-item">
                 <span>Apples eaten</span>
                 <strong>{applesEaten}</strong>
+              </div>
+              <div className="snake-stat-item">
+                <span>Best streak</span>
+                <strong>{bestAppleStreak}</strong>
+              </div>
+              <div className="snake-stat-item">
+                <span>Current streak</span>
+                <strong>{currentAppleStreak}</strong>
               </div>
               <div className="snake-stat-item">
                 <span>Collision questions</span>
