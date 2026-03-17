@@ -6601,7 +6601,13 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
+  const [mobileBoardSize, setMobileBoardSize] = useState(null)
 
+  const shellRef = useRef(null)
+  const topbarRef = useRef(null)
+  const stageCardRef = useRef(null)
+  const stageHeaderRef = useRef(null)
+  const controlsRef = useRef(null)
   const snakeRef = useRef([])
   const appleRef = useRef({ x: 0, y: 0 })
   const directionRef = useRef('right')
@@ -6706,6 +6712,62 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     mobileFullscreenRef.current = true
     void enterFullscreenMode()
   }, [isMobileConsole])
+
+  useLayoutEffect(() => {
+    if (!isMobileConsole) {
+      setMobileBoardSize(null)
+      return undefined
+    }
+
+    let frameId = 0
+    const observedElements = [
+      shellRef.current,
+      topbarRef.current,
+      stageCardRef.current,
+      stageHeaderRef.current,
+      controlsRef.current,
+    ].filter(Boolean)
+
+    const syncBoardSize = () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+
+      frameId = window.requestAnimationFrame(() => {
+        const stageCard = stageCardRef.current
+        const stageHeader = stageHeaderRef.current
+        if (!stageCard) return
+
+        const cardStyles = window.getComputedStyle(stageCard)
+        const paddingX = Number.parseFloat(cardStyles.paddingLeft || '0') + Number.parseFloat(cardStyles.paddingRight || '0')
+        const paddingY = Number.parseFloat(cardStyles.paddingTop || '0') + Number.parseFloat(cardStyles.paddingBottom || '0')
+        const contentWidth = Math.max(200, stageCard.clientWidth - paddingX)
+        const contentHeight = Math.max(200, stageCard.clientHeight - paddingY - (stageHeader?.offsetHeight ?? 0) - 8)
+        const nextBoardSize = Math.floor(Math.max(200, Math.min(contentWidth, contentHeight)))
+
+        setMobileBoardSize((current) => {
+          if (current && Math.abs(current - nextBoardSize) < 2) return current
+          return nextBoardSize
+        })
+      })
+    }
+
+    syncBoardSize()
+
+    let resizeObserver = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(syncBoardSize)
+      observedElements.forEach((element) => resizeObserver.observe(element))
+    }
+
+    window.addEventListener('resize', syncBoardSize)
+    window.addEventListener('orientationchange', syncBoardSize)
+
+    return () => {
+      if (frameId) window.cancelAnimationFrame(frameId)
+      window.removeEventListener('resize', syncBoardSize)
+      window.removeEventListener('orientationchange', syncBoardSize)
+      resizeObserver?.disconnect()
+    }
+  }, [isMobileConsole, phase, saveStatus])
 
   useLayoutEffect(() => {
     if (autoStartRef.current) return
@@ -7299,11 +7361,12 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
 
   return (
     <section
+      ref={shellRef}
       className={`game-shell snake-shell ${isFullscreen ? 'is-fullscreen' : ''} ${isMobileConsole ? 'is-mobile-console' : ''}`}
     >
       <CoinBurst visible={showCoinAnimation} />
 
-      <div className="game-topbar">
+      <div ref={topbarRef} className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Apples</span>
           <strong>
@@ -7367,8 +7430,8 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
       </div>
 
       <div className="game-board snake-layout">
-        <div className="snake-stage-card">
-          <div className="snake-stage-header">
+        <div ref={stageCardRef} className="snake-stage-card">
+          <div ref={stageHeaderRef} className="snake-stage-header">
             <div>
               <strong>Snake</strong>
               <small>
@@ -7379,7 +7442,12 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
           </div>
 
           <div className="snake-board-stage">
-            <div className="snake-grid" role="img" aria-label="Snake board">
+            <div
+              className="snake-grid"
+              role="img"
+              aria-label="Snake board"
+              style={isMobileConsole && mobileBoardSize ? { width: `${mobileBoardSize}px`, height: `${mobileBoardSize}px` } : undefined}
+            >
               {snakeCells.map((cell) => (
                 <div
                   key={cell.key}
@@ -7561,7 +7629,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
           </div>
         </div>
 
-        <div className="snake-mobile-controls" aria-label="Snake touch controls">
+        <div ref={controlsRef} className="snake-mobile-controls" aria-label="Snake touch controls">
           <div className="snake-mobile-controls-header">
             <strong>Touch pad</strong>
             <span>{phase === 'resume' ? 'Choose a direction to continue' : 'Tap to steer'}</span>
