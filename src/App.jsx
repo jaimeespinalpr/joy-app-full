@@ -6440,6 +6440,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [coinsAwarded, setCoinsAwarded] = useState(0)
+  const [postSaveDestination, setPostSaveDestination] = useState(null)
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
@@ -6639,29 +6640,24 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setSaveStatus('idle')
     setSaveMessage('')
     setCoinsAwarded(0)
+    setPostSaveDestination(null)
     setLastResult(null)
     resetSnakeBoard()
   }
 
-  async function finishGame() {
-    if (finishInProgressRef.current) return
-    finishInProgressRef.current = true
-
-    clearTimers()
-    stopBackgroundMusic()
-    setCurrentQuestion(null)
-    setCurrentOptions([])
-    setQuestionFeedback(null)
-    setPhase('finished')
-    playSound('win', soundEnabled)
-
+  function buildSnakeSummary(options = {}) {
+    const isCompleted = options.attemptStatus !== 'abandoned'
     const maxScore = 100
+    const applesCaptured = Math.max(0, applesEatenRef.current)
+    const progressRatio = goalApples > 0 ? applesCaptured / goalApples : 0
     const penalty = collisionQuestionCountRef.current * 4 + restartCountRef.current * 12
-    const totalScore = Math.max(20, maxScore - penalty)
-    const percentage = 100
-    const gradeInfo = getGrade(percentage)
+    const totalScore = isCompleted
+      ? Math.max(20, maxScore - penalty)
+      : Math.max(0, Math.round(progressRatio * maxScore) - penalty)
+    const percentage = isCompleted ? 100 : Math.min(100, Math.max(0, Math.round(progressRatio * 100)))
+    const gradeInfo = isCompleted ? { letter: 'PLUS' } : getGrade(percentage)
 
-    const summary = {
+    return {
       subjectId: 'games',
       subjectName: 'Games',
       testId: 'snake',
@@ -6671,45 +6667,75 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
       totalScore,
       maxScore,
       percentage,
-      grade: 'PLUS',
-      perfectOriginalCount: applesEatenRef.current,
+      grade: isCompleted ? 'PLUS' : gradeInfo.letter,
+      perfectOriginalCount: applesCaptured,
       questionCount: goalApples,
-      answeredOriginalCount: applesEatenRef.current,
-      remainingOriginalCount: 0,
-      remainingQueueCount: 0,
-      attemptStatus: 'completed',
-      isAbandoned: false,
+      answeredOriginalCount: applesCaptured,
+      remainingOriginalCount: isCompleted ? 0 : Math.max(0, goalApples - applesCaptured),
+      remainingQueueCount: isCompleted ? 0 : Math.max(0, goalApples - applesCaptured),
+      attemptStatus: options.attemptStatus ?? 'completed',
+      isAbandoned: !isCompleted,
       reviewExercises: reviewExercisesRef.current,
       pendingExercises: [],
       applesGoal: goalApples,
-      applesEaten: applesEatenRef.current,
+      applesEaten: applesCaptured,
       bestAppleStreak: bestAppleStreakRef.current,
       collisionQuestionCount: collisionQuestionCountRef.current,
       restartCount: restartCountRef.current,
       finishedAtMs: Date.now(),
     }
+  }
+
+  async function saveSnakeRun(options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+
+    clearTimers()
+    stopBackgroundMusic()
+    setCurrentQuestion(null)
+    setCurrentOptions([])
+    setQuestionFeedback(null)
+
+    const summary = buildSnakeSummary({
+      attemptStatus: options.attemptStatus ?? 'completed',
+    })
 
     setLastResult(summary)
     setSaveStatus('saving')
-    setSaveMessage('Saving result...')
+    setSaveMessage(options.saveMessage ?? 'Saving result...')
+    setCoinsAwarded(0)
+    setPostSaveDestination(options.destination ?? null)
+    setPhase(options.showFinishedScreen === false ? 'saving' : 'finished')
+
+    if (options.playWinSound) {
+      playSound('win', soundEnabled)
+    }
 
     try {
       const savedRecord = await onSaveResult(summary)
       const coinsEarned = savedRecord?.coinsEarned ?? 0
       setCoinsAwarded(coinsEarned)
       setSaveStatus('saved')
-      setSaveMessage(`Result saved. ${coinsEarned} coins added. Opening the store...`)
-      storeRedirectTimerRef.current = window.setTimeout(() => {
-        void (async () => {
-          await exitFullscreenMode()
-          stopBackgroundMusic()
-          onOpenStore()
-        })()
-      }, 1800)
+      setSaveMessage(
+        options.successMessage?.(coinsEarned) ??
+          `Result saved. ${coinsEarned} coins added.`,
+      )
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
+      finishInProgressRef.current = false
     }
+  }
+
+  async function finishGame() {
+    await saveSnakeRun({
+      attemptStatus: 'completed',
+      destination: 'store',
+      showFinishedScreen: true,
+      playWinSound: true,
+      saveMessage: 'Saving result...',
+      successMessage: (coinsEarned) => `Result saved. ${coinsEarned} coins added. Opening the store...`,
+    })
   }
 
   function handleSnakeCollision() {
@@ -6903,15 +6929,54 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   }
 
   function handleLeaveGame() {
-    const confirmed = window.confirm('Leave Snake and lose the current run?')
+    if (saveStatus === 'saving') return
+
+    const confirmed = window.confirm('Save your current Snake progress and leave the game?')
     if (!confirmed) return
 
+    void saveSnakeRun({
+      attemptStatus: 'abandoned',
+      destination: 'dashboard',
+      showFinishedScreen: false,
+      playWinSound: false,
+      saveMessage: 'Saving your Snake progress...',
+      successMessage: (coinsEarned) => `Progress saved. ${coinsEarned} coins added. Returning to home...`,
+    })
+  }
+
+  function handleBackToHome() {
     void (async () => {
+      clearTimers()
       await exitFullscreenMode()
       stopBackgroundMusic()
       onBack()
     })()
   }
+
+  useEffect(() => {
+    if (saveStatus !== 'saved' || !postSaveDestination) return undefined
+
+    storeRedirectTimerRef.current = window.setTimeout(() => {
+      void (async () => {
+        await exitFullscreenMode()
+        stopBackgroundMusic()
+
+        if (postSaveDestination === 'store') {
+          onOpenStore()
+          return
+        }
+
+        onBack()
+      })()
+    }, postSaveDestination === 'store' ? 1800 : 900)
+
+    return () => {
+      if (storeRedirectTimerRef.current) {
+        window.clearTimeout(storeRedirectTimerRef.current)
+        storeRedirectTimerRef.current = null
+      }
+    }
+  }, [saveStatus, postSaveDestination, onBack, onOpenStore])
 
   if (phase === 'finished') {
     const summary = lastResult ?? {
@@ -7019,7 +7084,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
               <RotateCcw size={16} />
               <span>Play Snake again</span>
             </button>
-            <button type="button" className="btn btn-ghost" onClick={handleLeaveGame}>
+            <button type="button" className="btn btn-ghost" onClick={handleBackToHome}>
               <ArrowLeft size={16} />
               <span>Back to home</span>
             </button>
@@ -7105,10 +7170,11 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
             type="button"
             className="btn btn-danger-soft"
             onClick={handleLeaveGame}
-            title="Leave Snake"
+            disabled={saveStatus === 'saving'}
+            title="Save progress and leave Snake"
           >
             <ArrowLeft size={16} />
-            <span>Leave game</span>
+            <span>Save and leave</span>
           </button>
         </div>
       </div>
