@@ -670,7 +670,9 @@ function getCoinsForAssessment(summary) {
   if (summary?.mode === 'snake') {
     const bestAppleStreak = Math.max(0, Number(summary?.bestAppleStreak ?? summary?.applesEaten ?? 0))
     const reachedGoalBonus = bestAppleStreak >= SNAKE_GOAL_APPLES ? 18 : 0
-    return Math.max(4, bestAppleStreak * 5 + reachedGoalBonus)
+    const baseSnakeReward = 20
+    const streakBonus = bestAppleStreak * 4
+    return baseSnakeReward + streakBonus + reachedGoalBonus
   }
 
   const totalScore = Math.max(0, Number(summary?.totalScore ?? 0))
