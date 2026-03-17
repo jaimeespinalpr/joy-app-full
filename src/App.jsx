@@ -6439,6 +6439,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   const [musicEnabled, setMusicEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
+  const [coinsAwarded, setCoinsAwarded] = useState(0)
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
@@ -6637,6 +6638,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     setReviewExercises([])
     setSaveStatus('idle')
     setSaveMessage('')
+    setCoinsAwarded(0)
     setLastResult(null)
     resetSnakeBoard()
   }
@@ -6694,6 +6696,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
     try {
       const savedRecord = await onSaveResult(summary)
       const coinsEarned = savedRecord?.coinsEarned ?? 0
+      setCoinsAwarded(coinsEarned)
       setSaveStatus('saved')
       setSaveMessage(`Result saved. ${coinsEarned} coins added. Opening the store...`)
       storeRedirectTimerRef.current = window.setTimeout(() => {
@@ -6702,7 +6705,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
           stopBackgroundMusic()
           onOpenStore()
         })()
-      }, 1200)
+      }, 1800)
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
@@ -6941,6 +6944,18 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
             <Gamepad2 size={14} />
             <span>Games · Snake</span>
           </div>
+
+          {saveStatus === 'saved' && coinsAwarded > 0 && (
+            <div className="reward-popup" aria-live="polite">
+              <div className="reward-popup-icon">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <small>Snake reward unlocked</small>
+                <strong>+{coinsAwarded} coins</strong>
+              </div>
+            </div>
+          )}
 
           <div className="score-panel">
             <div className="score-labels">

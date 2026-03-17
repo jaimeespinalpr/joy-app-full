@@ -2518,6 +2518,45 @@ button {
   font-weight: 600;
 }
 
+.reward-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff6c8 0%, #ffe08b 100%);
+  border: 1px solid rgba(188, 132, 22, 0.24);
+  box-shadow: 0 16px 30px rgba(211, 150, 30, 0.18);
+  color: #654100;
+  animation: rewardPop 0.45s ease-out;
+}
+
+.reward-popup-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.55);
+  color: #c17a00;
+  flex: 0 0 auto;
+}
+
+.reward-popup small {
+  display: block;
+  color: #8d6514;
+  font-weight: 700;
+}
+
+.reward-popup strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: #5a3800;
+}
+
 .score-panel {
   display: grid;
   gap: 0.55rem;
@@ -2664,6 +2703,17 @@ button {
   100% {
     transform: translate(-50%, -210%) scale(0.95);
     opacity: 0;
+  }
+}
+
+@keyframes rewardPop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
