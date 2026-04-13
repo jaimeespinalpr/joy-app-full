@@ -3591,17 +3591,9 @@ function Dashboard({
   personalResultsLoading,
   globalResultsLoading,
   globalResultsError,
-  avatarRequestedPanel,
-  avatarPanelFocusKey,
-  storeNotice,
   onStartFullTest,
   onStartSnakeGame,
   onSelectSubject,
-  onEquipAvatarItem,
-  onSelectAvatarCharacter,
-  onPurchaseAvatarThing,
-  onOpenAvatarStore,
-  onDismissStoreNotice,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
@@ -3634,10 +3626,6 @@ function Dashboard({
             <strong>{globalResults.length}</strong>
           </div>
         </div>
-        <button type="button" className="btn btn-primary hero-store-btn" onClick={onOpenAvatarStore}>
-          <Sparkles size={16} />
-          <span>Open Store</span>
-        </button>
       </section>
 
       {!usingGlobalPanels && (
@@ -3656,18 +3644,6 @@ function Dashboard({
           <span>{globalResultsError}</span>
         </div>
       )}
-
-      <AvatarStudio
-        studentName={studentProfile?.alias ?? 'Student'}
-        avatar={studentProfile?.avatar}
-        onEquipItem={onEquipAvatarItem}
-        onSelectCharacter={onSelectAvatarCharacter}
-        onPurchaseItem={onPurchaseAvatarThing}
-        requestedPanel={avatarRequestedPanel}
-        panelFocusKey={avatarPanelFocusKey}
-        storeNotice={storeNotice}
-        onDismissStoreNotice={onDismissStoreNotice}
-      />
 
       <section className="panel-card">
         <div className="panel-card-header">
@@ -6427,7 +6403,7 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
-function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTestRecord }) {
+function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const goalApples = SNAKE_GOAL_APPLES
   const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'
 
@@ -6815,23 +6791,15 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
 
     try {
       const savedRecord = await onSaveResult(summary)
-      const coinsEarned = savedRecord?.coinsEarned ?? 0
-      setCoinsAwarded(coinsEarned)
       setSaveStatus('saved')
-      setSaveMessage(
-        options.successMessage?.(coinsEarned) ??
-          `Result saved. ${coinsEarned} coins added.`,
-      )
+      setSaveMessage(options.successMessage?.() ?? 'Result saved.')
 
       if (options.destination === 'store') {
         storeRedirectTimerRef.current = window.setTimeout(() => {
           void (async () => {
             await exitFullscreenMode()
             stopBackgroundMusic()
-            onOpenStore({
-              coinsEarned,
-              sourceLabel: 'Snake',
-            })
+            onBack()
           })()
         }, 1200)
         return
@@ -6856,11 +6824,11 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
   async function finishGame() {
     await saveSnakeRun({
       attemptStatus: 'completed',
-      destination: 'store',
+      destination: 'dashboard',
       showFinishedScreen: true,
       playWinSound: true,
       saveMessage: 'Saving result...',
-      successMessage: (coinsEarned) => `Result saved. ${coinsEarned} coins added. Opening the store...`,
+      successMessage: () => 'Result saved. Returning to home...',
     })
   }
 
@@ -7067,7 +7035,7 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
       showFinishedScreen: false,
       playWinSound: false,
       saveMessage: 'Saving your Snake progress...',
-      successMessage: (coinsEarned) => `Progress saved. ${coinsEarned} coins added. Returning to home...`,
+      successMessage: () => 'Progress saved. Returning to home...',
     })
   }
 
@@ -7111,18 +7079,6 @@ function SnakeChallenge({ onBack, onSaveResult, onOpenStore, studentName, topTes
             <Gamepad2 size={14} />
             <span>Games · Snake</span>
           </div>
-
-          {saveStatus === 'saved' && coinsAwarded > 0 && (
-            <div className="reward-popup" aria-live="polite">
-              <div className="reward-popup-icon">
-                <Sparkles size={18} />
-              </div>
-              <div>
-                <small>Snake reward unlocked</small>
-                <strong>+{coinsAwarded} coins</strong>
-              </div>
-            </div>
-          )}
 
           <div className="score-panel">
             <div className="score-labels">
@@ -8124,9 +8080,6 @@ function App() {
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
-  const [dashboardAvatarPanel, setDashboardAvatarPanel] = useState('closet')
-  const [dashboardAvatarFocusKey, setDashboardAvatarFocusKey] = useState(0)
-  const [storeNotice, setStoreNotice] = useState(null)
 
   async function loadGlobalResults() {
     setGlobalResultsLoading(true)
@@ -8196,25 +8149,17 @@ function App() {
         alias: rawProfile.alias ?? fallbackAlias,
         aliasSlug: rawProfile.aliasSlug ?? normalizeAlias(rawProfile.alias ?? fallbackAlias),
       }
-      const normalizedProfile = normalizeStudentProfileWithAvatar(baseProfile, totalCompletedRuns)
+      const normalizedProfile = baseProfile
       const nextPersonalResults = allPersonalResults.slice(0, 20)
 
       setStudentProfile(normalizedProfile)
       setPersonalResults(nextPersonalResults)
-
-      const rawAvatar = profileSnapshot.exists() ? rawProfile.avatar ?? null : null
-      if (
-        !profileSnapshot.exists() ||
-        JSON.stringify(rawAvatar) !== JSON.stringify(normalizedProfile.avatar) ||
-        baseProfile.alias !== normalizedProfile.alias ||
-        baseProfile.aliasSlug !== normalizedProfile.aliasSlug
-      ) {
+      if (!profileSnapshot.exists() || baseProfile.alias !== normalizedProfile.alias || baseProfile.aliasSlug !== normalizedProfile.aliasSlug) {
         await setDoc(
           profileRef,
           {
             alias: normalizedProfile.alias,
             aliasSlug: normalizedProfile.aliasSlug ?? normalizeAlias(normalizedProfile.alias ?? fallbackAlias),
-            avatar: normalizedProfile.avatar,
           },
           { merge: true },
         )
@@ -8273,7 +8218,6 @@ function App() {
         aliasSlug: normalizeAlias(alias),
         createdAt: serverTimestamp(),
         createdAtMs: Date.now(),
-        avatar: getDefaultAvatarState(),
       }
 
       await setDoc(doc(db, 'students', credential.user.uid), profile, { merge: true })
@@ -8315,173 +8259,23 @@ function App() {
     }
   }
 
-  async function persistAvatarState(nextAvatar, fallbackAlias = getStudentDisplayName(studentProfile, currentUser)) {
-    if (!currentUser) return false
-
-    const normalizedAvatar = normalizeAvatarState(nextAvatar, nextAvatar?.totalCompletedRuns ?? 0)
-    const nextProfile = {
-      ...(studentProfile ?? {
-        alias: fallbackAlias,
-        aliasSlug: normalizeAlias(fallbackAlias),
-      }),
-      avatar: normalizedAvatar,
-    }
-
-    setStudentProfile(nextProfile)
-
-    try {
-      await setDoc(doc(db, 'students', currentUser.uid), { avatar: normalizedAvatar }, { merge: true })
-      return true
-    } catch (error) {
-      console.error('Could not save avatar state:', error)
-      void loadStudentData(currentUser)
-      return false
-    }
-  }
-
-  async function handleSelectAvatarCharacter(characterId) {
-    if (!currentUser || !AVATAR_CHARACTER_MAP[characterId]) return
-
-    const currentAvatar = normalizeAvatarState(
-      studentProfile?.avatar,
-      studentProfile?.avatar?.totalCompletedRuns ?? 0,
-    )
-
-    if (!(currentAvatar.ownedCharacterIds ?? []).includes(characterId)) return
-
-    await persistAvatarState(
-      {
-        ...currentAvatar,
-        selectedCharacterId: characterId,
-      },
-      getStudentDisplayName(studentProfile, currentUser),
-    )
-  }
-
-  async function handleEquipAvatarItem(slot, itemId) {
-    if (!currentUser) return
-
-    const currentAvatar = normalizeAvatarState(
-      studentProfile?.avatar,
-      studentProfile?.avatar?.totalCompletedRuns ?? 0,
-    )
-    const unlockedSet = new Set(currentAvatar.unlockedItemIds)
-
-    if (itemId) {
-      if (!unlockedSet.has(itemId)) return
-    } else if (slot !== 'hat' && slot !== 'accessory') {
-      return
-    }
-
-    const nextAvatar = normalizeAvatarState(
-      {
-        ...currentAvatar,
-        equipped: {
-          ...currentAvatar.equipped,
-          [slot]: itemId,
-        },
-      },
-      currentAvatar.totalCompletedRuns,
-    )
-
-    await persistAvatarState(nextAvatar, getStudentDisplayName(studentProfile, currentUser))
-  }
-
-  async function handlePurchaseAvatarThing(kind, entityId) {
-    if (!currentUser) return
-
-    const currentAvatar = normalizeAvatarState(
-      studentProfile?.avatar,
-      studentProfile?.avatar?.totalCompletedRuns ?? 0,
-    )
-
-    let nextAvatar = currentAvatar
-
-    if (kind === 'item') {
-      const item = AVATAR_ITEM_MAP[entityId]
-      if (!item?.purchasePrice) return
-      if ((currentAvatar.unlockedItemIds ?? []).includes(entityId)) {
-        await handleEquipAvatarItem(item.slot, entityId)
-        return
-      }
-      if ((currentAvatar.coins ?? 0) < item.purchasePrice) return
-
-      nextAvatar = normalizeAvatarState(
-        {
-          ...currentAvatar,
-          coins: currentAvatar.coins - item.purchasePrice,
-          unlockedItemIds: [...(currentAvatar.unlockedItemIds ?? []), entityId],
-          equipped: {
-            ...currentAvatar.equipped,
-            [item.slot]: entityId,
-          },
-        },
-        currentAvatar.totalCompletedRuns,
-      )
-    }
-
-    if (kind === 'character') {
-      const character = AVATAR_CHARACTER_MAP[entityId]
-      if (!character || character.price <= 0) {
-        await handleSelectAvatarCharacter(entityId)
-        return
-      }
-      if ((currentAvatar.ownedCharacterIds ?? []).includes(entityId)) {
-        await handleSelectAvatarCharacter(entityId)
-        return
-      }
-      if ((currentAvatar.coins ?? 0) < character.price) return
-
-      nextAvatar = normalizeAvatarState(
-        {
-          ...currentAvatar,
-          coins: currentAvatar.coins - character.price,
-          ownedCharacterIds: [...(currentAvatar.ownedCharacterIds ?? []), entityId],
-          selectedCharacterId: entityId,
-        },
-        currentAvatar.totalCompletedRuns,
-      )
-    }
-
-    if (kind === 'sticker') {
-      const sticker = STICKER_MAP[entityId]
-      if (!sticker) return
-      if ((currentAvatar.ownedStickerIds ?? []).includes(entityId)) return
-      if ((currentAvatar.coins ?? 0) < sticker.price) return
-
-      nextAvatar = normalizeAvatarState(
-        {
-          ...currentAvatar,
-          coins: currentAvatar.coins - sticker.price,
-          ownedStickerIds: [...(currentAvatar.ownedStickerIds ?? []), entityId],
-        },
-        currentAvatar.totalCompletedRuns,
-      )
-    }
-
-    await persistAvatarState(nextAvatar, getStudentDisplayName(studentProfile, currentUser))
-  }
-
   async function saveAssessmentResult(summary) {
     if (!currentUser) {
       throw new Error('No authenticated user.')
     }
 
     const studentName = getStudentDisplayName(studentProfile, currentUser)
-    const coinsEarned = getCoinsForAssessment(summary)
     const payload = {
       ...summary,
       studentAlias: studentName,
       studentName,
       score: summary.totalScore,
-      coinsEarned,
       createdAtMs: Date.now(),
       createdAt: serverTimestamp(),
     }
 
     const docRef = await addDoc(collection(db, 'students', currentUser.uid, 'results'), payload)
     const savedRecord = { id: docRef.id, ...payload }
-    const isCompletedRun = summary.attemptStatus !== 'abandoned'
 
     setPersonalResults((previous) => upsertResultRecord(previous, savedRecord))
 
@@ -8502,98 +8296,39 @@ function App() {
       }
     }
 
-    if (isCompletedRun) {
-      const currentAvatar = normalizeAvatarState(
-        studentProfile?.avatar,
-        studentProfile?.avatar?.totalCompletedRuns ?? 0,
-      )
-      const nextRunCount = currentAvatar.totalCompletedRuns + 1
-      const unlockedReward = getAvatarRewardForRunCount(nextRunCount)
-      const nextAvatar = normalizeAvatarState(
-        {
-          ...currentAvatar,
-          coins: currentAvatar.coins + coinsEarned,
-          unlockedItemIds: unlockedReward
-            ? [...currentAvatar.unlockedItemIds, unlockedReward.id]
-            : currentAvatar.unlockedItemIds,
-          equipped: unlockedReward
-            ? {
-                ...currentAvatar.equipped,
-                [unlockedReward.slot]: unlockedReward.id,
-              }
-            : currentAvatar.equipped,
-        },
-        nextRunCount,
-      )
-
-      await persistAvatarState(nextAvatar, studentName)
-    } else {
-      const currentAvatar = normalizeAvatarState(
-        studentProfile?.avatar,
-        studentProfile?.avatar?.totalCompletedRuns ?? 0,
-      )
-      await persistAvatarState(
-        {
-          ...currentAvatar,
-          coins: currentAvatar.coins + coinsEarned,
-        },
-        studentName,
-      )
-    }
-
     return savedRecord
   }
 
   function openSubject(subjectId) {
-    setDashboardAvatarPanel('closet')
-    setStoreNotice(null)
     setSelectedSubjectId(subjectId)
     setSelectedTestId(null)
     setScreen('subject')
   }
 
   function openTest(testId) {
-    setDashboardAvatarPanel('closet')
-    setStoreNotice(null)
     setSelectedTestId(testId)
     setScreen('test')
   }
 
   function openFullTest() {
-    setDashboardAvatarPanel('closet')
-    setStoreNotice(null)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('full-test')
   }
 
   function openSnakeGame() {
-    setDashboardAvatarPanel('closet')
-    setStoreNotice(null)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
     setScreen('snake')
   }
 
-  function openAvatarStoreDashboard(notice = null) {
-    setDashboardAvatarPanel('store')
-    setDashboardAvatarFocusKey((previous) => previous + 1)
-    setStoreNotice(notice)
-    setSelectedSubjectId(null)
-    setSelectedTestId(null)
-    setScreen('dashboard')
-  }
-
   function goToDashboard() {
-    setDashboardAvatarPanel('closet')
-    setStoreNotice(null)
     setScreen('dashboard')
     setSelectedSubjectId(null)
     setSelectedTestId(null)
   }
 
   function goToSubjectMenu() {
-    setStoreNotice(null)
     setScreen('subject')
     setSelectedTestId(null)
   }
@@ -8663,17 +8398,9 @@ function App() {
             personalResultsLoading={personalResultsLoading}
             globalResultsLoading={globalResultsLoading}
             globalResultsError={globalResultsError}
-            avatarRequestedPanel={dashboardAvatarPanel}
-            avatarPanelFocusKey={dashboardAvatarFocusKey}
-            storeNotice={storeNotice}
             onStartFullTest={openFullTest}
             onStartSnakeGame={openSnakeGame}
             onSelectSubject={openSubject}
-            onEquipAvatarItem={handleEquipAvatarItem}
-            onSelectAvatarCharacter={handleSelectAvatarCharacter}
-            onPurchaseAvatarThing={handlePurchaseAvatarThing}
-            onOpenAvatarStore={() => openAvatarStoreDashboard()}
-            onDismissStoreNotice={() => setStoreNotice(null)}
           />
         )}
 
@@ -8690,7 +8417,6 @@ function App() {
           <SnakeChallenge
             onBack={goToDashboard}
             onSaveResult={saveAssessmentResult}
-            onOpenStore={openAvatarStoreDashboard}
             studentName={studentDisplayName}
             topTestRecord={snakeTopRecord}
           />
