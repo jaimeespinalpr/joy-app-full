@@ -2128,21 +2128,6 @@ button {
   color: #1b2558;
 }
 
-.stars-row {
-  display: flex;
-  justify-content: center;
-  gap: 0.3rem;
-}
-
-.star-on {
-  color: #ffb429;
-  filter: drop-shadow(0 4px 10px rgba(255, 179, 41, 0.35));
-}
-
-.star-off {
-  color: #cfd5ef;
-}
-
 .question-meta {
   display: flex;
   justify-content: center;
@@ -2442,38 +2427,6 @@ button {
   pointer-events: none;
 }
 
-.coin-burst {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  transform: translate(-50%, -50%);
-  display: grid;
-  justify-items: center;
-  pointer-events: none;
-  z-index: 4;
-  animation: coinBurst 0.9s ease-out forwards;
-}
-
-.coin-shape {
-  width: 62px;
-  height: 62px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #8f6400;
-  background: linear-gradient(180deg, #ffe67e, #ffbf27);
-  border: 3px solid rgba(163, 111, 0, 0.25);
-  box-shadow: 0 10px 22px rgba(255, 184, 41, 0.3);
-}
-
-.coin-burst span {
-  margin-top: 0.2rem;
-  color: #c28700;
-  font-weight: 800;
-}
-
 .story-card {
   border-radius: 18px;
   background: white;
@@ -2764,32 +2717,6 @@ button {
   }
   100% {
     transform: translateX(0);
-  }
-}
-
-@keyframes coinBurst {
-  0% {
-    transform: translate(-50%, -50%) scale(0.6);
-    opacity: 1;
-  }
-  45% {
-    transform: translate(-50%, -130%) scale(1.06);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -210%) scale(0.95);
-    opacity: 0;
-  }
-}
-
-@keyframes rewardPop {
-  0% {
-    opacity: 0;
-    transform: translateY(10px) scale(0.94);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

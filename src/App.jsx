@@ -19,9 +19,7 @@ import {
   Plus,
   RotateCcw,
   Sparkles,
-  Star,
   Trophy,
-  User,
   Volume2,
   VolumeX,
   X,
@@ -870,7 +868,7 @@ const SPELLING_TEST_CONFIGS = {
       'stop',
       'plan',
       'drop',
-      'shop',
+      'shake',
       'slip',
       'trip',
       'clap',
@@ -1023,18 +1021,6 @@ function playSound(type, enabled) {
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45)
       osc.start(now)
       osc.stop(now + 0.46)
-      return
-    }
-
-    if (type === 'coin') {
-      osc.type = 'triangle'
-      osc.frequency.setValueAtTime(987.77, now)
-      osc.frequency.setValueAtTime(1318.51, now + 0.08)
-      gainNode.gain.setValueAtTime(0.001, now)
-      gainNode.gain.linearRampToValueAtTime(0.16, now + 0.03)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.22)
-      osc.start(now)
-      osc.stop(now + 0.24)
       return
     }
 
@@ -2681,7 +2667,6 @@ function AuthScreen({ busy, errorMessage, onLogin, onRegister }) {
           <label>
             <span>Student nickname</span>
             <div className="input-wrap">
-              <User size={16} />
               <input
                 type="text"
                 placeholder="Ex: Jaime123"
@@ -3750,17 +3735,6 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
   )
 }
 
-function CoinBurst({ visible }) {
-  if (!visible) return null
-
-  return (
-    <div className="coin-burst" aria-hidden="true">
-      <div className="coin-shape">$</div>
-      <span>+Pts</span>
-    </div>
-  )
-}
-
 function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
@@ -3769,7 +3743,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
@@ -3779,7 +3752,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
-  const coinTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
   const reviewExercisesRef = useRef([])
@@ -3795,7 +3767,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
@@ -3814,10 +3785,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = null
-    }
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
     }
   }
 
@@ -3879,7 +3846,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
-    setShowCoinAnimation(false)
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
@@ -3906,7 +3872,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     )
 
     clearTimers()
-    setShowCoinAnimation(false)
 
     if (completionMode === 'completed') {
       playSound('win', soundEnabled)
@@ -3969,7 +3934,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-      playSound('coin', soundEnabled)
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
@@ -3980,12 +3944,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
       setTotalScore(nextScore)
       setFeedback('correct')
-      setShowCoinAnimation(true)
-
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = window.setTimeout(() => {
-        setShowCoinAnimation(false)
-      }, 850)
 
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = window.setTimeout(() => {
@@ -4206,12 +4164,9 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
   const currentQuestion = queue[0]
   const progressPercentage = Math.round((perfectOriginalCount / MULTIPLICATION_QUESTION_COUNT) * 100)
-  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-      <CoinBurst visible={showCoinAnimation} />
-
       <div className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Points</span>
@@ -4266,17 +4221,6 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
       {currentQuestion ? (
         <div className="game-board">
-          <div className="stars-row" aria-label="Possible points for this question">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                size={28}
-                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
-                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
-              />
-            ))}
-          </div>
-
           <div className="question-meta">
             {currentQuestion.isRetry ? (
               <span className="badge badge-soon">Reinforcement (0 pts)</span>
@@ -4327,7 +4271,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
@@ -4338,7 +4281,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
-  const coinTimerRef = useRef(null)
   const speechTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
@@ -4356,7 +4298,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
       speechSequenceTokenRef.current = Symbol('word-problem-speech-seq')
       stopSpeechPlayback()
@@ -4378,10 +4319,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = null
-    }
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
     }
     if (speechTimerRef.current) {
       window.clearTimeout(speechTimerRef.current)
@@ -4501,7 +4438,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
-    setShowCoinAnimation(false)
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
@@ -4530,7 +4466,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
 
     clearTimers()
     stopSpeechPlayback()
-    setShowCoinAnimation(false)
 
     if (completionMode === 'completed') {
       playSound('win', soundEnabled)
@@ -4636,7 +4571,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
 
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-      playSound('coin', soundEnabled)
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
@@ -4653,12 +4587,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
       setTotalScore(nextScore)
       setFeedback('correct')
       setCurrentExplanationText(currentQuestion.explanation ?? '')
-      setShowCoinAnimation(true)
-
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = window.setTimeout(() => {
-        setShowCoinAnimation(false)
-      }, 850)
 
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
 
@@ -4918,12 +4846,9 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
 
   const currentQuestion = queue[0]
   const progressPercentage = Math.round((perfectOriginalCount / questionCount) * 100)
-  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-      <CoinBurst visible={showCoinAnimation} />
-
       <div className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Points</span>
@@ -5025,17 +4950,6 @@ function WordProblemsChallenge({ onBack, onSaveResult, studentName, topTestRecor
             </div>
           </div>
 
-          <div className="stars-row" aria-label="Possible points for this question">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                size={28}
-                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
-                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
-              />
-            ))}
-          </div>
-
           <div className="question-meta">
             <span className="badge badge-live">Choose the best answer</span>
           </div>
@@ -5092,7 +5006,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [lastResult, setLastResult] = useState(null)
@@ -5101,7 +5014,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
-  const coinTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
   const reviewQuestionsRef = useRef([])
@@ -5117,7 +5029,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
@@ -5136,10 +5047,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = null
-    }
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
     }
   }
 
@@ -5215,7 +5122,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
-    setShowCoinAnimation(false)
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
@@ -5247,7 +5153,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
     )
 
     clearTimers()
-    setShowCoinAnimation(false)
 
     if (completionMode === 'completed') {
       playSound('win', true)
@@ -5315,7 +5220,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
 
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-      playSound('coin', true)
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
@@ -5326,12 +5230,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
 
       setTotalScore(nextScore)
       setFeedback('correct')
-      setShowCoinAnimation(true)
-
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = window.setTimeout(() => {
-        setShowCoinAnimation(false)
-      }, 850)
 
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = window.setTimeout(() => {
@@ -5560,12 +5458,9 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
 
   const currentQuestion = queue[0]
   const progressPercentage = Math.round((perfectOriginalCount / READING_QUESTION_COUNT) * 100)
-  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-      <CoinBurst visible={showCoinAnimation} />
-
       <div className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Points</span>
@@ -5656,17 +5551,6 @@ function ReadingChallenge({ onBack, onSaveResult, studentName, testConfig, topTe
           <>
             {currentQuestion ? (
               <>
-                <div className="stars-row" aria-label="Possible points for this question">
-                  {Array.from({ length: 5 }, (_, index) => (
-                    <Star
-                      key={index}
-                      size={28}
-                      className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
-                      fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
-                    />
-                  ))}
-                </div>
-
                 <div className="question-meta">
                   {currentQuestion.isRetry ? (
                     <span className="badge badge-soon">Reinforcement (0 pts)</span>
@@ -5723,7 +5607,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
@@ -5733,7 +5616,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
-  const coinTimerRef = useRef(null)
   const speechTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
@@ -5752,7 +5634,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       if (speechTimerRef.current) window.clearTimeout(speechTimerRef.current)
       speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
       stopSpeechPlayback()
@@ -5774,10 +5655,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = null
-    }
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
     }
     if (speechTimerRef.current) {
       window.clearTimeout(speechTimerRef.current)
@@ -5874,7 +5751,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
-    setShowCoinAnimation(false)
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
@@ -5904,7 +5780,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
     clearTimers()
     speechSequenceTokenRef.current = Symbol('spelling-speech-seq')
     stopSpeechPlayback()
-    setShowCoinAnimation(false)
 
     if (completionMode === 'completed') {
       playSound('win', soundEnabled)
@@ -5975,7 +5850,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-      playSound('coin', soundEnabled)
       if (isPastTenseMode) {
         if (speechTimerRef.current) {
           window.clearTimeout(speechTimerRef.current)
@@ -5995,12 +5869,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
       setTotalScore(nextScore)
       setFeedback('correct')
-      setShowCoinAnimation(true)
-
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = window.setTimeout(() => {
-        setShowCoinAnimation(false)
-      }, 850)
 
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = window.setTimeout(() => {
@@ -6359,12 +6227,8 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   const isBuildMode = currentQuestion?.responseMode === 'build'
   const builtAnswer = getBuiltAnswer(currentQuestion)
   const progressPercentage = Math.round((perfectOriginalCount / baseQuestionCount) * 100)
-  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
-
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-      <CoinBurst visible={showCoinAnimation} />
-
       <div className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Points</span>
@@ -6419,17 +6283,6 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
 
       {currentQuestion ? (
         <div className="game-board">
-          <div className="stars-row" aria-label="Possible points for this question">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                size={28}
-                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
-                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
-              />
-            ))}
-          </div>
-
           <div className="question-meta">
             {currentQuestion.isRetry ? (
               <span className="badge badge-soon">Reinforcement (0 pts)</span>
@@ -7697,7 +7550,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
   const [feedback, setFeedback] = useState(null)
   const [totalScore, setTotalScore] = useState(0)
   const [perfectOriginalCount, setPerfectOriginalCount] = useState(0)
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
@@ -7708,7 +7560,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
 
   const clearFeedbackTimerRef = useRef(null)
   const advanceTimerRef = useRef(null)
-  const coinTimerRef = useRef(null)
   const finishInProgressRef = useRef(false)
   const autoStartRef = useRef(false)
   const reviewExercisesRef = useRef([])
@@ -7724,7 +7575,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
     return () => {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
     }
   }, [])
@@ -7743,10 +7593,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = null
-    }
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
     }
   }
 
@@ -7815,7 +7661,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
-    setShowCoinAnimation(false)
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
@@ -7843,7 +7688,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
     )
 
     clearTimers()
-    setShowCoinAnimation(false)
 
     if (completionMode === 'completed') {
       playSound('win', soundEnabled)
@@ -7936,7 +7780,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
 
     if (guessedValue === currentQuestion.answer) {
       if (clearFeedbackTimerRef.current) window.clearTimeout(clearFeedbackTimerRef.current)
-      playSound('coin', soundEnabled)
 
       const pointsEarned = currentQuestion.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
       const nextScore = totalScore + pointsEarned
@@ -7953,12 +7796,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
       setTotalScore(nextScore)
       setFeedback('correct')
       setCurrentExplanationText(currentQuestion.explanation ?? '')
-      setShowCoinAnimation(true)
-
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = window.setTimeout(() => {
-        setShowCoinAnimation(false)
-      }, 850)
 
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current)
       advanceTimerRef.current = window.setTimeout(() => {
@@ -8150,12 +7987,9 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
 
   const currentQuestion = queue[0]
   const progressPercentage = Math.round((perfectOriginalCount / questionCount) * 100)
-  const currentPotentialPoints = currentQuestion?.isRetry ? 0 : calculatePoints(attemptsOnCurrent)
 
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-      <CoinBurst visible={showCoinAnimation} />
-
       <div className="game-topbar">
         <div className="hud-pill">
           <span className="hud-label">Points</span>
@@ -8229,17 +8063,6 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
                 <p>{currentQuestion.context}</p>
               </div>
             )}
-          </div>
-
-          <div className="stars-row" aria-label="Possible points for this question">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Star
-                key={index}
-                size={28}
-                className={index < currentPotentialPoints ? 'star-on' : 'star-off'}
-                fill={index < currentPotentialPoints ? 'currentColor' : 'none'}
-              />
-            ))}
           </div>
 
           <div className="question-meta">
@@ -8818,7 +8641,6 @@ function App() {
 
         <div className="nav-user">
           <div className="user-chip">
-            <User size={16} />
             <span>{studentDisplayName}</span>
           </div>
           <button type="button" className="btn btn-ghost" onClick={handleLogout}>
