@@ -6651,6 +6651,29 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
+function CoinBurst({ visible = false }) {
+  if (!visible) return null
+
+  const coins = Array.from({ length: 12 }, (_, index) => ({
+    id: index,
+    style: {
+      '--coin-x': `${Math.random() * 180 - 90}px`,
+      '--coin-delay': `${(index * 0.03).toFixed(2)}s`,
+      '--coin-rot': `${Math.random() * 260 - 130}deg`,
+    },
+  }))
+
+  return (
+    <div className="coin-burst" aria-hidden="true">
+      {coins.map((coin) => (
+        <span key={coin.id} className="coin-burst-item" style={coin.style}>
+          🪙
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const goalApples = SNAKE_GOAL_APPLES
   const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'

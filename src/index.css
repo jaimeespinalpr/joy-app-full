@@ -1906,6 +1906,38 @@ button {
   place-items: center;
 }
 
+.coin-burst {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 6;
+}
+
+.coin-burst-item {
+  position: absolute;
+  font-size: 1.2rem;
+  opacity: 0;
+  transform: translateY(12px) scale(0.7) rotate(0deg);
+  animation: coin-pop 0.9s ease-out forwards;
+  animation-delay: var(--coin-delay, 0s);
+}
+
+@keyframes coin-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.65) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--coin-x, 0px), -120px) scale(1) rotate(var(--coin-rot, 120deg));
+  }
+}
+
 .game-intro-card {
   width: min(760px, 100%);
   background: rgba(255, 255, 255, 0.9);
