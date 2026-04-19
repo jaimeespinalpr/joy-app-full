@@ -7708,13 +7708,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
         <div className="hud-actions">
           <button
             type="button"
-            className={`btn btn-ghost ${isMobileConsole ? 'icon-only mobile-btn-label' : ''}`}
+            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : ''}`}
             onClick={handlePauseResume}
             disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
             title={phase === 'paused' ? 'Resume game' : 'Pause game'}
           >
             {phase === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-            {!isMobileConsole && <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>}
+            <span>{isMobileConsole ? 'Pause' : phase === 'paused' ? 'Resume' : 'Pause'}</span>
           </button>
 
           {!isMobileConsole && (
@@ -7731,23 +7731,24 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
           <button
             type="button"
-            className="btn btn-ghost icon-only"
+            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : 'icon-only'}`}
             onClick={() => setSoundEnabled((value) => !value)}
             aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
             title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
           >
-            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+            {isMobileConsole && <span>SFX</span>}
           </button>
 
           <button
             type="button"
-            className={`btn btn-ghost ${isMobileConsole ? 'icon-only mobile-btn-label' : ''}`}
+            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : ''}`}
             onClick={() => setMusicEnabled((value) => !value)}
             aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
             title={musicEnabled ? 'Turn music off' : 'Turn music on'}
           >
             <Music2 size={16} />
-            {!isMobileConsole && <span>{musicEnabled ? 'Music on' : 'Music off'}</span>}
+            <span>{isMobileConsole ? 'Music' : musicEnabled ? 'Music on' : 'Music off'}</span>
           </button>
 
           <button
