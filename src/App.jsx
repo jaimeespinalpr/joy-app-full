@@ -202,6 +202,13 @@ const GAMES_CARD = {
   icon: Gamepad2,
 }
 
+const DAILY_MISSIONS_STORAGE_KEY = 'joyapp_daily_missions_v1'
+const DAILY_MISSIONS = [
+  { id: 'mission-1', label: 'Complete 1 math challenge', goal: 1, reward: 10 },
+  { id: 'mission-2', label: 'Score 3 correct answers in a row', goal: 3, reward: 12 },
+  { id: 'mission-3', label: 'Play 1 Snake run', goal: 1, reward: 8 },
+]
+
 const AVATAR_BASE_CHARACTER_IDS = ['avatar-sunny']
 const AVATAR_BASE_ITEM_IDS = ['top-classic', 'shoes-classic']
 const AVATAR_CHARACTER_CATALOG = [
@@ -3667,6 +3674,88 @@ function Dashboard({
   const panelLoading = usingGlobalPanels ? globalResultsLoading : personalResultsLoading
   const [activeTip, setActiveTip] = useState('focus')
   const rewardStars = Math.min(5, Math.max(1, Math.floor((personalResults.length || 0) / 2) + 1))
+  const [dailyMissionsState, setDailyMissionsState] = useState(null)
+
+  useEffect(() => {
+    const todayKey = new Date().toISOString().slice(0, 10)
+    const defaultState = {
+      dateKey: todayKey,
+      progress: Object.fromEntries(DAILY_MISSIONS.map((mission) => [mission.id, 0])),
+      claimed: false,
+    }
+
+    if (typeof window === 'undefined') {
+      setDailyMissionsState(defaultState)
+      return
+    }
+
+    try {
+      const raw = window.localStorage.getItem(DAILY_MISSIONS_STORAGE_KEY)
+      if (!raw) {
+        setDailyMissionsState(defaultState)
+        return
+      }
+
+      const parsed = JSON.parse(raw)
+      if (parsed?.dateKey !== todayKey) {
+        setDailyMissionsState(defaultState)
+        return
+      }
+
+      setDailyMissionsState({
+        dateKey: todayKey,
+        progress: {
+          ...defaultState.progress,
+          ...(parsed.progress ?? {}),
+        },
+        claimed: Boolean(parsed.claimed),
+      })
+    } catch (error) {
+      console.warn('Could not load daily missions state:', error)
+      setDailyMissionsState(defaultState)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!dailyMissionsState || typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(DAILY_MISSIONS_STORAGE_KEY, JSON.stringify(dailyMissionsState))
+    } catch (error) {
+      console.warn('Could not save daily missions state:', error)
+    }
+  }, [dailyMissionsState])
+
+  const completedMissionCount = DAILY_MISSIONS.filter((mission) => {
+    const progressValue = dailyMissionsState?.progress?.[mission.id] ?? 0
+    return progressValue >= mission.goal
+  }).length
+  const allMissionsCompleted = completedMissionCount === DAILY_MISSIONS.length
+  const totalMissionReward = DAILY_MISSIONS.reduce((sum, mission) => sum + mission.reward, 0)
+
+  function advanceMissionProgress(missionId) {
+    setDailyMissionsState((current) => {
+      if (!current) return current
+      const mission = DAILY_MISSIONS.find((entry) => entry.id === missionId)
+      if (!mission) return current
+
+      const currentValue = current.progress?.[missionId] ?? 0
+      const nextValue = Math.min(mission.goal, currentValue + 1)
+      return {
+        ...current,
+        progress: {
+          ...current.progress,
+          [missionId]: nextValue,
+        },
+      }
+    })
+    playSound('coin', true)
+  }
+
+  function claimDailyReward() {
+    if (!allMissionsCompleted) return
+    setDailyMissionsState((current) => (current ? { ...current, claimed: true } : current))
+    playSound('win', true)
+  }
 
   return (
     <div className="page-stack">
@@ -3723,6 +3812,57 @@ function Dashboard({
           {activeTip === 'practice' && 'Wrong answer? No problem. Try again and use feedback to improve in the next round.'}
           {activeTip === 'streak' && 'Complete games and tests in a row to build confidence and collect more coins.'}
         </p>
+      </section>
+
+      <section className="panel-card mission-panel" aria-label="Daily mini missions">
+        <div className="panel-card-header">
+          <div>
+            <h2>Daily Mini Missions (Now Live)</h2>
+            <p>Small goals, big confidence. Finish all 3 missions to unlock today&apos;s reward.</p>
+          </div>
+          <span className="mission-progress-chip">{completedMissionCount}/3 done</span>
+        </div>
+
+        <div className="mission-grid">
+          {DAILY_MISSIONS.map((mission) => {
+            const progressValue = dailyMissionsState?.progress?.[mission.id] ?? 0
+            const done = progressValue >= mission.goal
+
+            return (
+              <article key={mission.id} className={`mission-card ${done ? 'is-done' : ''}`}>
+                <strong>{mission.label}</strong>
+                <small>Reward: +{mission.reward} coins</small>
+                <div className="mission-track">
+                  <div style={{ width: `${Math.round((progressValue / mission.goal) * 100)}%` }} />
+                </div>
+                <div className="mission-row">
+                  <span>
+                    {progressValue}/{mission.goal}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => advanceMissionProgress(mission.id)}
+                    disabled={done}
+                  >
+                    {done ? 'Complete ✅' : 'I did it +1'}
+                  </button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        <div className="mission-footer">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!allMissionsCompleted || dailyMissionsState?.claimed}
+            onClick={claimDailyReward}
+          >
+            {dailyMissionsState?.claimed ? 'Reward claimed 🎉' : `Claim +${totalMissionReward} coins`}
+          </button>
+        </div>
       </section>
 
       {!usingGlobalPanels && (

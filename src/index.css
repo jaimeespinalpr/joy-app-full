@@ -580,6 +580,76 @@ button {
   font-weight: 600;
 }
 
+.mission-panel {
+  background:
+    radial-gradient(circle at 90% 12%, rgba(255, 192, 106, 0.2), transparent 30%),
+    radial-gradient(circle at 12% 88%, rgba(107, 205, 255, 0.18), transparent 32%),
+    rgba(255, 255, 255, 0.95);
+}
+
+.mission-progress-chip {
+  border-radius: 999px;
+  padding: 0.4rem 0.72rem;
+  background: rgba(71, 104, 255, 0.12);
+  color: #2f449c;
+  font-weight: 800;
+}
+
+.mission-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.mission-card {
+  border-radius: 16px;
+  border: 1px solid rgba(34, 56, 133, 0.14);
+  background: white;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.mission-card.is-done {
+  border-color: rgba(46, 184, 114, 0.34);
+  box-shadow: 0 12px 24px rgba(46, 184, 114, 0.12);
+}
+
+.mission-card small {
+  color: #576490;
+}
+
+.mission-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(73, 98, 189, 0.14);
+  overflow: hidden;
+}
+
+.mission-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f8b949, #4d84ff);
+}
+
+.mission-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mission-row .btn {
+  min-height: 42px;
+  padding-inline: 0.75rem;
+}
+
+.mission-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.7rem;
+}
+
 .panel-card-header {
   display: flex;
   justify-content: space-between;
@@ -2905,6 +2975,18 @@ button {
 
   .kids-guide-grid {
     grid-template-columns: 1fr;
+  }
+
+  .mission-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mission-footer {
+    justify-content: stretch;
+  }
+
+  .mission-footer .btn {
+    width: 100%;
   }
 
   .kids-tip {
