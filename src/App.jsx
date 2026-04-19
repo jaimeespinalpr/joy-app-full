@@ -202,11 +202,13 @@ const GAMES_CARD = {
   icon: Gamepad2,
 }
 
-const DAILY_MISSIONS_STORAGE_KEY = 'joyapp_daily_missions_v1'
+const DAILY_MISSIONS_STORAGE_KEY = 'joyapp_daily_missions_v2'
+const CLAIMED_TEST_REWARDS_STORAGE_KEY = 'joyapp_claimed_test_rewards_v1'
+const COIN_WALLET_STORAGE_KEY = 'joyapp_coin_wallet_v1'
 const DAILY_MISSIONS = [
-  { id: 'mission-1', label: 'Complete 1 math challenge', goal: 1, reward: 10 },
-  { id: 'mission-2', label: 'Score 3 correct answers in a row', goal: 3, reward: 12 },
-  { id: 'mission-3', label: 'Play 1 Snake run', goal: 1, reward: 8 },
+  { id: 'mission-1', label: 'Complete 1 Math challenge', goal: 1, reward: 10 },
+  { id: 'mission-2', label: 'Get 3 perfect answers in one test', goal: 3, reward: 12 },
+  { id: 'mission-3', label: 'Complete 1 Snake run', goal: 1, reward: 8 },
 ]
 
 const AVATAR_BASE_CHARACTER_IDS = ['avatar-sunny']
@@ -2577,6 +2579,29 @@ function formatDateTime(ms) {
   }
 }
 
+function getLocalDateKey(value = Date.now()) {
+  const date = new Date(value)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function isResultCompleted(result) {
+  return result?.attemptStatus !== 'abandoned'
+}
+
+function getResultClaimId(result) {
+  return `${result?.sourceResultId ?? result?.id ?? 'result'}_${result?.createdAtMs ?? 0}`
+}
+
+function getResultRewardCoins(result) {
+  if (!isResultCompleted(result)) return 0
+  const score = Math.max(0, Number(result?.totalScore ?? 0))
+  const percentage = Math.max(0, Number(result?.percentage ?? 0))
+  return Math.max(6, Math.min(30, Math.round(score / 4) + Math.round(percentage / 25)))
+}
+
 function exerciseKeyFromQuestion(question) {
   return `${question.n1}x${question.n2}`
 }
@@ -3748,85 +3773,125 @@ function Dashboard({
   const [activeTip, setActiveTip] = useState('focus')
   const rewardStars = Math.min(5, Math.max(1, Math.floor((personalResults.length || 0) / 2) + 1))
   const [dailyMissionsState, setDailyMissionsState] = useState(null)
+  const [coinWallet, setCoinWallet] = useState(0)
+  const [claimedTestRewardIds, setClaimedTestRewardIds] = useState([])
+
+  const todayKey = getLocalDateKey()
+  const completedResults = personalResults.filter(isResultCompleted)
+  const todayCompletedResults = completedResults.filter(
+    (result) => getLocalDateKey(result.createdAtMs) === todayKey,
+  )
+  const todayMathCompletions = todayCompletedResults.filter((result) => result.subjectId === 'math').length
+  const todayBestPerfectCount = todayCompletedResults.reduce(
+    (bestCount, result) => Math.max(bestCount, Number(result?.perfectOriginalCount ?? 0)),
+    0,
+  )
+  const todaySnakeCompletions = todayCompletedResults.filter(
+    (result) => result.subjectId === 'games' && result.testId === 'snake',
+  ).length
+
+  const missionProgressMap = {
+    'mission-1': Math.min(todayMathCompletions, DAILY_MISSIONS[0].goal),
+    'mission-2': Math.min(todayBestPerfectCount, DAILY_MISSIONS[1].goal),
+    'mission-3': Math.min(todaySnakeCompletions, DAILY_MISSIONS[2].goal),
+  }
 
   useEffect(() => {
-    const todayKey = new Date().toISOString().slice(0, 10)
-    const defaultState = {
+    const defaultMissionsState = {
       dateKey: todayKey,
-      progress: Object.fromEntries(DAILY_MISSIONS.map((mission) => [mission.id, 0])),
       claimed: false,
     }
 
     if (typeof window === 'undefined') {
-      setDailyMissionsState(defaultState)
+      setDailyMissionsState(defaultMissionsState)
       return
     }
 
     try {
-      const raw = window.localStorage.getItem(DAILY_MISSIONS_STORAGE_KEY)
-      if (!raw) {
-        setDailyMissionsState(defaultState)
-        return
-      }
+      const rawMissions = window.localStorage.getItem(DAILY_MISSIONS_STORAGE_KEY)
+      const parsedMissions = rawMissions ? JSON.parse(rawMissions) : null
+      const missionsState =
+        parsedMissions?.dateKey === todayKey
+          ? {
+              dateKey: todayKey,
+              claimed: Boolean(parsedMissions?.claimed),
+            }
+          : defaultMissionsState
 
-      const parsed = JSON.parse(raw)
-      if (parsed?.dateKey !== todayKey) {
-        setDailyMissionsState(defaultState)
-        return
-      }
+      const rawWallet = window.localStorage.getItem(COIN_WALLET_STORAGE_KEY)
+      const parsedWallet = Number(rawWallet)
+      const nextWallet = Number.isFinite(parsedWallet) ? Math.max(0, Math.floor(parsedWallet)) : 0
 
-      setDailyMissionsState({
-        dateKey: todayKey,
-        progress: {
-          ...defaultState.progress,
-          ...(parsed.progress ?? {}),
-        },
-        claimed: Boolean(parsed.claimed),
-      })
+      const rawClaims = window.localStorage.getItem(CLAIMED_TEST_REWARDS_STORAGE_KEY)
+      const parsedClaims = rawClaims ? JSON.parse(rawClaims) : []
+      const nextClaimedIds = Array.isArray(parsedClaims)
+        ? parsedClaims.filter((claimId) => typeof claimId === 'string')
+        : []
+
+      setDailyMissionsState(missionsState)
+      setCoinWallet(nextWallet)
+      setClaimedTestRewardIds(nextClaimedIds)
     } catch (error) {
-      console.warn('Could not load daily missions state:', error)
-      setDailyMissionsState(defaultState)
+      console.warn('Could not load missions and rewards state:', error)
+      setDailyMissionsState(defaultMissionsState)
+      setCoinWallet(0)
+      setClaimedTestRewardIds([])
     }
-  }, [])
+  }, [todayKey])
 
   useEffect(() => {
-    if (!dailyMissionsState || typeof window === 'undefined') return
-    try {
-      window.localStorage.setItem(DAILY_MISSIONS_STORAGE_KEY, JSON.stringify(dailyMissionsState))
-    } catch (error) {
-      console.warn('Could not save daily missions state:', error)
-    }
-  }, [dailyMissionsState])
+    if (typeof window === 'undefined') return
 
-  const completedMissionCount = DAILY_MISSIONS.filter((mission) => {
-    const progressValue = dailyMissionsState?.progress?.[mission.id] ?? 0
-    return progressValue >= mission.goal
-  }).length
+    try {
+      if (dailyMissionsState) {
+        window.localStorage.setItem(DAILY_MISSIONS_STORAGE_KEY, JSON.stringify(dailyMissionsState))
+      }
+      window.localStorage.setItem(COIN_WALLET_STORAGE_KEY, String(Math.max(0, Math.floor(coinWallet))))
+      window.localStorage.setItem(
+        CLAIMED_TEST_REWARDS_STORAGE_KEY,
+        JSON.stringify(claimedTestRewardIds),
+      )
+    } catch (error) {
+      console.warn('Could not save missions and rewards state:', error)
+    }
+  }, [claimedTestRewardIds, coinWallet, dailyMissionsState])
+
+  const pendingTestRewards = completedResults
+    .map((result) => ({
+      id: getResultClaimId(result),
+      coins: getResultRewardCoins(result),
+    }))
+    .filter((rewardEntry) => rewardEntry.coins > 0 && !claimedTestRewardIds.includes(rewardEntry.id))
+
+  const pendingTestRewardCoins = pendingTestRewards.reduce(
+    (total, rewardEntry) => total + rewardEntry.coins,
+    0,
+  )
+
+  const completedMissionCount = DAILY_MISSIONS.filter(
+    (mission) => (missionProgressMap[mission.id] ?? 0) >= mission.goal,
+  ).length
   const allMissionsCompleted = completedMissionCount === DAILY_MISSIONS.length
   const totalMissionReward = DAILY_MISSIONS.reduce((sum, mission) => sum + mission.reward, 0)
 
-  function advanceMissionProgress(missionId) {
-    setDailyMissionsState((current) => {
-      if (!current) return current
-      const mission = DAILY_MISSIONS.find((entry) => entry.id === missionId)
-      if (!mission) return current
+  function claimCompletedTestRewards() {
+    if (!pendingTestRewards.length) return
 
-      const currentValue = current.progress?.[missionId] ?? 0
-      const nextValue = Math.min(mission.goal, currentValue + 1)
-      return {
-        ...current,
-        progress: {
-          ...current.progress,
-          [missionId]: nextValue,
-        },
-      }
-    })
+    setClaimedTestRewardIds((currentIds) =>
+      Array.from(new Set([...currentIds, ...pendingTestRewards.map((rewardEntry) => rewardEntry.id)])),
+    )
+    setCoinWallet((currentCoins) => currentCoins + pendingTestRewardCoins)
     playSound('coin', true)
   }
 
   function claimDailyReward() {
-    if (!allMissionsCompleted) return
-    setDailyMissionsState((current) => (current ? { ...current, claimed: true } : current))
+    if (!allMissionsCompleted || dailyMissionsState?.claimed) return
+
+    setDailyMissionsState({
+      dateKey: todayKey,
+      claimed: true,
+    })
+    setCoinWallet((currentCoins) => currentCoins + totalMissionReward)
     playSound('win', true)
   }
 
@@ -3853,8 +3918,12 @@ function Dashboard({
             <strong>{personalResults[0]?.grade ?? '-'}</strong>
           </div>
           <div className="mini-stat">
-            <span>Global tests</span>
-            <strong>{globalResults.length}</strong>
+            <span>Coins wallet</span>
+            <strong>{coinWallet}</strong>
+          </div>
+          <div className="mini-stat">
+            <span>Pending claim</span>
+            <strong>+{pendingTestRewardCoins}</strong>
           </div>
         </div>
       </section>
@@ -3887,6 +3956,29 @@ function Dashboard({
         </p>
       </section>
 
+      <section className="panel-card" aria-label="Completed tests rewards">
+        <div className="panel-card-header">
+          <div>
+            <h2>Completed Test Rewards</h2>
+            <p>Coins are tracked automatically when a real test is finished. Just claim them here.</p>
+          </div>
+          <span className="mission-progress-chip">{pendingTestRewards.length} pending</span>
+        </div>
+
+        <div className="mission-footer">
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={claimCompletedTestRewards}
+            disabled={pendingTestRewardCoins <= 0}
+          >
+            {pendingTestRewardCoins > 0
+              ? `Claim +${pendingTestRewardCoins} coins from completed tests`
+              : 'No coins pending right now'}
+          </button>
+        </div>
+      </section>
+
       <section className="panel-card mission-panel" aria-label="Daily mini missions">
         <div className="panel-card-header">
           <div>
@@ -3898,7 +3990,7 @@ function Dashboard({
 
         <div className="mission-grid">
           {DAILY_MISSIONS.map((mission) => {
-            const progressValue = dailyMissionsState?.progress?.[mission.id] ?? 0
+            const progressValue = missionProgressMap[mission.id] ?? 0
             const done = progressValue >= mission.goal
 
             return (
@@ -3912,14 +4004,9 @@ function Dashboard({
                   <span>
                     {progressValue}/{mission.goal}
                   </span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => advanceMissionProgress(mission.id)}
-                    disabled={done}
-                  >
-                    {done ? 'Complete ✅' : 'I did it +1'}
-                  </button>
+                  <span className="mission-status-chip">
+                    {done ? 'Completed ✅' : 'Auto-tracked from real tests'}
+                  </span>
                 </div>
               </article>
             )
@@ -8869,7 +8956,7 @@ function App() {
       : null
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${screen === 'dashboard' ? 'is-home-screen' : 'is-focused-screen'}`}>
       <header className="top-nav">
         <button type="button" className="brand-brand" onClick={goToDashboard}>
           <div className="brand-mark">

@@ -367,6 +367,15 @@ button {
     radial-gradient(circle at 90% 84%, rgba(255, 155, 211, 0.1), transparent 18%);
 }
 
+.app-shell.is-focused-screen {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell.is-focused-screen .app-main {
+  overflow: hidden;
+}
+
 .top-nav {
   display: flex;
   justify-content: space-between;
@@ -661,6 +670,22 @@ button {
 .mission-row .btn {
   min-height: 42px;
   padding-inline: 0.75rem;
+}
+
+.mission-status-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: rgba(63, 105, 255, 0.1);
+  color: #3550b8;
+}
+
+.mission-card.is-done .mission-status-chip {
+  background: rgba(46, 184, 114, 0.14);
+  color: #1e7a4b;
 }
 
 .mission-footer {
@@ -1893,8 +1918,7 @@ button {
     linear-gradient(165deg, #f8fbff, #eef4ff);
   border: 1px solid rgba(29, 44, 100, 0.08);
   box-shadow: 0 24px 45px rgba(18, 29, 71, 0.08);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .snake-shell {
@@ -2282,7 +2306,7 @@ button {
 .snake-overlay-card {
   width: min(560px, 100%);
   max-height: 100%;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(26, 41, 100, 0.08);
@@ -2750,8 +2774,8 @@ button {
 .story-card-body {
   display: grid;
   gap: 0.45rem;
-  max-height: 220px;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   padding-right: 0.1rem;
 }
 
@@ -3059,7 +3083,7 @@ button {
   .game-shell {
     padding-bottom: 1.35rem;
     max-height: none;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .game-board {
@@ -3433,7 +3457,7 @@ button {
   }
 
   .story-card-body {
-    max-height: 260px;
+    max-height: none;
   }
 
   .answer-btn.answer-text {
