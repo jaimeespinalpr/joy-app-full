@@ -3634,7 +3634,7 @@ function Dashboard({
           </div>
           <h1>Hello, {studentProfile?.alias ?? 'Student'}</h1>
           <p>
-            First select a subject. Then choose the test type inside that subject.
+            First choose a subject, then pick the test type for that subject.
           </p>
         </div>
         <div className="hero-stats">
@@ -7169,7 +7169,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             </button>
             <button type="button" className="btn btn-ghost" onClick={handleBackToHome}>
               <ArrowLeft size={16} />
-              <span>Back to home</span>
+              <span>Back to dashboard</span>
             </button>
           </div>
         </div>
@@ -7958,7 +7958,7 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
             </button>
             <button type="button" className="btn btn-ghost" onClick={handleBackToDashboard}>
               <ArrowLeft size={16} />
-              <span>Back to home</span>
+              <span>Back to dashboard</span>
             </button>
           </div>
         </div>
@@ -8396,7 +8396,7 @@ function App() {
           </div>
           <div>
             <strong>Joy App Full</strong>
-            <small>Subject-based learning</small>
+            <small>Subject based learning</small>
           </div>
         </button>
 
@@ -8501,7 +8501,7 @@ function App() {
                 <CircleAlert size={20} />
                 <p>The selected test could not be found.</p>
                 <button type="button" className="btn btn-primary" onClick={goToDashboard}>
-                  Back to home
+                  Back to dashboard
                 </button>
               </div>
             </section>
