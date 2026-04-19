@@ -1156,23 +1156,32 @@ function playSound(type, enabled, allowRetry = true) {
 
 const BACKGROUND_MUSIC_PATTERNS = {
   snake: {
-    stepMs: 220,
+    stepMs: 190,
     notes: [
-      523.25,
       659.25,
       783.99,
-      659.25,
-      587.33,
-      698.46,
+      987.77,
+      783.99,
       880,
-      698.46,
-      523.25,
-      659.25,
+      1046.5,
+      1174.66,
+      1046.5,
       783.99,
+      880,
+      987.77,
+      783.99,
+      739.99,
       659.25,
-      493.88,
       587.33,
       659.25,
+      null,
+      783.99,
+      987.77,
+      1174.66,
+      987.77,
+      880,
+      783.99,
+      739.99,
       null,
     ],
   },
@@ -7683,15 +7692,19 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           >
             <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost icon-only"
-            onClick={() => void handleFullscreenToggle()}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          </button>
+
+          {!isMobileConsole && (
+            <button
+              type="button"
+              className="btn btn-ghost icon-only"
+              onClick={() => void handleFullscreenToggle()}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+          )}
+
           <button
             type="button"
             className="btn btn-ghost icon-only"
@@ -7701,15 +7714,19 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setMusicEnabled((value) => !value)}
-            aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
-            title={musicEnabled ? 'Turn music off' : 'Turn music on'}
-          >
-            <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
-          </button>
+
+          {!isMobileConsole && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setMusicEnabled((value) => !value)}
+              aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
+              title={musicEnabled ? 'Turn music off' : 'Turn music on'}
+            >
+              <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             className="btn btn-danger-soft"
@@ -7718,7 +7735,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             title="Save progress and leave Snake"
           >
             <ArrowLeft size={16} />
-            <span>Save and leave</span>
+            <span>{isMobileConsole ? 'Leave' : 'Save and leave'}</span>
           </button>
         </div>
       </div>
@@ -7881,7 +7898,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
               <p>Eat {goalApples} apples to win.</p>
               <p>Every crash opens one mixed question from the Full Test pool.</p>
               <p>If you answer correctly, you continue from the same board position.</p>
-              <p>If you answer incorrectly, the snake restarts from zero apples.</p>
+              <p>If you answer incorrectly, choose to restart from zero apples or save and leave.</p>
             </div>
           </div>
 
