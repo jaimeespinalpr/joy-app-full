@@ -1046,6 +1046,31 @@ function playSound(type, enabled) {
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.65)
       osc.start(now)
       osc.stop(now + 0.66)
+      return
+    }
+
+    if (type === 'coin') {
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(660, now)
+      osc.frequency.setValueAtTime(990, now + 0.06)
+      osc.frequency.setValueAtTime(1320, now + 0.12)
+      gainNode.gain.setValueAtTime(0.001, now)
+      gainNode.gain.linearRampToValueAtTime(0.08, now + 0.03)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25)
+      osc.start(now)
+      osc.stop(now + 0.26)
+      return
+    }
+
+    if (type === 'transition') {
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(420, now)
+      osc.frequency.exponentialRampToValueAtTime(690, now + 0.16)
+      gainNode.gain.setValueAtTime(0.001, now)
+      gainNode.gain.linearRampToValueAtTime(0.03, now + 0.025)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.19)
+      osc.start(now)
+      osc.stop(now + 0.2)
     }
   } catch (error) {
     console.warn('Could not play sound:', error)
@@ -8080,6 +8105,17 @@ function App() {
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
+  const screenTransitionKey = `${screen}_${selectedSubjectId ?? 'none'}_${selectedTestId ?? 'none'}`
+
+  function navigateScreen(nextScreen, options = {}) {
+    const { subjectId = null, testId = null, playTransition = true } = options
+    if (playTransition) {
+      playSound('transition', true)
+    }
+    setSelectedSubjectId(subjectId)
+    setSelectedTestId(testId)
+    setScreen(nextScreen)
+  }
 
   async function loadGlobalResults() {
     setGlobalResultsLoading(true)
@@ -8300,37 +8336,27 @@ function App() {
   }
 
   function openSubject(subjectId) {
-    setSelectedSubjectId(subjectId)
-    setSelectedTestId(null)
-    setScreen('subject')
+    navigateScreen('subject', { subjectId })
   }
 
   function openTest(testId) {
-    setSelectedTestId(testId)
-    setScreen('test')
+    navigateScreen('test', { subjectId: selectedSubjectId, testId })
   }
 
   function openFullTest() {
-    setSelectedSubjectId(null)
-    setSelectedTestId(null)
-    setScreen('full-test')
+    navigateScreen('full-test')
   }
 
   function openSnakeGame() {
-    setSelectedSubjectId(null)
-    setSelectedTestId(null)
-    setScreen('snake')
+    navigateScreen('snake')
   }
 
   function goToDashboard() {
-    setScreen('dashboard')
-    setSelectedSubjectId(null)
-    setSelectedTestId(null)
+    navigateScreen('dashboard')
   }
 
   function goToSubjectMenu() {
-    setScreen('subject')
-    setSelectedTestId(null)
+    navigateScreen('subject', { subjectId: selectedSubjectId })
   }
 
   if (!authReady) {
@@ -8386,99 +8412,101 @@ function App() {
       </header>
 
       <main className="app-main">
-        {screen === 'dashboard' && (
-          <Dashboard
-            studentProfile={
-              studentProfile
-                ? { ...studentProfile, alias: studentDisplayName }
-                : { alias: studentDisplayName }
-            }
-            personalResults={personalResults}
-            globalResults={globalResults}
-            personalResultsLoading={personalResultsLoading}
-            globalResultsLoading={globalResultsLoading}
-            globalResultsError={globalResultsError}
-            onStartFullTest={openFullTest}
-            onStartSnakeGame={openSnakeGame}
-            onSelectSubject={openSubject}
-          />
-        )}
+        <div key={screenTransitionKey} className="screen-transition-layer">
+          {screen === 'dashboard' && (
+            <Dashboard
+              studentProfile={
+                studentProfile
+                  ? { ...studentProfile, alias: studentDisplayName }
+                  : { alias: studentDisplayName }
+              }
+              personalResults={personalResults}
+              globalResults={globalResults}
+              personalResultsLoading={personalResultsLoading}
+              globalResultsLoading={globalResultsLoading}
+              globalResultsError={globalResultsError}
+              onStartFullTest={openFullTest}
+              onStartSnakeGame={openSnakeGame}
+              onSelectSubject={openSubject}
+            />
+          )}
 
-        {screen === 'full-test' && (
-          <FullTestChallenge
-            onBack={goToDashboard}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            topTestRecord={fullTestTopRecord}
-          />
-        )}
+          {screen === 'full-test' && (
+            <FullTestChallenge
+              onBack={goToDashboard}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={fullTestTopRecord}
+            />
+          )}
 
-        {screen === 'snake' && (
-          <SnakeChallenge
-            onBack={goToDashboard}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            topTestRecord={snakeTopRecord}
-          />
-        )}
+          {screen === 'snake' && (
+            <SnakeChallenge
+              onBack={goToDashboard}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={snakeTopRecord}
+            />
+          )}
 
-        {screen === 'subject' && selectedSubject && (
-          <SubjectTestsView
-            subject={selectedSubject}
-            onBack={goToDashboard}
-            onSelectTest={openTest}
-          />
-        )}
+          {screen === 'subject' && selectedSubject && (
+            <SubjectTestsView
+              subject={selectedSubject}
+              onBack={goToDashboard}
+              onSelectTest={openTest}
+            />
+          )}
 
-        {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
-          <MultiplicationChallenge
-            onBack={goToSubjectMenu}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            topTestRecord={selectedTestTopRecord}
-          />
-        )}
+          {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
+            <MultiplicationChallenge
+              onBack={goToSubjectMenu}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={selectedTestTopRecord}
+            />
+          )}
 
-        {screen === 'test' && selectedSubject && selectedTest?.id === 'word-problems' && (
-          <WordProblemsChallenge
-            onBack={goToSubjectMenu}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            topTestRecord={selectedTestTopRecord}
-          />
-        )}
+          {screen === 'test' && selectedSubject && selectedTest?.id === 'word-problems' && (
+            <WordProblemsChallenge
+              onBack={goToSubjectMenu}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={selectedTestTopRecord}
+            />
+          )}
 
-        {screen === 'test' && selectedSubject && selectedReadingConfig && (
-          <ReadingChallenge
-            onBack={goToSubjectMenu}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            testConfig={selectedReadingConfig}
-            topTestRecord={selectedTestTopRecord}
-          />
-        )}
+          {screen === 'test' && selectedSubject && selectedReadingConfig && (
+            <ReadingChallenge
+              onBack={goToSubjectMenu}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              testConfig={selectedReadingConfig}
+              topTestRecord={selectedTestTopRecord}
+            />
+          )}
 
-        {screen === 'test' && selectedSubject && selectedSpellingConfig && (
-          <SpellingChallenge
-            onBack={goToSubjectMenu}
-            onSaveResult={saveAssessmentResult}
-            studentName={studentDisplayName}
-            testConfig={selectedSpellingConfig}
-            topTestRecord={selectedTestTopRecord}
-          />
-        )}
+          {screen === 'test' && selectedSubject && selectedSpellingConfig && (
+            <SpellingChallenge
+              onBack={goToSubjectMenu}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              testConfig={selectedSpellingConfig}
+              topTestRecord={selectedTestTopRecord}
+            />
+          )}
 
-        {screen === 'test' && (!selectedSubject || !selectedTest) && (
-          <section className="panel-card">
-            <div className="empty-state">
-              <CircleAlert size={20} />
-              <p>The selected test could not be found.</p>
-              <button type="button" className="btn btn-primary" onClick={goToDashboard}>
-                Back to home
-              </button>
-            </div>
-          </section>
-        )}
+          {screen === 'test' && (!selectedSubject || !selectedTest) && (
+            <section className="panel-card">
+              <div className="empty-state">
+                <CircleAlert size={20} />
+                <p>The selected test could not be found.</p>
+                <button type="button" className="btn btn-primary" onClick={goToDashboard}>
+                  Back to home
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
       </main>
     </div>
   )
