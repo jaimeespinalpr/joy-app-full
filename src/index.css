@@ -1866,7 +1866,7 @@ button {
 .game-shell {
   position: relative;
   border-radius: 24px;
-  min-height: min(78vh, 780px);
+  min-height: min(74vh, 740px);
   padding: 1rem;
   background:
     radial-gradient(circle at 20% 15%, rgba(255, 202, 122, 0.2), transparent 28%),
@@ -1876,6 +1876,11 @@ button {
   box-shadow: 0 24px 45px rgba(18, 29, 71, 0.08);
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.snake-shell {
+  max-height: min(86vh, 820px);
+  overflow-y: hidden;
 }
 
 .game-shell.is-fullscreen,
@@ -2132,6 +2137,52 @@ button {
   border: 1px solid rgba(25, 40, 96, 0.08);
   box-shadow: 0 16px 36px rgba(18, 29, 71, 0.08);
   padding: 0.9rem;
+}
+
+.snake-onboarding-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.55rem;
+  padding: 0.62rem 0.72rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(77, 123, 255, 0.14), rgba(105, 209, 255, 0.15));
+  border: 1px solid rgba(67, 95, 216, 0.2);
+}
+
+.snake-onboarding-card strong {
+  display: block;
+  color: #1c2d67;
+}
+
+.snake-onboarding-card small {
+  color: #435488;
+}
+
+.snake-toast {
+  border-radius: 12px;
+  padding: 0.5rem 0.65rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.snake-toast-success {
+  color: #17653f;
+  background: rgba(50, 209, 129, 0.14);
+  border: 1px solid rgba(50, 209, 129, 0.28);
+}
+
+.snake-toast-warn {
+  color: #824400;
+  background: rgba(255, 171, 64, 0.18);
+  border: 1px solid rgba(255, 171, 64, 0.32);
+}
+
+.snake-toast-info {
+  color: #2540a1;
+  background: rgba(76, 114, 255, 0.12);
+  border: 1px solid rgba(76, 114, 255, 0.26);
 }
 
 .snake-console-footer,
@@ -2975,6 +3026,8 @@ button {
 
   .game-shell {
     padding-bottom: 1.35rem;
+    max-height: none;
+    overflow-y: auto;
   }
 
   .game-board {

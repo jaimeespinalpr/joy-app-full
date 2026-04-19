@@ -6703,6 +6703,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
   const [mobileBoardSize, setMobileBoardSize] = useState(null)
+  const [showOnboarding, setShowOnboarding] = useState(true)
+  const [snakeToast, setSnakeToast] = useState(null)
 
   const shellRef = useRef(null)
   const topbarRef = useRef(null)
@@ -6726,6 +6728,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const coinTimerRef = useRef(null)
   const storeRedirectTimerRef = useRef(null)
   const countdownTimerRef = useRef(null)
+  const toastTimerRef = useRef(null)
 
   useEffect(() => {
     snakeRef.current = snake
@@ -6788,6 +6791,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
       if (storeRedirectTimerRef.current) window.clearTimeout(storeRedirectTimerRef.current)
       if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current)
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
       stopBackgroundMusic()
       mediaQuery.removeEventListener?.('change', syncMobileConsole)
       document.removeEventListener('fullscreenchange', syncFullscreenState)
@@ -6889,6 +6893,18 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       window.clearInterval(countdownTimerRef.current)
       countdownTimerRef.current = null
     }
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current)
+      toastTimerRef.current = null
+    }
+  }
+
+  function showSnakeToast(message, tone = 'info') {
+    setSnakeToast({ message, tone })
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = window.setTimeout(() => {
+      setSnakeToast(null)
+    }, 1400)
   }
 
   function refillQuestionDeck() {
@@ -6992,6 +7008,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setSaveMessage('')
     setCoinsAwarded(0)
     setLastResult(null)
+    setSnakeToast(null)
     resetSnakeBoard({ phase: 'countdown' })
     beginCountdown()
   }
@@ -7122,6 +7139,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setCurrentOptions((nextQuestion.options ?? []).map((value) => ({ value, isHidden: false })))
     setQuestionFeedback(null)
     playSound('bump', soundEnabled)
+    showSnakeToast('Oops, crash. Solve 1 question to keep going.', 'warn')
     setPhase('question')
   }
 
@@ -7156,6 +7174,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     if (!willEatApple) return
 
     playSound('coin', soundEnabled)
+    showSnakeToast('Nice, apple collected.', 'success')
     setShowCoinAnimation(true)
     if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
     coinTimerRef.current = window.setTimeout(() => {
@@ -7233,6 +7252,21 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     }
   }, [phase, applesEaten, soundEnabled])
 
+  function handlePauseResume() {
+    if (phase === 'playing') {
+      setPhase('paused')
+      showSnakeToast('Game paused.', 'info')
+      playSound('transition', soundEnabled)
+      return
+    }
+
+    if (phase === 'paused') {
+      setPhase('playing')
+      showSnakeToast('Back to game.', 'success')
+      playSound('start', soundEnabled)
+    }
+  }
+
   useEffect(() => {
     function handleKeyDown(event) {
       const nextDirection = getSnakeDirectionFromKey(event.key)
@@ -7262,12 +7296,14 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     if (guessedValue === currentQuestion.answer) {
       playSound('coin', soundEnabled)
+      showSnakeToast('Great answer, choose direction to continue.', 'success')
       setQuestionFeedback('correct')
       setPhase('resume')
       return
     }
 
     playSound('bump', soundEnabled)
+    showSnakeToast('Not this time. Restarting from countdown.', 'warn')
     setQuestionFeedback('incorrect')
     const nextRestartCount = restartCountRef.current + 1
     restartCountRef.current = nextRestartCount
@@ -7472,6 +7508,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
         <div className="hud-actions">
           <button
             type="button"
+            className="btn btn-ghost"
+            onClick={handlePauseResume}
+            disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
+            title={phase === 'paused' ? 'Resume game' : 'Pause game'}
+          >
+            <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
+          </button>
+          <button
+            type="button"
             className="btn btn-ghost icon-only"
             onClick={() => void handleFullscreenToggle()}
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
@@ -7512,6 +7557,24 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
       <div className="game-board snake-layout">
         <div ref={stageCardRef} className="snake-stage-card">
+          {showOnboarding && (
+            <div className="snake-onboarding-card" role="status" aria-live="polite">
+              <div>
+                <strong>Quick start</strong>
+                <small>Goal: eat {goalApples} apples. Move with arrows or WASD. If you crash, answer to continue.</small>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowOnboarding(false)}>
+                Got it
+              </button>
+            </div>
+          )}
+
+          {snakeToast && (
+            <div className={`snake-toast snake-toast-${snakeToast.tone}`} role="status" aria-live="polite">
+              {snakeToast.message}
+            </div>
+          )}
+
           <div ref={stageHeaderRef} className="snake-stage-header">
             <div>
               <strong>Snake</strong>
@@ -7637,6 +7700,24 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
                       </button>
                     </>
                   )}
+                </div>
+              </div>
+            )}
+
+            {phase === 'paused' && (
+              <div className="snake-overlay">
+                <div className="snake-overlay-card">
+                  <div className="snake-overlay-header">
+                    <div>
+                      <small>Paused</small>
+                      <h3>Take a breath, then continue</h3>
+                    </div>
+                    <span className="badge badge-live">Ready when you are</span>
+                  </div>
+                  <p className="snake-prompt">Press Resume to keep your run with the same score and position.</p>
+                  <button type="button" className="btn btn-primary" onClick={handlePauseResume}>
+                    Resume
+                  </button>
                 </div>
               </div>
             )}
