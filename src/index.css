@@ -6,8 +6,8 @@
     sans-serif;
   line-height: 1.4;
   font-weight: 400;
-  color: #171a2f;
-  background: #f4f7ff;
+  color: #10203d;
+  background: #f2f8ff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -28,10 +28,10 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at 8% 12%, rgba(255, 189, 89, 0.22), transparent 28%),
-    radial-gradient(circle at 88% 10%, rgba(78, 223, 255, 0.22), transparent 32%),
-    radial-gradient(circle at 75% 88%, rgba(129, 116, 255, 0.14), transparent 35%),
-    #f4f7ff;
+    radial-gradient(circle at 8% 12%, rgba(255, 173, 92, 0.24), transparent 28%),
+    radial-gradient(circle at 88% 10%, rgba(80, 227, 255, 0.24), transparent 32%),
+    radial-gradient(circle at 75% 88%, rgba(155, 121, 255, 0.18), transparent 35%),
+    linear-gradient(180deg, #f8fcff 0%, #eef6ff 100%);
 }
 
 button,
@@ -374,9 +374,9 @@ button {
   gap: 0.75rem;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(22, 36, 95, 0.08);
-  border-radius: 20px;
+  border-radius: 24px;
   padding: 0.7rem 0.8rem;
-  box-shadow: 0 14px 34px rgba(21, 32, 76, 0.06);
+  box-shadow: 0 16px 36px rgba(21, 32, 76, 0.1);
   position: sticky;
   top: 1rem;
   z-index: 10;
@@ -419,6 +419,21 @@ button {
   gap: 0.55rem;
 }
 
+.audio-master-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(45, 64, 130, 0.14);
+  border-radius: 999px;
+  padding: 0.3rem 0.45rem;
+}
+
+.audio-master-controls input[type='range'] {
+  width: 90px;
+  accent-color: #4768ff;
+}
+
 .user-chip {
   display: inline-flex;
   align-items: center;
@@ -440,6 +455,11 @@ button {
   background: linear-gradient(120deg, rgba(255, 211, 108, 0.45), rgba(95, 243, 202, 0.45));
   border: 1px solid rgba(48, 72, 153, 0.16);
   box-shadow: 0 10px 24px rgba(37, 66, 150, 0.08);
+}
+
+.release-banner {
+  background: linear-gradient(135deg, rgba(255, 184, 77, 0.2), rgba(104, 194, 255, 0.2));
+  border: 1px solid rgba(67, 95, 216, 0.2);
 }
 
 .app-main {

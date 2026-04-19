@@ -124,16 +124,16 @@ const TESTS_BY_SUBJECT = {
     {
       id: 'addition',
       name: 'Addition',
-      description: 'Coming soon: leveled addition and mental math speed.',
-      available: false,
+      description: 'Fast addition mission with score, stars, and retry practice.',
+      available: true,
       accentClass: 'test-addition',
       icon: Plus,
     },
     {
       id: 'subtraction',
       name: 'Subtraction',
-      description: 'Coming soon: subtraction with and without borrowing.',
-      available: false,
+      description: 'Subtraction challenge with step-by-step feedback and rewards.',
+      available: true,
       accentClass: 'test-subtraction',
       icon: Minus,
     },
@@ -959,6 +959,19 @@ let audioCtx = null
 let speechVoicesInitialized = false
 let activeMusicTheme = ''
 let backgroundMusicTimerId = null
+let masterAudioMuted = false
+let masterAudioVolume = 0.65
+
+function setMasterAudioMuted(value) {
+  masterAudioMuted = Boolean(value)
+}
+
+function setMasterAudioVolume(value) {
+  const numericValue = Number(value)
+  masterAudioVolume = Number.isFinite(numericValue)
+    ? Math.max(0, Math.min(1, numericValue))
+    : 0.65
+}
 
 function warmSpeechVoices() {
   if (typeof window === 'undefined' || !window.speechSynthesis || speechVoicesInitialized) return
@@ -999,7 +1012,7 @@ function initAudio() {
 
 function playSound(type, enabled) {
   try {
-    if (!enabled) return
+    if (!enabled || masterAudioMuted || masterAudioVolume <= 0) return
     if (!initAudio()) return
 
     const osc = audioCtx.createOscillator()
@@ -1017,7 +1030,7 @@ function playSound(type, enabled) {
       osc.frequency.setValueAtTime(659.25, now + 0.18)
       osc.frequency.setValueAtTime(880, now + 0.27)
       gainNode.gain.setValueAtTime(0.001, now)
-      gainNode.gain.linearRampToValueAtTime(0.14, now + 0.04)
+      gainNode.gain.linearRampToValueAtTime(0.14 * masterAudioVolume, now + 0.04)
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45)
       osc.start(now)
       osc.stop(now + 0.46)
@@ -1028,7 +1041,7 @@ function playSound(type, enabled) {
       osc.type = 'sawtooth'
       osc.frequency.setValueAtTime(180, now)
       osc.frequency.exponentialRampToValueAtTime(60, now + 0.18)
-      gainNode.gain.setValueAtTime(0.08, now)
+      gainNode.gain.setValueAtTime(0.08 * masterAudioVolume, now)
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.2)
       osc.start(now)
       osc.stop(now + 0.2)
@@ -1041,8 +1054,8 @@ function playSound(type, enabled) {
       notes.forEach((freq, index) => {
         osc.frequency.setValueAtTime(freq, now + index * 0.13)
       })
-      gainNode.gain.setValueAtTime(0.08, now)
-      gainNode.gain.linearRampToValueAtTime(0.09, now + 0.35)
+      gainNode.gain.setValueAtTime(0.08 * masterAudioVolume, now)
+      gainNode.gain.linearRampToValueAtTime(0.09 * masterAudioVolume, now + 0.35)
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.65)
       osc.start(now)
       osc.stop(now + 0.66)
@@ -1055,7 +1068,7 @@ function playSound(type, enabled) {
       osc.frequency.setValueAtTime(990, now + 0.06)
       osc.frequency.setValueAtTime(1320, now + 0.12)
       gainNode.gain.setValueAtTime(0.001, now)
-      gainNode.gain.linearRampToValueAtTime(0.08, now + 0.03)
+      gainNode.gain.linearRampToValueAtTime(0.08 * masterAudioVolume, now + 0.03)
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.25)
       osc.start(now)
       osc.stop(now + 0.26)
@@ -1067,7 +1080,7 @@ function playSound(type, enabled) {
       osc.frequency.setValueAtTime(420, now)
       osc.frequency.exponentialRampToValueAtTime(690, now + 0.16)
       gainNode.gain.setValueAtTime(0.001, now)
-      gainNode.gain.linearRampToValueAtTime(0.03, now + 0.025)
+      gainNode.gain.linearRampToValueAtTime(0.03 * masterAudioVolume, now + 0.025)
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.19)
       osc.start(now)
       osc.stop(now + 0.2)
@@ -1103,6 +1116,7 @@ const BACKGROUND_MUSIC_PATTERNS = {
 
 function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}) {
   if (!frequency) return
+  if (masterAudioMuted || masterAudioVolume <= 0) return
   if (!initAudio()) return
 
   try {
@@ -1117,7 +1131,7 @@ function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options =
     osc.type = options.type ?? 'triangle'
     osc.frequency.setValueAtTime(frequency, now)
     gainNode.gain.setValueAtTime(0.001, now)
-    gainNode.gain.linearRampToValueAtTime(options.volume ?? 0.035, now + 0.02)
+    gainNode.gain.linearRampToValueAtTime((options.volume ?? 0.035) * masterAudioVolume, now + 0.02)
     gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration)
 
     osc.start(now)
@@ -1207,6 +1221,34 @@ function generateMultiplicationQuestions(count = MULTIPLICATION_QUESTION_COUNT) 
       answer,
       options: generateOptions(answer),
       isRetry: false,
+    }
+  })
+}
+
+function generateArithmeticQuestions(operation = 'multiply', count = MULTIPLICATION_QUESTION_COUNT) {
+  if (operation === 'multiply') {
+    return generateMultiplicationQuestions(count).map((question) => ({
+      ...question,
+      operation: 'multiply',
+      operationSymbol: '×',
+    }))
+  }
+
+  return Array.from({ length: count }, (_, index) => {
+    const n1 = Math.floor(Math.random() * 40) + 10
+    const n2 = Math.floor(Math.random() * 30) + 1
+    const safeN2 = operation === 'subtract' ? Math.min(n2, n1) : n2
+    const answer = operation === 'add' ? n1 + n2 : n1 - safeN2
+
+    return {
+      id: `q_${operation}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      n1,
+      n2: operation === 'subtract' ? safeN2 : n2,
+      answer,
+      options: generateOptions(answer),
+      isRetry: false,
+      operation,
+      operationSymbol: operation === 'add' ? '+' : '−',
     }
   })
 }
@@ -3766,7 +3808,18 @@ function SubjectTestsView({ subject, onBack, onSelectTest }) {
   )
 }
 
-function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+function MultiplicationChallenge({
+  onBack,
+  onSaveResult,
+  studentName,
+  topTestRecord,
+  operation = 'multiply',
+  testId = 'multiplication',
+  testName = 'Multiplication',
+}) {
+  const questionCount = MULTIPLICATION_QUESTION_COUNT
+  const OperationIcon = operation === 'add' ? Plus : operation === 'subtract' ? Minus : X
+  const operationLabel = operation === 'add' ? 'Addition' : operation === 'subtract' ? 'Subtraction' : 'Multiplication'
   const [phase, setPhase] = useState('playing')
   const [queue, setQueue] = useState([])
   const [currentOptions, setCurrentOptions] = useState([])
@@ -3873,7 +3926,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
       playSound('start', soundEnabled)
     }
     void enterFullscreenMode()
-    const initialQueue = generateMultiplicationQuestions(MULTIPLICATION_QUESTION_COUNT)
+    const initialQueue = generateArithmeticQuestions(operation, questionCount)
     setQueue(initialQueue)
     setTotalScore(0)
     setPerfectOriginalCount(0)
@@ -3895,7 +3948,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
     const remainingQueueCount = options.remainingQueueCount ?? queueSnapshot.length
     const remainingOriginalCount =
       options.remainingOriginalCount ?? countRemainingOriginalQuestions(queueSnapshot)
-    const answeredOriginalCount = MULTIPLICATION_QUESTION_COUNT - remainingOriginalCount
+    const answeredOriginalCount = questionCount - remainingOriginalCount
     const pendingExercises = completionMode === 'abandoned' ? getPendingOriginalExercises(queueSnapshot) : []
     const reviewExercisesSummary = mergeExerciseRecords(
       reviewExercisesRef.current,
@@ -3910,21 +3963,21 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
       playSound('bump', soundEnabled)
     }
 
-    const maxScore = MULTIPLICATION_QUESTION_COUNT * 5
+    const maxScore = questionCount * 5
     const percentage = Math.min(Math.round((finalScore / maxScore) * 100), 100)
     const gradeInfo = getGrade(percentage)
 
     const summary = {
       subjectId: 'math',
       subjectName: 'Math',
-      testId: 'multiplication',
-      testName: 'Multiplication',
+      testId,
+      testName,
       totalScore: finalScore,
       maxScore,
       percentage,
       grade: gradeInfo.grade,
       perfectOriginalCount: finalPerfectCount,
-      questionCount: MULTIPLICATION_QUESTION_COUNT,
+      questionCount,
       answeredOriginalCount,
       remainingOriginalCount,
       remainingQueueCount,
@@ -4069,11 +4122,11 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
   if (phase === 'finished') {
     const summary = lastResult ?? {
       totalScore,
-      maxScore: MULTIPLICATION_QUESTION_COUNT * 5,
+      maxScore: questionCount * 5,
       percentage: 0,
       grade: 'F',
       perfectOriginalCount,
-      questionCount: MULTIPLICATION_QUESTION_COUNT,
+      questionCount,
       reviewExercises,
       pendingExercises: [],
     }
@@ -4109,8 +4162,8 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
               <span>{summary.percentage}%</span>
               <span>
                 {isAbandoned
-                  ? `${summary.answeredOriginalCount ?? 0} of ${MULTIPLICATION_QUESTION_COUNT} base questions answered`
-                  : `${summary.perfectOriginalCount} perfect (out of ${MULTIPLICATION_QUESTION_COUNT})`}
+                  ? `${summary.answeredOriginalCount ?? 0} of ${questionCount} base questions answered`
+                  : `${summary.perfectOriginalCount} perfect (out of ${questionCount})`}
               </span>
             </div>
           </div>
@@ -4194,7 +4247,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
   }
 
   const currentQuestion = queue[0]
-  const progressPercentage = Math.round((perfectOriginalCount / MULTIPLICATION_QUESTION_COUNT) * 100)
+  const progressPercentage = Math.round((perfectOriginalCount / questionCount) * 100)
 
   return (
     <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
@@ -4213,7 +4266,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
             <div className="progress-fill" style={{ width: `${progressPercentage}%` }} />
           </div>
           <small>
-            Math World 1 · Questions in queue: {queue.length}
+            {operationLabel} World · Questions in queue: {queue.length}
           </small>
           <TestLeaderboardChip topRecord={topTestRecord} />
         </div>
@@ -4262,7 +4315,7 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
 
           <div className={`question-card ${feedback ? `feedback-${feedback}` : ''}`}>
             <div className="question-number">{currentQuestion.n1}</div>
-            <X size={36} className="question-symbol" />
+            <OperationIcon size={36} className="question-symbol" />
             <div className="question-number">{currentQuestion.n2}</div>
           </div>
 
@@ -8135,7 +8188,17 @@ function App() {
   const [screen, setScreen] = useState('dashboard')
   const [selectedSubjectId, setSelectedSubjectId] = useState(null)
   const [selectedTestId, setSelectedTestId] = useState(null)
+  const [masterMute, setMasterMute] = useState(false)
+  const [masterVolume, setMasterVolume] = useState(0.65)
   const screenTransitionKey = `${screen}_${selectedSubjectId ?? 'none'}_${selectedTestId ?? 'none'}`
+
+  useEffect(() => {
+    setMasterAudioMuted(masterMute)
+  }, [masterMute])
+
+  useEffect(() => {
+    setMasterAudioVolume(masterVolume)
+  }, [masterVolume])
 
   function navigateScreen(nextScreen, options = {}) {
     const { subjectId = null, testId = null, playTransition = true } = options
@@ -8448,6 +8511,26 @@ function App() {
         </button>
 
         <div className="nav-user">
+          <div className="audio-master-controls" aria-label="Sound controls">
+            <button
+              type="button"
+              className="btn btn-ghost icon-only"
+              onClick={() => setMasterMute((value) => !value)}
+              aria-label={masterMute ? 'Unmute app sounds' : 'Mute app sounds'}
+              title={masterMute ? 'Unmute app sounds' : 'Mute app sounds'}
+            >
+              {masterMute ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={Math.round(masterVolume * 100)}
+              onChange={(event) => setMasterVolume(Number(event.target.value) / 100)}
+              aria-label="Volume"
+            />
+          </div>
           <div className="user-chip">
             <span>{studentDisplayName}</span>
           </div>
@@ -8508,14 +8591,41 @@ function App() {
             />
           )}
 
-          {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
-            <MultiplicationChallenge
-              onBack={goToSubjectMenu}
-              onSaveResult={saveAssessmentResult}
-              studentName={studentDisplayName}
-              topTestRecord={selectedTestTopRecord}
-            />
-          )}
+        {screen === 'test' && selectedSubject && selectedTest?.id === 'multiplication' && (
+          <MultiplicationChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={selectedTestTopRecord}
+            operation="multiply"
+            testId="multiplication"
+            testName="Multiplication"
+          />
+        )}
+
+        {screen === 'test' && selectedSubject && selectedTest?.id === 'addition' && (
+          <MultiplicationChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={selectedTestTopRecord}
+            operation="add"
+            testId="addition"
+            testName="Addition"
+          />
+        )}
+
+        {screen === 'test' && selectedSubject && selectedTest?.id === 'subtraction' && (
+          <MultiplicationChallenge
+            onBack={goToSubjectMenu}
+            onSaveResult={saveAssessmentResult}
+            studentName={studentDisplayName}
+            topTestRecord={selectedTestTopRecord}
+            operation="subtract"
+            testId="subtraction"
+            testName="Subtraction"
+          />
+        )}
 
           {screen === 'test' && selectedSubject && selectedTest?.id === 'word-problems' && (
             <WordProblemsChallenge
