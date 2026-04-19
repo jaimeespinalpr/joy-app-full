@@ -520,6 +520,46 @@ button {
   box-shadow: 0 18px 40px rgba(17, 31, 79, 0.06);
 }
 
+.kids-guide-card {
+  background:
+    radial-gradient(circle at 12% 16%, rgba(255, 203, 109, 0.2), transparent 30%),
+    radial-gradient(circle at 84% 20%, rgba(113, 214, 255, 0.16), transparent 28%),
+    rgba(255, 255, 255, 0.94);
+}
+
+.kids-stars {
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+}
+
+.kids-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.kids-tip {
+  border: 1px solid rgba(57, 79, 166, 0.16);
+  border-radius: 14px;
+  padding: 0.65rem 0.7rem;
+  background: white;
+  color: #24346b;
+  font-weight: 700;
+  min-height: 46px;
+}
+
+.kids-tip.is-active {
+  background: linear-gradient(135deg, rgba(78, 102, 255, 0.12), rgba(109, 200, 255, 0.16));
+  border-color: rgba(68, 98, 240, 0.35);
+  box-shadow: 0 10px 20px rgba(45, 67, 149, 0.1);
+}
+
+.kids-tip-copy {
+  margin: 0.7rem 0 0;
+  color: #4a5785;
+  font-weight: 600;
+}
+
 .panel-card-header {
   display: flex;
   justify-content: space-between;
@@ -1438,6 +1478,7 @@ button {
   background: white;
   border: 1px solid rgba(31, 48, 108, 0.08);
   box-shadow: 0 12px 28px rgba(19, 31, 73, 0.05);
+  min-height: 108px;
 }
 
 .test-card.is-disabled {
@@ -2840,6 +2881,14 @@ button {
 
   .tests-grid {
     grid-template-columns: 1fr;
+  }
+
+  .kids-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kids-tip {
+    min-height: 50px;
   }
 
 }

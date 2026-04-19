@@ -3623,6 +3623,8 @@ function Dashboard({
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
   const panelLoading = usingGlobalPanels ? globalResultsLoading : personalResultsLoading
+  const [activeTip, setActiveTip] = useState('focus')
+  const rewardStars = Math.min(5, Math.max(1, Math.floor((personalResults.length || 0) / 2) + 1))
 
   return (
     <div className="page-stack">
@@ -3634,7 +3636,7 @@ function Dashboard({
           </div>
           <h1>Hello, {studentProfile?.alias ?? 'Student'}</h1>
           <p>
-            First choose a subject, then pick the test type for that subject.
+            Choose a subject, pick a challenge, and keep your streak going.
           </p>
         </div>
         <div className="hero-stats">
@@ -3651,6 +3653,34 @@ function Dashboard({
             <strong>{globalResults.length}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="panel-card kids-guide-card" aria-label="Quick guide for students">
+        <div className="panel-card-header">
+          <div>
+            <h2>How to play and learn</h2>
+            <p>Clear steps for ages 7 to 10, with quick rewards while learning.</p>
+          </div>
+          <div className="kids-stars" aria-hidden="true">{'⭐'.repeat(rewardStars)}</div>
+        </div>
+
+        <div className="kids-guide-grid">
+          <button type="button" className={`kids-tip ${activeTip === 'focus' ? 'is-active' : ''}`} onClick={() => setActiveTip('focus')}>
+            🎯 Focus Mode
+          </button>
+          <button type="button" className={`kids-tip ${activeTip === 'practice' ? 'is-active' : ''}`} onClick={() => setActiveTip('practice')}>
+            🧠 Smart Practice
+          </button>
+          <button type="button" className={`kids-tip ${activeTip === 'streak' ? 'is-active' : ''}`} onClick={() => setActiveTip('streak')}>
+            🚀 Streak Boost
+          </button>
+        </div>
+
+        <p className="kids-tip-copy">
+          {activeTip === 'focus' && 'Read the question first, then choose your answer calmly. Speed comes after accuracy.'}
+          {activeTip === 'practice' && 'Wrong answer? No problem. Try again and use feedback to improve in the next round.'}
+          {activeTip === 'streak' && 'Complete games and tests in a row to build confidence and collect more coins.'}
+        </p>
       </section>
 
       {!usingGlobalPanels && (
