@@ -7455,7 +7455,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     if (guessedValue === currentQuestion.answer) {
       playSound('coin', soundEnabled)
-      showSnakeToast('Great answer, choose direction to continue.', 'success')
+      showSnakeToast('Great answer, press any direction to continue.', 'success')
       setQuestionFeedback('correct')
       setPhase('resume')
       return
@@ -7476,10 +7476,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setPhase('restart')
   }
 
-  function handleResumeWithDirection(nextDirection) {
-    handleDirectionalInput(nextDirection)
-  }
-
   function handleRestartRun() {
     setCurrentQuestion(null)
     setCurrentOptions([])
@@ -7488,6 +7484,19 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setCurrentAppleStreak(0)
     resetSnakeBoard({ phase: 'countdown' })
     beginCountdown()
+  }
+
+  function handleSaveAndLeaveAfterLoss() {
+    if (saveStatus === 'saving') return
+
+    void saveSnakeRun({
+      attemptStatus: 'abandoned',
+      destination: 'dashboard',
+      showFinishedScreen: false,
+      playWinSound: false,
+      saveMessage: 'Saving your Snake progress...',
+      successMessage: () => 'Progress saved. Returning to home...',
+    })
   }
 
   function handleLeaveGame() {
@@ -7734,6 +7743,12 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             </div>
           )}
 
+          {phase === 'resume' && (
+            <div className="snake-resume-helper" role="status" aria-live="polite">
+              ✅ Correcto. Presiona cualquier dirección para seguir.
+            </div>
+          )}
+
           <div ref={stageHeaderRef} className="snake-stage-header">
             <div>
               <strong>Snake</strong>
@@ -7759,7 +7774,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
               ))}
             </div>
 
-            {(phase === 'question' || phase === 'resume' || phase === 'restart') && (
+            {(phase === 'question' || phase === 'restart') && (
               <div className="snake-overlay">
                 <div className="snake-overlay-card">
                   {phase === 'question' && currentQuestion && (
@@ -7789,74 +7804,28 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
                     </>
                   )}
 
-                  {phase === 'resume' && (
-                    <>
-                      <div className="snake-overlay-header">
-                        <div>
-                          <small>Correct answer</small>
-                          <h3>Choose the next direction</h3>
-                        </div>
-                        <span className="badge badge-live">Direction required</span>
-                      </div>
-                      <p className="snake-prompt">
-                        You can keep playing from the same place, but the snake will not move until you choose the direction to continue.
-                      </p>
-                      <div className="snake-resume-row">
-                        <span className="snake-direction-pill">Current direction: {getSnakeDirectionLabel(direction)}</span>
-                      </div>
-                      <div className="snake-direction-grid">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('up')}
-                          disabled={isOppositeSnakeDirection('up', direction)}
-                        >
-                          <span>Up</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('left')}
-                          disabled={isOppositeSnakeDirection('left', direction)}
-                        >
-                          <span>Left</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('right')}
-                          disabled={isOppositeSnakeDirection('right', direction)}
-                        >
-                          <span>Right</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('down')}
-                          disabled={isOppositeSnakeDirection('down', direction)}
-                        >
-                          <span>Down</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-
                   {phase === 'restart' && (
                     <>
                       <div className="snake-overlay-header">
                         <div>
                           <small>Wrong answer</small>
-                          <h3>Restart from zero apples</h3>
+                          <h3>Choose what to do next</h3>
                         </div>
                         <span className="badge badge-soon">Run reset</span>
                       </div>
                       <p className="snake-prompt">
-                        That answer was not correct. The snake must restart from the beginning before reaching {goalApples} apples.
+                        That answer was not correct. You can restart from zero apples, or save this progress and leave.
                       </p>
-                      <button type="button" className="btn btn-primary" onClick={handleRestartRun}>
-                        <RotateCcw size={16} />
-                        <span>Restart run</span>
-                      </button>
+                      <div className="snake-restart-actions">
+                        <button type="button" className="btn btn-primary" onClick={handleRestartRun}>
+                          <RotateCcw size={16} />
+                          <span>Restart run</span>
+                        </button>
+                        <button type="button" className="btn btn-ghost" onClick={handleSaveAndLeaveAfterLoss}>
+                          <ArrowLeft size={16} />
+                          <span>Save and leave</span>
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
@@ -7953,7 +7922,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
         <div ref={controlsRef} className="snake-mobile-controls" aria-label="Snake touch controls">
           <div className="snake-mobile-controls-header">
             <strong>Touch pad</strong>
-            <span>{phase === 'resume' ? 'Choose a direction to continue' : 'Tap to steer'}</span>
+            <span>{phase === 'resume' ? 'Tap any direction to continue' : 'Tap to steer'}</span>
           </div>
 
           <div className="snake-mobile-dpad">

@@ -2166,12 +2166,15 @@ button {
   width: min(1120px, 100%);
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.7fr);
   align-items: start;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .snake-stage-card,
 .snake-side-panel {
   display: grid;
   gap: 0.85rem;
+  min-height: 0;
 }
 
 .snake-stage-card {
@@ -2180,6 +2183,7 @@ button {
   border: 1px solid rgba(25, 40, 96, 0.08);
   box-shadow: 0 16px 36px rgba(18, 29, 71, 0.08);
   padding: 0.9rem;
+  overflow: hidden;
 }
 
 .snake-onboarding-card {
@@ -2226,6 +2230,15 @@ button {
   color: #2540a1;
   background: rgba(76, 114, 255, 0.12);
   border: 1px solid rgba(76, 114, 255, 0.26);
+}
+
+.snake-resume-helper {
+  border-radius: 12px;
+  padding: 0.52rem 0.68rem;
+  font-weight: 700;
+  color: #1f7a4f;
+  background: rgba(50, 209, 129, 0.14);
+  border: 1px solid rgba(50, 209, 129, 0.28);
 }
 
 .snake-console-footer,
@@ -2301,6 +2314,8 @@ button {
   background: rgba(13, 20, 45, 0.58);
   display: grid;
   place-items: center;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .snake-overlay-card {
@@ -2314,6 +2329,7 @@ button {
   padding: 1rem;
   display: grid;
   gap: 0.8rem;
+  overscroll-behavior: contain;
 }
 
 .snake-countdown-overlay {
@@ -2397,6 +2413,12 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.7rem;
+}
+
+.snake-restart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
 .snake-direction-pill {
