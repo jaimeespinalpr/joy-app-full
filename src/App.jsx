@@ -2484,6 +2484,7 @@ function toPublicResultPayload(resultRecord, userId, sourceResultId) {
   const { id: _ignoredLocalId, createdAt, ...rest } = resultRecord
   return {
     ...rest,
+    uid: userId,
     sourceUserId: userId,
     sourceResultId,
     visibility: 'public',
