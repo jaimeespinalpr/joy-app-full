@@ -419,6 +419,18 @@ button {
   gap: 0.55rem;
 }
 
+.audio-unlock-tip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  background: rgba(255, 213, 99, 0.2);
+  color: #6c4400;
+  border: 1px solid rgba(218, 154, 47, 0.24);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .audio-master-controls {
   display: inline-flex;
   align-items: center;
@@ -468,8 +480,15 @@ button {
 }
 
 .screen-transition-layer {
-  animation: screenEnter 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
   transform-origin: 50% 8%;
+}
+
+.screen-transition-layer.is-forward {
+  animation: screenEnterForward 0.44s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.screen-transition-layer.is-backward {
+  animation: screenEnterBackward 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .page-stack {
@@ -2993,15 +3012,28 @@ button {
   }
 }
 
-@keyframes screenEnter {
+@keyframes screenEnterForward {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.993);
+    transform: translateX(16px) translateY(8px) scale(0.992);
     filter: blur(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes screenEnterBackward {
+  from {
+    opacity: 0;
+    transform: translateX(-16px) translateY(6px) scale(0.992);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
     filter: blur(0);
   }
 }

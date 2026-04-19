@@ -968,6 +968,9 @@ let activeMusicTheme = ''
 let backgroundMusicTimerId = null
 let masterAudioMuted = false
 let masterAudioVolume = 0.65
+let audioUnlocked = false
+let audioUnlockPromise = null
+let lastUiSoundAt = 0
 
 function setMasterAudioMuted(value) {
   masterAudioMuted = Boolean(value)
@@ -1006,8 +1009,8 @@ function initAudio() {
       audioCtx = new AudioContextCtor()
     }
 
-    if (audioCtx.state === 'suspended') {
-      void audioCtx.resume()
+    if (audioCtx.state === 'running') {
+      audioUnlocked = true
     }
 
     return true
@@ -1017,10 +1020,46 @@ function initAudio() {
   }
 }
 
-function playSound(type, enabled) {
+function isAudioPrimed() {
+  return Boolean(audioCtx && audioCtx.state === 'running' && audioUnlocked)
+}
+
+async function primeAudioEngine() {
+  if (!initAudio()) return false
+  if (isAudioPrimed()) return true
+
+  if (!audioUnlockPromise) {
+    audioUnlockPromise = audioCtx
+      .resume()
+      .then(() => {
+        audioUnlocked = audioCtx.state === 'running'
+        return audioUnlocked
+      })
+      .catch((error) => {
+        console.warn('Could not unlock audio context:', error)
+        return false
+      })
+      .finally(() => {
+        audioUnlockPromise = null
+      })
+  }
+
+  return audioUnlockPromise
+}
+
+function playSound(type, enabled, allowRetry = true) {
   try {
     if (!enabled || masterAudioMuted || masterAudioVolume <= 0) return
     if (!initAudio()) return
+
+    if (audioCtx.state !== 'running') {
+      if (allowRetry) {
+        void primeAudioEngine().then((ready) => {
+          if (ready) playSound(type, enabled, false)
+        })
+      }
+      return
+    }
 
     const osc = audioCtx.createOscillator()
     const gainNode = audioCtx.createGain()
@@ -1091,6 +1130,22 @@ function playSound(type, enabled) {
       gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.19)
       osc.start(now)
       osc.stop(now + 0.2)
+      return
+    }
+
+    if (type === 'ui') {
+      const nowMs = Date.now()
+      if (nowMs - lastUiSoundAt < 70) return
+      lastUiSoundAt = nowMs
+
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(700, now)
+      osc.frequency.exponentialRampToValueAtTime(980, now + 0.08)
+      gainNode.gain.setValueAtTime(0.001, now)
+      gainNode.gain.linearRampToValueAtTime(0.02 * masterAudioVolume, now + 0.015)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1)
+      osc.start(now)
+      osc.stop(now + 0.11)
     }
   } catch (error) {
     console.warn('Could not play sound:', error)
@@ -1121,10 +1176,19 @@ const BACKGROUND_MUSIC_PATTERNS = {
   },
 }
 
-function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}) {
+function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}, allowRetry = true) {
   if (!frequency) return
   if (masterAudioMuted || masterAudioVolume <= 0) return
   if (!initAudio()) return
+
+  if (audioCtx.state !== 'running') {
+    if (allowRetry) {
+      void primeAudioEngine().then((ready) => {
+        if (ready) playMusicNote(frequency, startOffsetMs, durationMs, options, false)
+      })
+    }
+    return
+  }
 
   try {
     const osc = audioCtx.createOscillator()
@@ -1181,6 +1245,14 @@ function startBackgroundMusic(theme, enabled) {
 
   if (!theme) return false
   if (!initAudio()) return false
+
+  if (audioCtx.state !== 'running') {
+    void primeAudioEngine().then((ready) => {
+      if (ready) startBackgroundMusic(theme, enabled)
+    })
+    return false
+  }
+
   if (activeMusicTheme === theme && backgroundMusicTimerId) return true
 
   stopBackgroundMusic()
@@ -8435,6 +8507,8 @@ function App() {
   const [selectedTestId, setSelectedTestId] = useState(null)
   const [masterMute, setMasterMute] = useState(false)
   const [masterVolume, setMasterVolume] = useState(0.65)
+  const [audioPrimed, setAudioPrimed] = useState(() => isAudioPrimed())
+  const [screenTransitionDirection, setScreenTransitionDirection] = useState('forward')
   const screenTransitionKey = `${screen}_${selectedSubjectId ?? 'none'}_${selectedTestId ?? 'none'}`
 
   useEffect(() => {
@@ -8445,8 +8519,53 @@ function App() {
     setMasterAudioVolume(masterVolume)
   }, [masterVolume])
 
+  useEffect(() => {
+    setAudioPrimed(isAudioPrimed())
+
+    const prime = () => {
+      void primeAudioEngine().then((ready) => {
+        if (ready) setAudioPrimed(true)
+      })
+    }
+
+    window.addEventListener('pointerdown', prime, { passive: true })
+    window.addEventListener('touchstart', prime, { passive: true })
+    window.addEventListener('keydown', prime)
+
+    return () => {
+      window.removeEventListener('pointerdown', prime)
+      window.removeEventListener('touchstart', prime)
+      window.removeEventListener('keydown', prime)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleUiClickSound = (event) => {
+      if (masterMute || masterVolume <= 0) return
+      if (!(event.target instanceof Element)) return
+
+      const control = event.target.closest('button, a')
+      if (!control || control.getAttribute('data-ui-sfx') === 'off') return
+
+      playSound('ui', true)
+    }
+
+    window.addEventListener('click', handleUiClickSound, true)
+    return () => {
+      window.removeEventListener('click', handleUiClickSound, true)
+    }
+  }, [masterMute, masterVolume])
+
   function navigateScreen(nextScreen, options = {}) {
-    const { subjectId = null, testId = null, playTransition = true } = options
+    const {
+      subjectId = null,
+      testId = null,
+      playTransition = true,
+      direction = 'forward',
+    } = options
+
+    setScreenTransitionDirection(direction)
+
     if (playTransition) {
       playSound('transition', true)
     }
@@ -8691,27 +8810,34 @@ function App() {
   }
 
   function openSubject(subjectId) {
-    navigateScreen('subject', { subjectId })
+    navigateScreen('subject', { subjectId, direction: 'forward' })
   }
 
   function openTest(testId) {
-    navigateScreen('test', { subjectId: selectedSubjectId, testId })
+    navigateScreen('test', {
+      subjectId: selectedSubjectId,
+      testId,
+      direction: 'forward',
+    })
   }
 
   function openFullTest() {
-    navigateScreen('full-test')
+    navigateScreen('full-test', { direction: 'forward' })
   }
 
   function openSnakeGame() {
-    navigateScreen('snake')
+    navigateScreen('snake', { direction: 'forward' })
   }
 
   function goToDashboard() {
-    navigateScreen('dashboard')
+    navigateScreen('dashboard', { direction: 'backward' })
   }
 
   function goToSubjectMenu() {
-    navigateScreen('subject', { subjectId: selectedSubjectId })
+    navigateScreen('subject', {
+      subjectId: selectedSubjectId,
+      direction: 'backward',
+    })
   }
 
   if (!authReady) {
@@ -8776,6 +8902,11 @@ function App() {
               aria-label="Volume"
             />
           </div>
+          {!audioPrimed && (
+            <span className="audio-unlock-tip" role="status" aria-live="polite">
+              Tap to enable sound effects 🔊
+            </span>
+          )}
           <div className="user-chip">
             <span>{studentDisplayName}</span>
           </div>
@@ -8791,7 +8922,12 @@ function App() {
       </section>
 
       <main className="app-main">
-        <div key={screenTransitionKey} className="screen-transition-layer">
+        <div
+          key={screenTransitionKey}
+          className={`screen-transition-layer ${
+            screenTransitionDirection === 'backward' ? 'is-backward' : 'is-forward'
+          }`}
+        >
           {screen === 'dashboard' && (
             <Dashboard
               studentProfile={
