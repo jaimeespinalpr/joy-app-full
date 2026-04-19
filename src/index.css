@@ -368,8 +368,16 @@ button {
 }
 
 .app-shell.is-focused-screen {
-  height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
+}
+
+@supports not (height: 100dvh) {
+  .app-shell.is-focused-screen {
+    min-height: 100vh;
+    height: 100vh;
+  }
 }
 
 .app-shell.is-focused-screen .app-main {
@@ -3358,19 +3366,19 @@ button {
   .snake-shell.is-mobile-console .hud-actions {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.4rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
   }
 
   .snake-shell.is-mobile-console .hud-actions .btn {
     min-height: 38px;
     width: 100%;
-    padding: 0.58rem 0.62rem;
+    padding: 0.52rem 0.5rem;
     justify-content: center;
   }
 
   .snake-shell.is-mobile-console .hud-actions .btn span {
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     line-height: 1;
   }
 
@@ -3408,6 +3416,8 @@ button {
     min-height: 56px;
     font-size: 0.88rem;
     padding: 0.56rem 0.62rem;
+    white-space: normal;
+    word-break: break-word;
   }
 
   .snake-shell.is-mobile-console .snake-countdown-card {

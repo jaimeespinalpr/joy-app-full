@@ -16,6 +16,9 @@ import {
   MessageSquareText,
   Minimize2,
   Minus,
+  Music2,
+  Pause,
+  Play,
   Plus,
   RotateCcw,
   Sparkles,
@@ -205,6 +208,7 @@ const GAMES_CARD = {
 const DAILY_MISSIONS_STORAGE_KEY = 'joyapp_daily_missions_v2'
 const CLAIMED_TEST_REWARDS_STORAGE_KEY = 'joyapp_claimed_test_rewards_v1'
 const COIN_WALLET_STORAGE_KEY = 'joyapp_coin_wallet_v1'
+const SNAKE_ONBOARDING_DISMISSED_KEY = 'joyapp_snake_onboarding_dismissed_v1'
 const DAILY_MISSIONS = [
   { id: 'mission-1', label: 'Complete 1 Math challenge', goal: 1, reward: 10 },
   { id: 'mission-2', label: 'Get 3 perfect answers in one test', goal: 3, reward: 12 },
@@ -6871,7 +6875,10 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isMobileConsole, setIsMobileConsole] = useState(false)
   const [mobileBoardSize, setMobileBoardSize] = useState(null)
-  const [showOnboarding, setShowOnboarding] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return window.localStorage.getItem(SNAKE_ONBOARDING_DISMISSED_KEY) !== '1'
+  })
   const [snakeToast, setSnakeToast] = useState(null)
 
   const shellRef = useRef(null)
@@ -7042,6 +7049,11 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     }
   }, [isMobileConsole, phase, saveStatus])
 
+  useEffect(() => {
+    if (!isMobileConsole || !showOnboarding) return
+    setShowOnboarding(false)
+  }, [isMobileConsole, showOnboarding])
+
   useLayoutEffect(() => {
     if (autoStartRef.current) return
     autoStartRef.current = true
@@ -7064,6 +7076,17 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     if (toastTimerRef.current) {
       window.clearTimeout(toastTimerRef.current)
       toastTimerRef.current = null
+    }
+  }
+
+  function dismissSnakeOnboarding() {
+    setShowOnboarding(false)
+    if (typeof window === 'undefined') return
+
+    try {
+      window.localStorage.setItem(SNAKE_ONBOARDING_DISMISSED_KEY, '1')
+    } catch (error) {
+      console.warn('Could not persist Snake onboarding preference:', error)
     }
   }
 
@@ -7685,12 +7708,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
         <div className="hud-actions">
           <button
             type="button"
-            className="btn btn-ghost"
+            className={`btn btn-ghost ${isMobileConsole ? 'icon-only mobile-btn-label' : ''}`}
             onClick={handlePauseResume}
             disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
             title={phase === 'paused' ? 'Resume game' : 'Pause game'}
           >
-            <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
+            {phase === 'paused' ? <Play size={16} /> : <Pause size={16} />}
+            {!isMobileConsole && <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>}
           </button>
 
           {!isMobileConsole && (
@@ -7715,17 +7739,16 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
 
-          {!isMobileConsole && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => setMusicEnabled((value) => !value)}
-              aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
-              title={musicEnabled ? 'Turn music off' : 'Turn music on'}
-            >
-              <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            className={`btn btn-ghost ${isMobileConsole ? 'icon-only mobile-btn-label' : ''}`}
+            onClick={() => setMusicEnabled((value) => !value)}
+            aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
+            title={musicEnabled ? 'Turn music off' : 'Turn music on'}
+          >
+            <Music2 size={16} />
+            {!isMobileConsole && <span>{musicEnabled ? 'Music on' : 'Music off'}</span>}
+          </button>
 
           <button
             type="button"
@@ -7748,7 +7771,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
                 <strong>Quick start</strong>
                 <small>Goal: eat {goalApples} apples. Move with arrows or WASD. If you crash, answer to continue.</small>
               </div>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowOnboarding(false)}>
+              <button type="button" className="btn btn-ghost" onClick={dismissSnakeOnboarding}>
                 Got it
               </button>
             </div>
