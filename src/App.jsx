@@ -8310,13 +8310,30 @@ function App() {
       createdAt: serverTimestamp(),
     }
 
-    const docRef = await addDoc(collection(db, 'students', currentUser.uid, 'results'), payload)
-    const savedRecord = { id: docRef.id, ...payload }
+    let savedRecord = null
+
+    try {
+      const docRef = await addDoc(collection(db, 'students', currentUser.uid, 'results'), payload)
+      savedRecord = { id: docRef.id, ...payload }
+    } catch (error) {
+      console.warn('Could not save result in Firestore, using local fallback:', error)
+      savedRecord = {
+        id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        ...payload,
+        localOnly: true,
+      }
+      setGlobalResultsError(
+        error?.code === 'permission-denied'
+          ? 'Firestore blocked result writes. Scores are being saved locally for this session.'
+          : 'Could not save to Firebase right now. Scores are being saved locally for this session.',
+      )
+    }
 
     setPersonalResults((previous) => upsertResultRecord(previous, savedRecord))
 
-    const publicRecordId = getPublicResultDocId(currentUser.uid, docRef.id)
-    const publicRecordPayload = toPublicResultPayload(savedRecord, currentUser.uid, docRef.id)
+    const sourceResultId = savedRecord.sourceResultId || savedRecord.id
+    const publicRecordId = getPublicResultDocId(currentUser.uid, sourceResultId)
+    const publicRecordPayload = toPublicResultPayload(savedRecord, currentUser.uid, sourceResultId)
 
     try {
       await setDoc(doc(db, GLOBAL_RESULTS_COLLECTION, publicRecordId), publicRecordPayload, { merge: true })
