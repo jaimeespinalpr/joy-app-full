@@ -430,6 +430,18 @@ button {
   font-weight: 700;
 }
 
+.release-banner {
+  width: min(1180px, 100%);
+  margin: -0.2rem auto 0.1rem;
+  border-radius: 14px;
+  padding: 0.65rem 0.9rem;
+  font-weight: 700;
+  color: #1c2b61;
+  background: linear-gradient(120deg, rgba(255, 211, 108, 0.45), rgba(95, 243, 202, 0.45));
+  border: 1px solid rgba(48, 72, 153, 0.16);
+  box-shadow: 0 10px 24px rgba(37, 66, 150, 0.08);
+}
+
 .app-main {
   width: min(1180px, 100%);
   margin: 0 auto;

@@ -8411,6 +8411,10 @@ function App() {
         </div>
       </header>
 
+      <section className="release-banner" role="status" aria-live="polite">
+        ✨ Nueva versión visual activa, transiciones y audio mejorados para demo.
+      </section>
+
       <main className="app-main">
         <div key={screenTransitionKey} className="screen-transition-layer">
           {screen === 'dashboard' && (
