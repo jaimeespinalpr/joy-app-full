@@ -6861,7 +6861,7 @@ function CoinBurst({ visible = false }) {
 
 function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, storageScopeKey }) {
   const goalApples = SNAKE_GOAL_APPLES
-  const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'
+  const mobileConsoleQuery = '(pointer: coarse), (max-width: 900px)'
   const snakeOnboardingStorageKey = getScopedStorageKey(
     SNAKE_ONBOARDING_DISMISSED_KEY,
     storageScopeKey,
@@ -6883,6 +6883,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
   const [showCoinAnimation, setShowCoinAnimation] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [musicEnabled, setMusicEnabled] = useState(true)
+  const [audioReady, setAudioReady] = useState(() => isAudioPrimed())
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
   const [coinsAwarded, setCoinsAwarded] = useState(0)
@@ -6964,7 +6965,9 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
   useEffect(() => {
     function syncMobileConsole() {
       if (typeof window === 'undefined') return
-      setIsMobileConsole(window.matchMedia(mobileConsoleQuery).matches)
+      const mediaMatched = window.matchMedia(mobileConsoleQuery).matches
+      const touchFallback = navigator.maxTouchPoints > 0 && window.innerWidth <= 1024
+      setIsMobileConsole(mediaMatched || touchFallback)
     }
 
     syncMobileConsole()
@@ -7109,6 +7112,21 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
     } catch (error) {
       console.warn('Could not persist Snake onboarding preference:', error)
     }
+  }
+
+  async function handleEnableGameAudio() {
+    const ready = await primeAudioEngine()
+    if (!ready) {
+      showSnakeToast('Tap again to enable sound.', 'warn')
+      return
+    }
+
+    setAudioReady(true)
+    playSound('ui', true, false)
+    if (musicEnabled && (phaseRef.current === 'playing' || phaseRef.current === 'resume')) {
+      startBackgroundMusic('snake', true)
+    }
+    showSnakeToast('Sound enabled 🔊', 'success')
   }
 
   function showSnakeToast(message, tone = 'info') {
@@ -7425,6 +7443,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
 
     void primeAudioEngine().then((ready) => {
       if (!ready || !musicEnabled) return
+      setAudioReady(true)
       if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
         startBackgroundMusic('snake', true)
       }
@@ -7770,7 +7789,10 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
                 const nextValue = !value
                 if (nextValue) {
                   void primeAudioEngine().then((ready) => {
-                    if (ready) playSound('ui', true, false)
+                    if (ready) {
+                      setAudioReady(true)
+                      playSound('ui', true, false)
+                    }
                   })
                 }
                 return nextValue
@@ -7796,6 +7818,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
 
                 void primeAudioEngine().then((ready) => {
                   if (!ready) return
+                  setAudioReady(true)
                   if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
                     startBackgroundMusic('snake', true)
                   }
@@ -7810,6 +7833,18 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
             <Music2 size={16} />
             <span>{isMobileConsole ? (musicEnabled ? 'M on' : 'M off') : musicEnabled ? 'Music on' : 'Music off'}</span>
           </button>
+
+          {isMobileConsole && !audioReady && (
+            <button
+              type="button"
+              className="btn btn-primary mobile-action-btn"
+              onClick={() => void handleEnableGameAudio()}
+              title="Enable game sound"
+            >
+              <Volume2 size={16} />
+              <span>Enable</span>
+            </button>
+          )}
 
           <button
             type="button"

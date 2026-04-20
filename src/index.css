@@ -3366,7 +3366,7 @@ button {
   .snake-shell.is-mobile-console .hud-actions {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
     gap: 0.35rem;
   }
 
@@ -3393,6 +3393,10 @@ button {
   .snake-shell.is-mobile-console .hud-actions .mobile-action-btn span {
     font-size: 0.66rem;
     white-space: nowrap;
+  }
+
+  .snake-shell.is-mobile-console .snake-onboarding-card {
+    display: none;
   }
 
   .snake-shell.is-mobile-console .hud-actions .mobile-action-btn svg {
