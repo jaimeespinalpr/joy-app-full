@@ -7423,6 +7423,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
     if (!nextDirection) return
     if (phaseRef.current !== 'playing' && phaseRef.current !== 'resume') return
 
+    void primeAudioEngine().then((ready) => {
+      if (!ready || !musicEnabled) return
+      if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
+        startBackgroundMusic('snake', true)
+      }
+    })
+
     const currentDirection = directionRef.current
     if (isOppositeSnakeDirection(nextDirection, currentDirection)) return
 
@@ -7465,6 +7472,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
   }, [phase, applesEaten, soundEnabled])
 
   function handlePauseResume() {
+    void primeAudioEngine()
+
     if (phase === 'playing') {
       setPhase('paused')
       showSnakeToast('Game paused.', 'info')
@@ -7476,6 +7485,9 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
       setPhase('playing')
       showSnakeToast('Back to game.', 'success')
       playSound('start', soundEnabled)
+      if (musicEnabled) {
+        startBackgroundMusic('snake', true)
+      }
     }
   }
 
@@ -7753,7 +7765,17 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
           <button
             type="button"
             className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : 'icon-only'}`}
-            onClick={() => setSoundEnabled((value) => !value)}
+            onClick={() => {
+              setSoundEnabled((value) => {
+                const nextValue = !value
+                if (nextValue) {
+                  void primeAudioEngine().then((ready) => {
+                    if (ready) playSound('ui', true, false)
+                  })
+                }
+                return nextValue
+              })
+            }}
             aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
             title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
           >
@@ -7764,7 +7786,24 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
           <button
             type="button"
             className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : ''}`}
-            onClick={() => setMusicEnabled((value) => !value)}
+            onClick={() => {
+              setMusicEnabled((value) => {
+                const nextValue = !value
+                if (!nextValue) {
+                  stopBackgroundMusic()
+                  return nextValue
+                }
+
+                void primeAudioEngine().then((ready) => {
+                  if (!ready) return
+                  if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
+                    startBackgroundMusic('snake', true)
+                  }
+                })
+
+                return nextValue
+              })
+            }}
             aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
             title={musicEnabled ? 'Turn music off' : 'Turn music on'}
           >
@@ -8944,6 +8983,8 @@ function App() {
   }
 
   function openSnakeGame() {
+    setMasterMute(false)
+    setMasterAudioMuted(false)
     navigateScreen('snake', { direction: 'forward' })
   }
 
