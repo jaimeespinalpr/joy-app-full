@@ -2615,6 +2615,16 @@ function getResultRewardCoins(result) {
   return Math.max(6, Math.min(30, Math.round(score / 4) + Math.round(percentage / 25)))
 }
 
+function getScopedStorageKey(baseKey, scopeKey) {
+  const normalizedScope = String(scopeKey || 'global')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return `${baseKey}_${normalizedScope || 'global'}`
+}
+
 function exerciseKeyFromQuestion(question) {
   return `${question.n1}x${question.n2}`
 }
@@ -3779,6 +3789,7 @@ function Dashboard({
   onStartFullTest,
   onStartSnakeGame,
   onSelectSubject,
+  storageScopeKey,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
   const panelResults = usingGlobalPanels ? globalResults : personalResults
@@ -3788,6 +3799,10 @@ function Dashboard({
   const [dailyMissionsState, setDailyMissionsState] = useState(null)
   const [coinWallet, setCoinWallet] = useState(0)
   const [claimedTestRewardIds, setClaimedTestRewardIds] = useState([])
+
+  const missionsStorageKey = getScopedStorageKey(DAILY_MISSIONS_STORAGE_KEY, storageScopeKey)
+  const walletStorageKey = getScopedStorageKey(COIN_WALLET_STORAGE_KEY, storageScopeKey)
+  const claimsStorageKey = getScopedStorageKey(CLAIMED_TEST_REWARDS_STORAGE_KEY, storageScopeKey)
 
   const todayKey = getLocalDateKey()
   const completedResults = personalResults.filter(isResultCompleted)
@@ -3821,7 +3836,7 @@ function Dashboard({
     }
 
     try {
-      const rawMissions = window.localStorage.getItem(DAILY_MISSIONS_STORAGE_KEY)
+      const rawMissions = window.localStorage.getItem(missionsStorageKey)
       const parsedMissions = rawMissions ? JSON.parse(rawMissions) : null
       const missionsState =
         parsedMissions?.dateKey === todayKey
@@ -3831,11 +3846,11 @@ function Dashboard({
             }
           : defaultMissionsState
 
-      const rawWallet = window.localStorage.getItem(COIN_WALLET_STORAGE_KEY)
+      const rawWallet = window.localStorage.getItem(walletStorageKey)
       const parsedWallet = Number(rawWallet)
       const nextWallet = Number.isFinite(parsedWallet) ? Math.max(0, Math.floor(parsedWallet)) : 0
 
-      const rawClaims = window.localStorage.getItem(CLAIMED_TEST_REWARDS_STORAGE_KEY)
+      const rawClaims = window.localStorage.getItem(claimsStorageKey)
       const parsedClaims = rawClaims ? JSON.parse(rawClaims) : []
       const nextClaimedIds = Array.isArray(parsedClaims)
         ? parsedClaims.filter((claimId) => typeof claimId === 'string')
@@ -3850,24 +3865,21 @@ function Dashboard({
       setCoinWallet(0)
       setClaimedTestRewardIds([])
     }
-  }, [todayKey])
+  }, [claimsStorageKey, missionsStorageKey, todayKey, walletStorageKey])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     try {
       if (dailyMissionsState) {
-        window.localStorage.setItem(DAILY_MISSIONS_STORAGE_KEY, JSON.stringify(dailyMissionsState))
+        window.localStorage.setItem(missionsStorageKey, JSON.stringify(dailyMissionsState))
       }
-      window.localStorage.setItem(COIN_WALLET_STORAGE_KEY, String(Math.max(0, Math.floor(coinWallet))))
-      window.localStorage.setItem(
-        CLAIMED_TEST_REWARDS_STORAGE_KEY,
-        JSON.stringify(claimedTestRewardIds),
-      )
+      window.localStorage.setItem(walletStorageKey, String(Math.max(0, Math.floor(coinWallet))))
+      window.localStorage.setItem(claimsStorageKey, JSON.stringify(claimedTestRewardIds))
     } catch (error) {
       console.warn('Could not save missions and rewards state:', error)
     }
-  }, [claimedTestRewardIds, coinWallet, dailyMissionsState])
+  }, [claimedTestRewardIds, claimsStorageKey, coinWallet, dailyMissionsState, missionsStorageKey, walletStorageKey])
 
   const pendingTestRewards = completedResults
     .map((result) => ({
@@ -6847,9 +6859,13 @@ function CoinBurst({ visible = false }) {
   )
 }
 
-function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, storageScopeKey }) {
   const goalApples = SNAKE_GOAL_APPLES
   const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'
+  const snakeOnboardingStorageKey = getScopedStorageKey(
+    SNAKE_ONBOARDING_DISMISSED_KEY,
+    storageScopeKey,
+  )
 
   const [phase, setPhase] = useState('playing')
   const [snake, setSnake] = useState([])
@@ -6877,7 +6893,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const [mobileBoardSize, setMobileBoardSize] = useState(null)
   const [showOnboarding, setShowOnboarding] = useState(() => {
     if (typeof window === 'undefined') return true
-    return window.localStorage.getItem(SNAKE_ONBOARDING_DISMISSED_KEY) !== '1'
+    return window.localStorage.getItem(snakeOnboardingStorageKey) !== '1'
   })
   const [snakeToast, setSnakeToast] = useState(null)
 
@@ -7050,6 +7066,11 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }, [isMobileConsole, phase, saveStatus])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+    setShowOnboarding(window.localStorage.getItem(snakeOnboardingStorageKey) !== '1')
+  }, [snakeOnboardingStorageKey])
+
+  useEffect(() => {
     if (!isMobileConsole || !showOnboarding) return
     setShowOnboarding(false)
   }, [isMobileConsole, showOnboarding])
@@ -7084,7 +7105,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     if (typeof window === 'undefined') return
 
     try {
-      window.localStorage.setItem(SNAKE_ONBOARDING_DISMISSED_KEY, '1')
+      window.localStorage.setItem(snakeOnboardingStorageKey, '1')
     } catch (error) {
       console.warn('Could not persist Snake onboarding preference:', error)
     }
@@ -7714,7 +7735,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             title={phase === 'paused' ? 'Resume game' : 'Pause game'}
           >
             {phase === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-            <span>{isMobileConsole ? 'Pause' : phase === 'paused' ? 'Resume' : 'Pause'}</span>
+            <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
           </button>
 
           {!isMobileConsole && (
@@ -7737,7 +7758,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
           >
             {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            {isMobileConsole && <span>SFX</span>}
+            {isMobileConsole && <span>{soundEnabled ? 'SFX on' : 'SFX off'}</span>}
           </button>
 
           <button
@@ -7748,7 +7769,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
             title={musicEnabled ? 'Turn music off' : 'Turn music on'}
           >
             <Music2 size={16} />
-            <span>{isMobileConsole ? 'Music' : musicEnabled ? 'Music on' : 'Music off'}</span>
+            <span>{isMobileConsole ? (musicEnabled ? 'M on' : 'M off') : musicEnabled ? 'Music on' : 'Music off'}</span>
           </button>
 
           <button
@@ -9040,6 +9061,7 @@ function App() {
               onStartFullTest={openFullTest}
               onStartSnakeGame={openSnakeGame}
               onSelectSubject={openSubject}
+              storageScopeKey={currentUser?.uid ?? studentDisplayName}
             />
           )}
 
@@ -9058,6 +9080,7 @@ function App() {
               onSaveResult={saveAssessmentResult}
               studentName={studentDisplayName}
               topTestRecord={snakeTopRecord}
+              storageScopeKey={currentUser?.uid ?? studentDisplayName}
             />
           )}
 
