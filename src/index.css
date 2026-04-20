@@ -368,12 +368,12 @@ button {
 }
 
 .app-shell.is-focused-screen {
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: 100svh;
+  height: 100svh;
   overflow: hidden;
 }
 
-@supports not (height: 100dvh) {
+@supports not (height: 100svh) {
   .app-shell.is-focused-screen {
     min-height: 100vh;
     height: 100vh;
@@ -3197,8 +3197,8 @@ button {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     width: 100vw;
-    min-height: 100dvh;
-    height: 100dvh;
+    min-height: 100svh;
+    height: 100svh;
     border-radius: 0;
     border: 0;
     padding:
@@ -3275,7 +3275,7 @@ button {
   }
 
   .snake-shell.is-mobile-console .snake-grid {
-    width: min(100%, clamp(200px, calc(100dvh - 24rem), 420px));
+    width: min(100%, clamp(200px, calc(100svh - 24rem), 420px));
     max-width: calc(100vw - 1.5rem);
     margin: 0 auto;
     background:
@@ -3287,13 +3287,15 @@ button {
   }
 
   .snake-shell.is-mobile-console .snake-overlay {
-    padding: 0.45rem;
+    padding: 0.35rem;
+    align-items: end;
   }
 
   .snake-shell.is-mobile-console .snake-overlay-card {
-    border-radius: 16px;
+    width: 100%;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.97);
-    max-height: min(82dvh, 100%);
+    max-height: min(56svh, 100%);
   }
 
   .snake-shell.is-mobile-console .snake-side-panel {
@@ -3410,10 +3412,14 @@ button {
   }
 
   .snake-shell.is-mobile-console .snake-overlay-card {
-    width: min(420px, 96%);
-    max-height: min(74dvh, 100%);
+    width: 100%;
+    max-height: min(56svh, 100%);
     padding: 0.68rem;
     gap: 0.48rem;
+  }
+
+  .snake-shell.is-mobile-console .snake-overlay-card .snake-overlay-header h3 {
+    font-size: 1rem;
   }
 
   .snake-shell.is-mobile-console .snake-overlay-card .snake-context {
