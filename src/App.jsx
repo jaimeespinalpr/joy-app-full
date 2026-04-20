@@ -7123,9 +7123,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
 
     setAudioReady(true)
     playSound('ui', true, false)
-    if (musicEnabled && (phaseRef.current === 'playing' || phaseRef.current === 'resume')) {
-      startBackgroundMusic('snake', true)
-    }
     showSnakeToast('Sound enabled 🔊', 'success')
   }
 
@@ -7214,7 +7211,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
   }
 
   function startGame(options = {}) {
-    const shouldPlayStartSound = options.playStartSound ?? true
+    const shouldPlayStartSound = options.playStartSound ?? false
     clearTimers()
     finishInProgressRef.current = false
     if (shouldPlayStartSound) {
@@ -7442,11 +7439,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
     if (phaseRef.current !== 'playing' && phaseRef.current !== 'resume') return
 
     void primeAudioEngine().then((ready) => {
-      if (!ready || !musicEnabled) return
+      if (!ready) return
       setAudioReady(true)
-      if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
-        startBackgroundMusic('snake', true)
-      }
     })
 
     const currentDirection = directionRef.current
@@ -7465,7 +7459,11 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
 
   useEffect(() => {
     if (phase === 'playing' || phase === 'resume') {
-      startBackgroundMusic('snake', musicEnabled)
+      if (musicEnabled && audioReady) {
+        startBackgroundMusic('snake', true)
+      } else {
+        stopBackgroundMusic()
+      }
     } else {
       stopBackgroundMusic()
     }
@@ -7475,7 +7473,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
         stopBackgroundMusic()
       }
     }
-  }, [phase, musicEnabled])
+  }, [audioReady, phase, musicEnabled])
 
   useEffect(() => {
     if (phase !== 'playing') return undefined
@@ -7503,10 +7501,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
     if (phase === 'paused') {
       setPhase('playing')
       showSnakeToast('Back to game.', 'success')
-      playSound('start', soundEnabled)
-      if (musicEnabled) {
-        startBackgroundMusic('snake', true)
-      }
     }
   }
 
@@ -7758,110 +7752,180 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord, stor
         </div>
 
         <div className="hud-actions">
-          <button
-            type="button"
-            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : ''}`}
-            onClick={handlePauseResume}
-            disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
-            title={phase === 'paused' ? 'Resume game' : 'Pause game'}
-          >
-            {phase === 'paused' ? <Play size={16} /> : <Pause size={16} />}
-            <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
-          </button>
+          {isMobileConsole ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost mobile-action-btn"
+                onClick={handlePauseResume}
+                disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
+                title={phase === 'paused' ? 'Resume game' : 'Pause game'}
+              >
+                {phase === 'paused' ? <Play size={16} /> : <Pause size={16} />}
+                <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
+              </button>
 
-          {!isMobileConsole && (
-            <button
-              type="button"
-              className="btn btn-ghost icon-only"
-              onClick={() => void handleFullscreenToggle()}
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            >
-              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-            </button>
-          )}
-
-          <button
-            type="button"
-            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : 'icon-only'}`}
-            onClick={() => {
-              setSoundEnabled((value) => {
-                const nextValue = !value
-                if (nextValue) {
-                  void primeAudioEngine().then((ready) => {
-                    if (ready) {
-                      setAudioReady(true)
-                      playSound('ui', true, false)
+              <button
+                type="button"
+                className="btn btn-ghost mobile-action-btn"
+                onClick={() => {
+                  setSoundEnabled((value) => {
+                    const nextValue = !value
+                    if (nextValue) {
+                      void primeAudioEngine().then((ready) => {
+                        if (ready) {
+                          setAudioReady(true)
+                          playSound('ui', true, false)
+                        }
+                      })
                     }
+                    return nextValue
                   })
-                }
-                return nextValue
-              })
-            }}
-            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-          >
-            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-            {isMobileConsole && <span>{soundEnabled ? 'SFX on' : 'SFX off'}</span>}
-          </button>
+                }}
+                aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+                title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+              >
+                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                <span>{soundEnabled ? 'SFX on' : 'SFX off'}</span>
+              </button>
 
-          <button
-            type="button"
-            className={`btn btn-ghost ${isMobileConsole ? 'mobile-action-btn' : ''}`}
-            onClick={() => {
-              setMusicEnabled((value) => {
-                const nextValue = !value
-                if (!nextValue) {
-                  stopBackgroundMusic()
-                  return nextValue
-                }
+              <button
+                type="button"
+                className="btn btn-ghost mobile-action-btn"
+                onClick={() => {
+                  setMusicEnabled((value) => {
+                    const nextValue = !value
+                    if (!nextValue) {
+                      stopBackgroundMusic()
+                      return nextValue
+                    }
 
-                void primeAudioEngine().then((ready) => {
-                  if (!ready) return
-                  setAudioReady(true)
-                  if (phaseRef.current === 'playing' || phaseRef.current === 'resume') {
-                    startBackgroundMusic('snake', true)
-                  }
-                })
+                    void primeAudioEngine().then((ready) => {
+                      if (!ready) return
+                      setAudioReady(true)
+                    })
 
-                return nextValue
-              })
-            }}
-            aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
-            title={musicEnabled ? 'Turn music off' : 'Turn music on'}
-          >
-            <Music2 size={16} />
-            <span>{isMobileConsole ? (musicEnabled ? 'M on' : 'M off') : musicEnabled ? 'Music on' : 'Music off'}</span>
-          </button>
+                    return nextValue
+                  })
+                }}
+                aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
+                title={musicEnabled ? 'Turn music off' : 'Turn music on'}
+              >
+                <Music2 size={16} />
+                <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
+              </button>
 
-          {isMobileConsole && !audioReady && (
-            <button
-              type="button"
-              className="btn btn-primary mobile-action-btn"
-              onClick={() => void handleEnableGameAudio()}
-              title="Enable game sound"
-            >
-              <Volume2 size={16} />
-              <span>Enable</span>
-            </button>
+              <button
+                type="button"
+                className="btn btn-danger-soft mobile-action-btn"
+                onClick={handleLeaveGame}
+                disabled={saveStatus === 'saving'}
+                title="Save progress and leave Snake"
+              >
+                <ArrowLeft size={16} />
+                <span>Leave</span>
+              </button>
+
+              {!audioReady && (
+                <button
+                  type="button"
+                  className="btn btn-primary mobile-action-btn"
+                  onClick={() => void handleEnableGameAudio()}
+                  title="Enable game sound"
+                >
+                  <Volume2 size={16} />
+                  <span>Enable audio</span>
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={handlePauseResume}
+                disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
+                title={phase === 'paused' ? 'Resume game' : 'Pause game'}
+              >
+                <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-ghost icon-only"
+                onClick={() => void handleFullscreenToggle()}
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              >
+                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-ghost icon-only"
+                onClick={() => {
+                  setSoundEnabled((value) => {
+                    const nextValue = !value
+                    if (nextValue) {
+                      void primeAudioEngine().then((ready) => {
+                        if (ready) {
+                          setAudioReady(true)
+                          playSound('ui', true, false)
+                        }
+                      })
+                    }
+                    return nextValue
+                  })
+                }}
+                aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+                title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
+              >
+                {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setMusicEnabled((value) => {
+                    const nextValue = !value
+                    if (!nextValue) {
+                      stopBackgroundMusic()
+                      return nextValue
+                    }
+
+                    void primeAudioEngine().then((ready) => {
+                      if (!ready) return
+                      setAudioReady(true)
+                    })
+
+                    return nextValue
+                  })
+                }}
+                aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
+                title={musicEnabled ? 'Turn music off' : 'Turn music on'}
+              >
+                <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-danger-soft"
+                onClick={handleLeaveGame}
+                disabled={saveStatus === 'saving'}
+                title="Save progress and leave Snake"
+              >
+                <ArrowLeft size={16} />
+                <span>Save and leave</span>
+              </button>
+            </>
           )}
-
-          <button
-            type="button"
-            className="btn btn-danger-soft"
-            onClick={handleLeaveGame}
-            disabled={saveStatus === 'saving'}
-            title="Save progress and leave Snake"
-          >
-            <ArrowLeft size={16} />
-            <span>{isMobileConsole ? 'Leave' : 'Save and leave'}</span>
-          </button>
         </div>
       </div>
 
       <div className="game-board snake-layout">
         <div ref={stageCardRef} className="snake-stage-card">
-          {showOnboarding && (
+          {showOnboarding && !isMobileConsole && (
             <div className="snake-onboarding-card" role="status" aria-live="polite">
               <div>
                 <strong>Quick start</strong>
