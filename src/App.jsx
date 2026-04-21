@@ -196,7 +196,7 @@ const FULL_TEST_CARD = {
 const GAMES_CARD = {
   id: 'snake',
   name: 'Games',
-  description: 'Play Snake. Every crash unlocks a mixed challenge question to keep going.',
+  description: 'Play Snake from zero. Crash = full-test question. Wrong answer restarts, correct answer continues +1 life.',
   available: true,
   accentClass: 'test-games',
   icon: Gamepad2,
@@ -674,7 +674,7 @@ function getNextAvatarReward(totalCompletedRuns) {
 function getCoinsForAssessment(summary) {
   if (summary?.mode === 'snake') {
     const bestAppleStreak = Math.max(0, Number(summary?.bestAppleStreak ?? summary?.applesEaten ?? 0))
-    const reachedGoalBonus = bestAppleStreak >= SNAKE_GOAL_APPLES ? 18 : 0
+    const reachedGoalBonus = bestAppleStreak >= SNAKE_FRESH_GOAL_APPLES ? 18 : 0
     const baseSnakeReward = 20
     const streakBonus = bestAppleStreak * 4
     return baseSnakeReward + streakBonus + reachedGoalBonus
@@ -752,15 +752,18 @@ const FULL_TEST_SOURCE_TESTS = [
   { testId: 'spelling-english', label: 'Spelling English' },
 ]
 
-const SNAKE_BOARD_SIZE = 14
-const SNAKE_GOAL_APPLES = 10
-const SNAKE_BASE_SPEED_MS = 160
-const SNAKE_DIRECTION_VECTORS = {
+const SNAKE_FRESH_BOARD_SIZE = 14
+const SNAKE_FRESH_GOAL_APPLES = 10
+const SNAKE_FRESH_START_SPEED_MS = 190
+const SNAKE_FRESH_MIN_SPEED_MS = 96
+const SNAKE_FRESH_SPEED_STEP_MS = 7
+const SNAKE_FRESH_DIRECTION_VECTORS = {
   up: { x: 0, y: -1 },
   down: { x: 0, y: 1 },
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 },
 }
+const SNAKE_FRESH_MUSIC_NOTES = [261.63, 329.63, 392, 523.25, 392, 329.63, 440, 659.25]
 
 const SPELLING_TEST_CONFIGS = {
   'spelling-spanish': {
@@ -964,8 +967,6 @@ const READING_TEST_CONFIGS = {
 
 let audioCtx = null
 let speechVoicesInitialized = false
-let activeMusicTheme = ''
-let backgroundMusicTimerId = null
 let masterAudioMuted = false
 let masterAudioVolume = 0.65
 
@@ -1097,30 +1098,6 @@ function playSound(type, enabled) {
   }
 }
 
-const BACKGROUND_MUSIC_PATTERNS = {
-  snake: {
-    stepMs: 220,
-    notes: [
-      523.25,
-      659.25,
-      783.99,
-      659.25,
-      587.33,
-      698.46,
-      880,
-      698.46,
-      523.25,
-      659.25,
-      783.99,
-      659.25,
-      493.88,
-      587.33,
-      659.25,
-      null,
-    ],
-  },
-}
-
 function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}) {
   if (!frequency) return
   if (masterAudioMuted || masterAudioVolume <= 0) return
@@ -1146,47 +1123,6 @@ function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options =
   } catch (error) {
     console.warn('Could not play music note:', error)
   }
-}
-
-function stopBackgroundMusic() {
-  activeMusicTheme = ''
-  if (backgroundMusicTimerId) {
-    window.clearTimeout(backgroundMusicTimerId)
-    backgroundMusicTimerId = null
-  }
-}
-
-function scheduleBackgroundMusic(theme) {
-  const pattern = BACKGROUND_MUSIC_PATTERNS[theme]
-  if (!pattern) return
-
-  pattern.notes.forEach((frequency, index) => {
-    playMusicNote(frequency, index * pattern.stepMs, pattern.stepMs - 35, {
-      type: 'triangle',
-      volume: 0.028,
-    })
-  })
-
-  backgroundMusicTimerId = window.setTimeout(() => {
-    if (activeMusicTheme !== theme) return
-    scheduleBackgroundMusic(theme)
-  }, pattern.notes.length * pattern.stepMs)
-}
-
-function startBackgroundMusic(theme, enabled) {
-  if (!enabled) {
-    stopBackgroundMusic()
-    return false
-  }
-
-  if (!theme) return false
-  if (!initAudio()) return false
-  if (activeMusicTheme === theme && backgroundMusicTimerId) return true
-
-  stopBackgroundMusic()
-  activeMusicTheme = theme
-  scheduleBackgroundMusic(theme)
-  return true
 }
 
 function shuffleArray(values) {
@@ -1979,29 +1915,21 @@ function getPendingFullTestQuestions(queueItems) {
   )
 }
 
-function createInitialSnake() {
+function createFreshSnakeBody() {
+  const centerY = Math.floor(SNAKE_FRESH_BOARD_SIZE / 2)
   return [
-    { x: 4, y: 7 },
-    { x: 3, y: 7 },
-    { x: 2, y: 7 },
+    { x: 3, y: centerY },
+    { x: 2, y: centerY },
+    { x: 1, y: centerY },
   ]
 }
 
-function createSnakeRunState() {
-  const snake = createInitialSnake()
-  return {
-    snake,
-    direction: 'right',
-    apple: getRandomOpenSnakeCell(snake),
-  }
-}
-
-function getRandomOpenSnakeCell(snake) {
-  const occupied = new Set((snake ?? []).map((cell) => `${cell.x},${cell.y}`))
+function getFreshSnakeOpenCell(snakeBody) {
+  const occupied = new Set((snakeBody ?? []).map((cell) => `${cell.x},${cell.y}`))
   const openCells = []
 
-  for (let y = 0; y < SNAKE_BOARD_SIZE; y += 1) {
-    for (let x = 0; x < SNAKE_BOARD_SIZE; x += 1) {
+  for (let y = 0; y < SNAKE_FRESH_BOARD_SIZE; y += 1) {
+    for (let x = 0; x < SNAKE_FRESH_BOARD_SIZE; x += 1) {
       const key = `${x},${y}`
       if (!occupied.has(key)) {
         openCells.push({ x, y })
@@ -2012,21 +1940,21 @@ function getRandomOpenSnakeCell(snake) {
   return pickRandom(openCells) ?? { x: 0, y: 0 }
 }
 
-function isSnakeOutOfBounds(cell) {
+function isFreshSnakeOutOfBounds(cell) {
   return (
     !cell ||
     cell.x < 0 ||
     cell.y < 0 ||
-    cell.x >= SNAKE_BOARD_SIZE ||
-    cell.y >= SNAKE_BOARD_SIZE
+    cell.x >= SNAKE_FRESH_BOARD_SIZE ||
+    cell.y >= SNAKE_FRESH_BOARD_SIZE
   )
 }
 
-function snakeCellsMatch(a, b) {
+function areFreshSnakeCellsEqual(a, b) {
   return Boolean(a && b && a.x === b.x && a.y === b.y)
 }
 
-function isOppositeSnakeDirection(nextDirection, currentDirection) {
+function isFreshSnakeOppositeDirection(nextDirection, currentDirection) {
   return (
     (nextDirection === 'up' && currentDirection === 'down') ||
     (nextDirection === 'down' && currentDirection === 'up') ||
@@ -2035,7 +1963,7 @@ function isOppositeSnakeDirection(nextDirection, currentDirection) {
   )
 }
 
-function getSnakeDirectionFromKey(key) {
+function getFreshSnakeDirectionFromKey(key) {
   switch (key) {
     case 'ArrowUp':
     case 'w':
@@ -2058,7 +1986,7 @@ function getSnakeDirectionFromKey(key) {
   }
 }
 
-function getSnakeDirectionLabel(direction) {
+function getFreshSnakeDirectionLabel(direction) {
   switch (direction) {
     case 'up':
       return 'Up'
@@ -6652,331 +6580,214 @@ function SpellingChallenge({ onBack, onSaveResult, studentName, testConfig, topT
   )
 }
 
-function CoinBurst({ visible = false }) {
-  if (!visible) return null
-
-  const coins = Array.from({ length: 12 }, (_, index) => ({
-    id: index,
-    style: {
-      '--coin-x': `${Math.random() * 180 - 90}px`,
-      '--coin-delay': `${(index * 0.03).toFixed(2)}s`,
-      '--coin-rot': `${Math.random() * 260 - 130}deg`,
-    },
-  }))
-
-  return (
-    <div className="coin-burst" aria-hidden="true">
-      {coins.map((coin) => (
-        <span key={coin.id} className="coin-burst-item" style={coin.style}>
-          🪙
-        </span>
-      ))}
-    </div>
-  )
-}
-
 function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
-  const goalApples = SNAKE_GOAL_APPLES
-  const mobileConsoleQuery = '(max-width: 1024px), (pointer: coarse) and (max-width: 1366px)'
+  const shellRef = useRef(null)
+  const snakeRef = useRef(createFreshSnakeBody())
+  const appleRef = useRef(getFreshSnakeOpenCell(snakeRef.current))
+  const directionRef = useRef('right')
+  const queuedDirectionRef = useRef('right')
+  const statusRef = useRef('countdown')
+  const applesEatenRef = useRef(0)
+  const bestAppleStreakRef = useRef(0)
+  const extraLivesRef = useRef(0)
+  const collisionCountRef = useRef(0)
+  const restartCountRef = useRef(0)
+  const questionDeckRef = useRef([])
+  const autoStartRef = useRef(false)
+  const finishInProgressRef = useRef(false)
+  const loopTimerRef = useRef(null)
+  const countdownTimerRef = useRef(null)
+  const questionResetTimerRef = useRef(null)
+  const musicTimerRef = useRef(null)
+  const musicStepRef = useRef(0)
+  const soundEnabledRef = useRef(true)
+  const musicEnabledRef = useRef(true)
 
-  const [phase, setPhase] = useState('playing')
-  const [snake, setSnake] = useState([])
+  const [snake, setSnake] = useState(() => snakeRef.current)
+  const [apple, setApple] = useState(() => appleRef.current)
   const [direction, setDirection] = useState('right')
-  const [apple, setApple] = useState({ x: 0, y: 0 })
+  const [status, setStatus] = useState('countdown')
+  const [countdown, setCountdown] = useState(3)
+  const [statusMessage, setStatusMessage] = useState('Get ready...')
   const [applesEaten, setApplesEaten] = useState(0)
-  const [currentAppleStreak, setCurrentAppleStreak] = useState(0)
   const [bestAppleStreak, setBestAppleStreak] = useState(0)
-  const [collisionQuestionCount, setCollisionQuestionCount] = useState(0)
+  const [extraLives, setExtraLives] = useState(0)
+  const [collisionCount, setCollisionCount] = useState(0)
   const [restartCount, setRestartCount] = useState(0)
-  const [currentQuestion, setCurrentQuestion] = useState(null)
-  const [currentOptions, setCurrentOptions] = useState([])
-  const [questionFeedback, setQuestionFeedback] = useState(null)
-  const [reviewExercises, setReviewExercises] = useState([])
-  const [showCoinAnimation, setShowCoinAnimation] = useState(false)
+  const [questionRound, setQuestionRound] = useState(null)
+  const [questionResult, setQuestionResult] = useState('')
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [musicEnabled, setMusicEnabled] = useState(true)
   const [saveStatus, setSaveStatus] = useState('idle')
   const [saveMessage, setSaveMessage] = useState('')
-  const [coinsAwarded, setCoinsAwarded] = useState(0)
-  const [countdownValue, setCountdownValue] = useState(3)
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isMobileConsole, setIsMobileConsole] = useState(false)
-  const [mobileBoardSize, setMobileBoardSize] = useState(null)
-  const isGameboyMode = isFullscreen
-  const usesTouchControls = isMobileConsole || isGameboyMode
-  const [showOnboarding, setShowOnboarding] = useState(true)
-  const [snakeToast, setSnakeToast] = useState(null)
 
-  const shellRef = useRef(null)
-  const topbarRef = useRef(null)
-  const stageCardRef = useRef(null)
-  const stageHeaderRef = useRef(null)
-  const controlsRef = useRef(null)
-  const snakeRef = useRef([])
-  const appleRef = useRef({ x: 0, y: 0 })
-  const directionRef = useRef('right')
-  const phaseRef = useRef('playing')
-  const applesEatenRef = useRef(0)
-  const currentAppleStreakRef = useRef(0)
-  const bestAppleStreakRef = useRef(0)
-  const collisionQuestionCountRef = useRef(0)
-  const restartCountRef = useRef(0)
-  const reviewExercisesRef = useRef([])
-  const questionDeckRef = useRef([])
-  const autoStartRef = useRef(false)
-  const mobileFullscreenRef = useRef(false)
-  const finishInProgressRef = useRef(false)
-  const coinTimerRef = useRef(null)
-  const storeRedirectTimerRef = useRef(null)
-  const countdownTimerRef = useRef(null)
-  const toastTimerRef = useRef(null)
+  const goalApples = SNAKE_FRESH_GOAL_APPLES
+  const progressPercent = Math.min(100, Math.round((applesEaten / goalApples) * 100))
+  const gameSpeedMs = Math.max(
+    SNAKE_FRESH_MIN_SPEED_MS,
+    SNAKE_FRESH_START_SPEED_MS - applesEaten * SNAKE_FRESH_SPEED_STEP_MS,
+  )
 
   useEffect(() => {
-    snakeRef.current = snake
-  }, [snake])
+    statusRef.current = status
+  }, [status])
 
   useEffect(() => {
-    appleRef.current = apple
-  }, [apple])
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
 
   useEffect(() => {
-    directionRef.current = direction
-  }, [direction])
+    musicEnabledRef.current = musicEnabled
+  }, [musicEnabled])
 
   useEffect(() => {
-    phaseRef.current = phase
-  }, [phase])
-
-  useEffect(() => {
-    applesEatenRef.current = applesEaten
-  }, [applesEaten])
-
-  useEffect(() => {
-    currentAppleStreakRef.current = currentAppleStreak
-  }, [currentAppleStreak])
-
-  useEffect(() => {
-    bestAppleStreakRef.current = bestAppleStreak
-  }, [bestAppleStreak])
-
-  useEffect(() => {
-    collisionQuestionCountRef.current = collisionQuestionCount
-  }, [collisionQuestionCount])
-
-  useEffect(() => {
-    restartCountRef.current = restartCount
-  }, [restartCount])
-
-  useEffect(() => {
-    reviewExercisesRef.current = reviewExercises
-  }, [reviewExercises])
-
-  useEffect(() => {
-    function syncMobileConsole() {
-      if (typeof window === 'undefined') return
-      setIsMobileConsole(window.matchMedia(mobileConsoleQuery).matches)
-    }
-
-    syncMobileConsole()
-    const mediaQuery = window.matchMedia(mobileConsoleQuery)
-    mediaQuery.addEventListener?.('change', syncMobileConsole)
-
-    function syncFullscreenState() {
+    function syncFullscreen() {
       setIsFullscreen(Boolean(document.fullscreenElement))
     }
 
-    document.addEventListener('fullscreenchange', syncFullscreenState)
-    syncFullscreenState()
+    function handleKeyDown(event) {
+      const nextDirection = getFreshSnakeDirectionFromKey(event.key)
+      if (!nextDirection) return
+      event.preventDefault()
+      handleDirectionInput(nextDirection)
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    window.addEventListener('keydown', handleKeyDown)
+    syncFullscreen()
 
     return () => {
-      if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-      if (storeRedirectTimerRef.current) window.clearTimeout(storeRedirectTimerRef.current)
-      if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current)
-      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-      stopBackgroundMusic()
-      mediaQuery.removeEventListener?.('change', syncMobileConsole)
-      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      clearAllTimers()
+      document.removeEventListener('fullscreenchange', syncFullscreen)
+      window.removeEventListener('keydown', handleKeyDown)
     }
   }, [])
-
-  useEffect(() => {
-    if (!usesTouchControls) return undefined
-
-    const previousOverflow = document.body.style.overflow
-    const previousTouchAction = document.body.style.touchAction
-    document.body.style.overflow = 'hidden'
-    document.body.style.touchAction = 'manipulation'
-
-    return () => {
-      document.body.style.overflow = previousOverflow
-      document.body.style.touchAction = previousTouchAction
-    }
-  }, [usesTouchControls])
-
-  useEffect(() => {
-    if (!isMobileConsole || mobileFullscreenRef.current) return
-    mobileFullscreenRef.current = true
-    void enterFullscreenMode()
-  }, [isMobileConsole])
-
-  useLayoutEffect(() => {
-    if (!usesTouchControls) {
-      setMobileBoardSize(null)
-      return undefined
-    }
-
-    let frameId = 0
-    const observedElements = [
-      shellRef.current,
-      topbarRef.current,
-      stageCardRef.current,
-      stageHeaderRef.current,
-      controlsRef.current,
-    ].filter(Boolean)
-
-    const syncBoardSize = () => {
-      if (frameId) window.cancelAnimationFrame(frameId)
-
-      frameId = window.requestAnimationFrame(() => {
-        const stageCard = stageCardRef.current
-        const stageHeader = stageHeaderRef.current
-        if (!stageCard) return
-
-        const cardStyles = window.getComputedStyle(stageCard)
-        const paddingX = Number.parseFloat(cardStyles.paddingLeft || '0') + Number.parseFloat(cardStyles.paddingRight || '0')
-        const paddingY = Number.parseFloat(cardStyles.paddingTop || '0') + Number.parseFloat(cardStyles.paddingBottom || '0')
-        const contentWidth = Math.max(200, stageCard.clientWidth - paddingX)
-        const contentHeight = Math.max(200, stageCard.clientHeight - paddingY - (stageHeader?.offsetHeight ?? 0) - 8)
-        const nextBoardSize = Math.floor(Math.max(200, Math.min(contentWidth, contentHeight)))
-
-        setMobileBoardSize((current) => {
-          if (current && Math.abs(current - nextBoardSize) < 2) return current
-          return nextBoardSize
-        })
-      })
-    }
-
-    syncBoardSize()
-
-    let resizeObserver = null
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(syncBoardSize)
-      observedElements.forEach((element) => resizeObserver.observe(element))
-    }
-
-    window.addEventListener('resize', syncBoardSize)
-    window.addEventListener('orientationchange', syncBoardSize)
-
-    return () => {
-      if (frameId) window.cancelAnimationFrame(frameId)
-      window.removeEventListener('resize', syncBoardSize)
-      window.removeEventListener('orientationchange', syncBoardSize)
-      resizeObserver?.disconnect()
-    }
-  }, [usesTouchControls, phase, saveStatus])
 
   useLayoutEffect(() => {
     if (autoStartRef.current) return
     autoStartRef.current = true
-    startGame({ playStartSound: false })
+    startFreshSnakeSession({ playStartSound: false })
   }, [])
 
-  function clearTimers() {
-    if (coinTimerRef.current) {
-      window.clearTimeout(coinTimerRef.current)
-      coinTimerRef.current = null
+  useEffect(() => {
+    clearLoopTimer()
+
+    if (status !== 'running') return undefined
+
+    loopTimerRef.current = window.setInterval(() => {
+      stepSnake()
+    }, gameSpeedMs)
+
+    return () => clearLoopTimer()
+  }, [status, gameSpeedMs])
+
+  useEffect(() => {
+    stopMusicLoop()
+    if (status === 'running' && musicEnabled) {
+      playMusicTick()
     }
-    if (storeRedirectTimerRef.current) {
-      window.clearTimeout(storeRedirectTimerRef.current)
-      storeRedirectTimerRef.current = null
+    return () => stopMusicLoop()
+  }, [status, musicEnabled])
+
+  function clearLoopTimer() {
+    if (loopTimerRef.current) {
+      window.clearInterval(loopTimerRef.current)
+      loopTimerRef.current = null
     }
+  }
+
+  function clearCountdownTimer() {
     if (countdownTimerRef.current) {
       window.clearInterval(countdownTimerRef.current)
       countdownTimerRef.current = null
     }
-    if (toastTimerRef.current) {
-      window.clearTimeout(toastTimerRef.current)
-      toastTimerRef.current = null
+  }
+
+  function clearQuestionResetTimer() {
+    if (questionResetTimerRef.current) {
+      window.clearTimeout(questionResetTimerRef.current)
+      questionResetTimerRef.current = null
     }
   }
 
-  function showSnakeToast(message, tone = 'info') {
-    setSnakeToast({ message, tone })
-    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current)
-    toastTimerRef.current = window.setTimeout(() => {
-      setSnakeToast(null)
-    }, 1400)
-  }
-
-  function refillQuestionDeck() {
-    questionDeckRef.current = [...questionDeckRef.current, ...generateFullTestQuestions(FULL_TEST_QUESTION_COUNT)]
-  }
-
-  function getNextCollisionQuestion() {
-    if (!questionDeckRef.current.length) {
-      refillQuestionDeck()
+  function stopMusicLoop() {
+    if (musicTimerRef.current) {
+      window.clearTimeout(musicTimerRef.current)
+      musicTimerRef.current = null
     }
-    return questionDeckRef.current.shift() ?? null
   }
 
-  function resetSnakeBoard(options = {}) {
-    const nextState = createSnakeRunState()
+  function clearAllTimers() {
+    clearLoopTimer()
+    clearCountdownTimer()
+    clearQuestionResetTimer()
+    stopMusicLoop()
+  }
+
+  function refillQuestionDeck(minimum = 8) {
+    while (questionDeckRef.current.length < minimum) {
+      questionDeckRef.current.push(...generateFullTestQuestions(FULL_TEST_QUESTION_COUNT))
+    }
+  }
+
+  function takeCollisionQuestion() {
+    refillQuestionDeck()
+    while (questionDeckRef.current.length) {
+      const nextQuestion = questionDeckRef.current.shift()
+      if (!nextQuestion) continue
+      const options = (nextQuestion.options ?? []).filter((value) => value !== undefined && value !== null)
+      if (options.length >= 2) {
+        return { ...nextQuestion, options: shuffleArray(options) }
+      }
+    }
+    return null
+  }
+
+  function updateRunBoard(nextState) {
     snakeRef.current = nextState.snake
-    directionRef.current = nextState.direction
     appleRef.current = nextState.apple
-    applesEatenRef.current = 0
+    directionRef.current = nextState.direction
+    queuedDirectionRef.current = nextState.queuedDirection
+    applesEatenRef.current = nextState.applesEaten
     setSnake(nextState.snake)
-    setDirection(nextState.direction)
     setApple(nextState.apple)
-    setApplesEaten(0)
-    setCurrentQuestion(null)
-    setCurrentOptions([])
-    setQuestionFeedback(null)
-    setShowCoinAnimation(false)
-    setPhase(options.phase ?? 'playing')
+    setDirection(nextState.direction)
+    setApplesEaten(nextState.applesEaten)
   }
 
-  function beginCountdown() {
-    if (countdownTimerRef.current) {
-      window.clearInterval(countdownTimerRef.current)
-      countdownTimerRef.current = null
-    }
-
-    setCountdownValue(3)
-    setPhase('countdown')
-
+  function beginCountdown(message) {
+    clearCountdownTimer()
+    setCountdown(3)
+    setStatus('countdown')
+    setStatusMessage(message ?? 'Get ready...')
     let nextValue = 3
+
     countdownTimerRef.current = window.setInterval(() => {
       nextValue -= 1
-
       if (nextValue <= 0) {
-        window.clearInterval(countdownTimerRef.current)
-        countdownTimerRef.current = null
-        setCountdownValue(0)
-        setPhase('playing')
+        clearCountdownTimer()
+        setCountdown(0)
+        setStatus('ready')
+        setStatusMessage('Tap any direction to start.')
         return
       }
-
-      setCountdownValue(nextValue)
+      setCountdown(nextValue)
     }, 700)
   }
 
   async function enterFullscreenMode() {
-    if (typeof document === 'undefined') return
-    if (document.fullscreenElement) return
-    const fullscreenTarget = shellRef.current ?? document.documentElement
-    if (!fullscreenTarget?.requestFullscreen) return
+    if (!shellRef.current?.requestFullscreen || document.fullscreenElement) return
 
     try {
-      await fullscreenTarget.requestFullscreen()
+      await shellRef.current.requestFullscreen()
     } catch (error) {
       console.warn('Could not enter fullscreen mode:', error)
     }
   }
 
   async function exitFullscreenMode() {
-    if (typeof document === 'undefined') return
     if (!document.fullscreenElement || !document.exitFullscreen) return
 
     try {
@@ -6986,304 +6797,281 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     }
   }
 
-  function startGame(options = {}) {
-    const shouldPlayStartSound = options.playStartSound ?? true
-    clearTimers()
-    finishInProgressRef.current = false
-    if (shouldPlayStartSound) {
-      playSound('start', soundEnabled)
+  function resetRunFromZero({ countRestart = false, announce = 'Run restarted from zero.' } = {}) {
+    const nextSnake = createFreshSnakeBody()
+    const nextApple = getFreshSnakeOpenCell(nextSnake)
+
+    updateRunBoard({
+      snake: nextSnake,
+      apple: nextApple,
+      direction: 'right',
+      queuedDirection: 'right',
+      applesEaten: 0,
+    })
+
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    if (countRestart) {
+      setRestartCount((previous) => {
+        const nextCount = previous + 1
+        restartCountRef.current = nextCount
+        return nextCount
+      })
     }
+
+    setExtraLives(0)
+    extraLivesRef.current = 0
+    beginCountdown(announce)
+  }
+
+  function startFreshSnakeSession({ playStartSound = true } = {}) {
+    clearAllTimers()
+    finishInProgressRef.current = false
+
+    if (playStartSound) {
+      playSound('start', soundEnabledRef.current)
+    }
+
     void enterFullscreenMode()
 
     questionDeckRef.current = []
-    refillQuestionDeck()
-    collisionQuestionCountRef.current = 0
-    restartCountRef.current = 0
-    currentAppleStreakRef.current = 0
+    refillQuestionDeck(12)
+    musicStepRef.current = 0
     bestAppleStreakRef.current = 0
-    reviewExercisesRef.current = []
-    setCollisionQuestionCount(0)
-    setRestartCount(0)
-    setCurrentAppleStreak(0)
+    collisionCountRef.current = 0
+    restartCountRef.current = 0
+    extraLivesRef.current = 0
+
     setBestAppleStreak(0)
-    setReviewExercises([])
+    setCollisionCount(0)
+    setRestartCount(0)
+    setExtraLives(0)
+    setLastResult(null)
     setSaveStatus('idle')
     setSaveMessage('')
-    setCoinsAwarded(0)
-    setLastResult(null)
-    setSnakeToast(null)
-    resetSnakeBoard({ phase: 'countdown' })
-    beginCountdown()
+
+    resetRunFromZero({ countRestart: false, announce: 'New game. Reach 10 apples.' })
   }
 
-  function buildSnakeSummary(options = {}) {
-    const isCompleted = options.attemptStatus !== 'abandoned'
-    const maxScore = 100
-    const applesCaptured = Math.max(0, applesEatenRef.current)
-    const progressRatio = goalApples > 0 ? applesCaptured / goalApples : 0
-    const penalty = collisionQuestionCountRef.current * 4 + restartCountRef.current * 12
-    const totalScore = isCompleted
-      ? Math.max(20, maxScore - penalty)
-      : Math.max(0, Math.round(progressRatio * maxScore) - penalty)
-    const percentage = isCompleted ? 100 : Math.min(100, Math.max(0, Math.round(progressRatio * 100)))
-    const gradeInfo = isCompleted ? { letter: 'PLUS' } : getGrade(percentage)
+  function playMusicTick() {
+    if (statusRef.current !== 'running') return
+    if (!musicEnabledRef.current) return
 
-    return {
+    const noteIndex = musicStepRef.current % SNAKE_FRESH_MUSIC_NOTES.length
+    const frequency = SNAKE_FRESH_MUSIC_NOTES[noteIndex]
+    const stepMs = Math.max(88, 220 - applesEatenRef.current * 6)
+    const volume = Math.min(0.07, 0.03 + applesEatenRef.current * 0.002)
+
+    playMusicNote(frequency, 0, Math.max(70, stepMs - 25), { type: 'square', volume })
+    if (noteIndex % 4 === 0) {
+      playMusicNote(frequency / 2, 22, Math.max(50, stepMs - 55), { type: 'sine', volume: volume * 0.6 })
+    }
+
+    musicStepRef.current += 1
+    musicTimerRef.current = window.setTimeout(() => {
+      playMusicTick()
+    }, stepMs)
+  }
+
+  async function finishSnakeSession(options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+    clearAllTimers()
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    const attemptStatus = options.attemptStatus ?? 'completed'
+    const applesCaptured = Math.max(0, applesEatenRef.current)
+    const maxScore = goalApples * 10
+    const totalScore = Math.min(maxScore, applesCaptured * 10)
+    const percentage = Math.min(100, Math.round((totalScore / maxScore) * 100))
+    const gradeInfo = attemptStatus === 'completed' ? { grade: 'PLUS' } : getGrade(percentage)
+
+    const summary = {
       subjectId: 'games',
       subjectName: 'Games',
       testId: 'snake',
       testName: 'Snake',
       mode: 'snake',
-      languageLabel: 'Arcade',
       totalScore,
       maxScore,
       percentage,
-      grade: isCompleted ? 'PLUS' : gradeInfo.letter,
+      grade: gradeInfo.grade,
       perfectOriginalCount: applesCaptured,
       questionCount: goalApples,
       answeredOriginalCount: applesCaptured,
-      remainingOriginalCount: isCompleted ? 0 : Math.max(0, goalApples - applesCaptured),
-      remainingQueueCount: isCompleted ? 0 : Math.max(0, goalApples - applesCaptured),
-      attemptStatus: options.attemptStatus ?? 'completed',
-      isAbandoned: !isCompleted,
-      reviewExercises: reviewExercisesRef.current,
+      remainingOriginalCount: attemptStatus === 'completed' ? 0 : Math.max(0, goalApples - applesCaptured),
+      remainingQueueCount: attemptStatus === 'completed' ? 0 : Math.max(0, goalApples - applesCaptured),
+      attemptStatus,
+      isAbandoned: attemptStatus !== 'completed',
+      reviewExercises: [],
       pendingExercises: [],
       applesGoal: goalApples,
       applesEaten: applesCaptured,
       bestAppleStreak: bestAppleStreakRef.current,
-      collisionQuestionCount: collisionQuestionCountRef.current,
+      extraLives: extraLivesRef.current,
+      collisionQuestionCount: collisionCountRef.current,
       restartCount: restartCountRef.current,
       finishedAtMs: Date.now(),
     }
-  }
 
-  async function saveSnakeRun(options = {}) {
-    if (finishInProgressRef.current) return
-    finishInProgressRef.current = true
-
-    clearTimers()
-    stopBackgroundMusic()
-    setCurrentQuestion(null)
-    setCurrentOptions([])
-    setQuestionFeedback(null)
-
-    const summary = buildSnakeSummary({
-      attemptStatus: options.attemptStatus ?? 'completed',
-    })
-
+    setStatus('saving')
     setLastResult(summary)
     setSaveStatus('saving')
     setSaveMessage(options.saveMessage ?? 'Saving result...')
-    setCoinsAwarded(0)
-    setPhase(options.showFinishedScreen === false ? 'saving' : 'finished')
 
-    if (options.playWinSound) {
-      playSound('win', soundEnabled)
+    if (attemptStatus === 'completed') {
+      playSound('win', soundEnabledRef.current)
     }
 
     try {
-      const savedRecord = await onSaveResult(summary)
+      await onSaveResult(summary)
       setSaveStatus('saved')
-      setSaveMessage(options.successMessage?.() ?? 'Result saved.')
-
-      if (options.destination === 'store') {
-        storeRedirectTimerRef.current = window.setTimeout(() => {
-          void (async () => {
-            await exitFullscreenMode()
-            stopBackgroundMusic()
-            onBack()
-          })()
-        }, 1200)
-        return
-      }
-
-      if (options.destination === 'dashboard') {
-        storeRedirectTimerRef.current = window.setTimeout(() => {
-          void (async () => {
-            await exitFullscreenMode()
-            stopBackgroundMusic()
-            onBack()
-          })()
-        }, 700)
-      }
+      setSaveMessage(options.successMessage ?? 'Result saved to Firebase.')
     } catch (error) {
       setSaveStatus('error')
       setSaveMessage(mapFirebaseError(error, 'save'))
       finishInProgressRef.current = false
     }
+
+    setStatus('finished')
   }
 
-  async function finishGame() {
-    await saveSnakeRun({
-      attemptStatus: 'completed',
-      destination: 'dashboard',
-      showFinishedScreen: true,
-      playWinSound: true,
-      saveMessage: 'Saving result...',
-      successMessage: () => 'Result saved. Returning to home...',
-    })
-  }
+  function handleDirectionInput(nextDirection) {
+    if (!nextDirection) return
 
-  function handleSnakeCollision() {
-    const nextQuestion = getNextCollisionQuestion()
-    if (!nextQuestion) {
-      const nextRestartCount = restartCountRef.current + 1
-      restartCountRef.current = nextRestartCount
-      setRestartCount(nextRestartCount)
-      playSound('bump', soundEnabled)
-      resetSnakeBoard()
-      return
+    const currentStatus = statusRef.current
+    if (currentStatus === 'question' || currentStatus === 'saving' || currentStatus === 'finished') return
+
+    const currentDirection = directionRef.current
+    const reverseBlocked = currentStatus === 'running' && isFreshSnakeOppositeDirection(nextDirection, currentDirection)
+    if (reverseBlocked) return
+
+    queuedDirectionRef.current = nextDirection
+
+    if (currentStatus === 'ready') {
+      directionRef.current = nextDirection
+      setDirection(nextDirection)
+      setStatus('running')
+      setStatusMessage('')
     }
-
-    const nextCollisionCount = collisionQuestionCountRef.current + 1
-    collisionQuestionCountRef.current = nextCollisionCount
-    setCollisionQuestionCount(nextCollisionCount)
-    setCurrentQuestion(nextQuestion)
-    setCurrentOptions((nextQuestion.options ?? []).map((value) => ({ value, isHidden: false })))
-    setQuestionFeedback(null)
-    playSound('bump', soundEnabled)
-    showSnakeToast('Oops, crash. Solve 1 question to keep going.', 'warn')
-    setPhase('question')
   }
 
-  function moveSnakeStep() {
-    if (phaseRef.current !== 'playing') return
+  function stepSnake() {
+    if (statusRef.current !== 'running') return
 
     const currentSnake = snakeRef.current
     if (!currentSnake.length) return
 
-    const directionVector = SNAKE_DIRECTION_VECTORS[directionRef.current] ?? SNAKE_DIRECTION_VECTORS.right
-    const head = currentSnake[0]
+    const currentDirection = directionRef.current
+    const wantedDirection = queuedDirectionRef.current || currentDirection
+    const nextDirection = isFreshSnakeOppositeDirection(wantedDirection, currentDirection)
+      ? currentDirection
+      : wantedDirection
+    const movement = SNAKE_FRESH_DIRECTION_VECTORS[nextDirection] ?? SNAKE_FRESH_DIRECTION_VECTORS.right
     const nextHead = {
-      x: head.x + directionVector.x,
-      y: head.y + directionVector.y,
+      x: currentSnake[0].x + movement.x,
+      y: currentSnake[0].y + movement.y,
     }
-    const willEatApple = snakeCellsMatch(nextHead, appleRef.current)
-    const bodyToCheck = willEatApple ? currentSnake : currentSnake.slice(0, -1)
 
-    if (isSnakeOutOfBounds(nextHead) || bodyToCheck.some((cell) => snakeCellsMatch(cell, nextHead))) {
-      handleSnakeCollision()
+    const appleCaptured = areFreshSnakeCellsEqual(nextHead, appleRef.current)
+    const collisionBody = appleCaptured ? currentSnake : currentSnake.slice(0, -1)
+    const hitCollision =
+      isFreshSnakeOutOfBounds(nextHead) ||
+      collisionBody.some((cell) => areFreshSnakeCellsEqual(cell, nextHead))
+
+    if (hitCollision) {
+      const question = takeCollisionQuestion()
+      if (!question) {
+        resetRunFromZero({ countRestart: true, announce: 'Restarting...' })
+        return
+      }
+
+      playSound('bump', soundEnabledRef.current)
+      setCollisionCount((previous) => {
+        const nextCount = previous + 1
+        collisionCountRef.current = nextCount
+        return nextCount
+      })
+      setQuestionResult('')
+      setQuestionRound(question)
+      setStatus('question')
+      setStatusMessage('Crash question: answer correctly to continue.')
       return
     }
 
-    const nextSnake = [nextHead, ...currentSnake]
-    if (!willEatApple) {
-      nextSnake.pop()
-    }
+    let nextSnake = [nextHead, ...currentSnake]
+    let nextApple = appleRef.current
+    let nextApples = applesEatenRef.current
 
-    snakeRef.current = nextSnake
-    setSnake(nextSnake)
+    if (!appleCaptured) {
+      nextSnake = nextSnake.slice(0, -1)
+    } else {
+      nextApples += 1
+      applesEatenRef.current = nextApples
+      setApplesEaten(nextApples)
+      playSound('coin', soundEnabledRef.current)
 
-    if (!willEatApple) return
+      if (nextApples > bestAppleStreakRef.current) {
+        bestAppleStreakRef.current = nextApples
+        setBestAppleStreak(nextApples)
+      }
 
-    playSound('coin', soundEnabled)
-    showSnakeToast('Nice, apple collected.', 'success')
-    setShowCoinAnimation(true)
-    if (coinTimerRef.current) window.clearTimeout(coinTimerRef.current)
-    coinTimerRef.current = window.setTimeout(() => {
-      setShowCoinAnimation(false)
-    }, 650)
-
-    const nextAppleCount = applesEatenRef.current + 1
-    applesEatenRef.current = nextAppleCount
-    setApplesEaten(nextAppleCount)
-
-    const nextAppleStreak = currentAppleStreakRef.current + 1
-    currentAppleStreakRef.current = nextAppleStreak
-    setCurrentAppleStreak(nextAppleStreak)
-
-    if (nextAppleStreak > bestAppleStreakRef.current) {
-      bestAppleStreakRef.current = nextAppleStreak
-      setBestAppleStreak(nextAppleStreak)
-    }
-
-    if (nextAppleCount >= goalApples) {
-      const nextApple = getRandomOpenSnakeCell(nextSnake)
+      nextApple = getFreshSnakeOpenCell(nextSnake)
       appleRef.current = nextApple
       setApple(nextApple)
-      void finishGame()
-      return
-    }
 
-    const nextApple = getRandomOpenSnakeCell(nextSnake)
-    appleRef.current = nextApple
-    setApple(nextApple)
-  }
-
-  function handleDirectionalInput(nextDirection) {
-    if (!nextDirection) return
-    if (phaseRef.current !== 'playing' && phaseRef.current !== 'resume') return
-
-    const currentDirection = directionRef.current
-    if (isOppositeSnakeDirection(nextDirection, currentDirection)) return
-
-    directionRef.current = nextDirection
-    setDirection(nextDirection)
-
-    if (phaseRef.current === 'resume') {
-      setCurrentQuestion(null)
-      setCurrentOptions([])
-      setQuestionFeedback(null)
-      setPhase('playing')
-    }
-  }
-
-  useEffect(() => {
-    if (phase === 'playing' || phase === 'resume') {
-      startBackgroundMusic('snake', musicEnabled)
-    } else {
-      stopBackgroundMusic()
-    }
-
-    return () => {
-      if (phase === 'playing' || phase === 'resume') {
-        stopBackgroundMusic()
-      }
-    }
-  }, [phase, musicEnabled])
-
-  useEffect(() => {
-    if (phase !== 'playing') return undefined
-
-    const speed = Math.max(90, SNAKE_BASE_SPEED_MS - applesEaten * 4)
-    const intervalId = window.setInterval(() => {
-      moveSnakeStep()
-    }, speed)
-
-    return () => {
-      window.clearInterval(intervalId)
-    }
-  }, [phase, applesEaten, soundEnabled])
-
-  function handlePauseResume() {
-    if (phase === 'playing') {
-      setPhase('paused')
-      showSnakeToast('Game paused.', 'info')
-      playSound('transition', soundEnabled)
-      return
-    }
-
-    if (phase === 'paused') {
-      setPhase('playing')
-      showSnakeToast('Back to game.', 'success')
-      playSound('start', soundEnabled)
-    }
-  }
-
-  useEffect(() => {
-    function handleKeyDown(event) {
-      const nextDirection = getSnakeDirectionFromKey(event.key)
-
-      if (nextDirection) {
-        event.preventDefault()
-        handleDirectionalInput(nextDirection)
+      if (nextApples >= goalApples) {
+        snakeRef.current = nextSnake
+        directionRef.current = nextDirection
+        queuedDirectionRef.current = nextDirection
+        setSnake(nextSnake)
+        setDirection(nextDirection)
+        void finishSnakeSession({
+          attemptStatus: 'completed',
+          saveMessage: 'Saving PLUS result...',
+          successMessage: 'PLUS result saved.',
+        })
         return
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+    snakeRef.current = nextSnake
+    directionRef.current = nextDirection
+    queuedDirectionRef.current = nextDirection
+    setSnake(nextSnake)
+    setDirection(nextDirection)
+  }
+
+  function handleQuestionAnswer(choiceValue) {
+    if (!questionRound || statusRef.current !== 'question') return
+
+    const expected = String(questionRound.answer).trim().toLowerCase()
+    const selected = String(choiceValue).trim().toLowerCase()
+
+    if (selected === expected) {
+      playSound('coin', soundEnabledRef.current)
+      setQuestionResult('correct')
+      setQuestionRound(null)
+      setExtraLives((previous) => {
+        const nextLives = previous + 1
+        extraLivesRef.current = nextLives
+        return nextLives
+      })
+      setStatus('ready')
+      setStatusMessage('Correct. +1 life earned. Pick a direction to continue.')
+      return
+    }
+
+    playSound('bump', soundEnabledRef.current)
+    setQuestionResult('wrong')
+    setStatusMessage('Wrong answer. Restarting from zero...')
+    clearQuestionResetTimer()
+    questionResetTimerRef.current = window.setTimeout(() => {
+      resetRunFromZero({ countRestart: true, announce: 'Wrong answer. New run from zero.' })
+    }, 760)
+  }
 
   async function handleFullscreenToggle() {
     if (document.fullscreenElement) {
@@ -7293,169 +7081,103 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     await enterFullscreenMode()
   }
 
-  function handleQuestionGuess(guessedValue) {
-    if (!currentQuestion || phase !== 'question') return
-    if (questionFeedback) return
+  function handleExitClick() {
+    if (statusRef.current === 'saving') return
 
-    if (guessedValue === currentQuestion.answer) {
-      playSound('coin', soundEnabled)
-      showSnakeToast('Great answer, choose direction to continue.', 'success')
-      setQuestionFeedback('correct')
-      setPhase('resume')
+    const hasProgress =
+      applesEatenRef.current > 0 || collisionCountRef.current > 0 || restartCountRef.current > 0
+
+    if (!hasProgress) {
+      void (async () => {
+        await exitFullscreenMode()
+        onBack()
+      })()
       return
     }
 
-    playSound('bump', soundEnabled)
-    showSnakeToast('Not this time. Restarting from countdown.', 'warn')
-    setQuestionFeedback('incorrect')
-    const nextRestartCount = restartCountRef.current + 1
-    restartCountRef.current = nextRestartCount
-    setRestartCount(nextRestartCount)
-    const nextReviewExercises = mergeExerciseRecords(
-      reviewExercisesRef.current,
-      [fullTestRecordFromQuestion(currentQuestion)],
-    )
-    reviewExercisesRef.current = nextReviewExercises
-    setReviewExercises(nextReviewExercises)
-    setPhase('restart')
-  }
-
-  function handleResumeWithDirection(nextDirection) {
-    handleDirectionalInput(nextDirection)
-  }
-
-  function handleRestartRun() {
-    setCurrentQuestion(null)
-    setCurrentOptions([])
-    setQuestionFeedback(null)
-    currentAppleStreakRef.current = 0
-    setCurrentAppleStreak(0)
-    resetSnakeBoard({ phase: 'countdown' })
-    beginCountdown()
-  }
-
-  function handleLeaveGame() {
-    if (saveStatus === 'saving') return
-
-    const confirmed = window.confirm('Save your current Snake progress and leave the game?')
+    const confirmed = window.confirm('Save this run and exit to dashboard?')
     if (!confirmed) return
 
-    void saveSnakeRun({
+    void finishSnakeSession({
       attemptStatus: 'abandoned',
-      destination: 'dashboard',
-      showFinishedScreen: false,
-      playWinSound: false,
-      saveMessage: 'Saving your Snake progress...',
-      successMessage: () => 'Progress saved. Returning to home...',
+      saveMessage: 'Saving partial progress...',
+      successMessage: 'Partial progress saved.',
     })
   }
 
-  function handleBackToHome() {
+  function handleBackFromResults() {
     void (async () => {
-      clearTimers()
       await exitFullscreenMode()
-      stopBackgroundMusic()
       onBack()
     })()
   }
 
-  if (phase === 'finished') {
+  if (status === 'finished') {
     const summary = lastResult ?? {
       totalScore: 0,
       maxScore: 100,
       percentage: 0,
-      grade: 'PLUS',
-      applesGoal: goalApples,
-      applesEaten: applesEaten,
-      bestAppleStreak,
-      collisionQuestionCount,
-      restartCount,
-      reviewExercises,
+      grade: 'F',
+      applesEaten: 0,
+      bestAppleStreak: 0,
+      extraLives: 0,
+      collisionQuestionCount: 0,
+      restartCount: 0,
+      attemptStatus: 'abandoned',
     }
-    const gradeInfo = getGrade(summary.percentage)
-    const reviewList = summary.reviewExercises ?? []
+    const completed = summary.attemptStatus === 'completed'
 
     return (
-      <section className={`game-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
-        <div className="results-card">
-          <div className={`results-trophy ${gradeInfo.color}`}>
-            <Gamepad2 size={34} />
+      <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="neo-snake-results">
+          <div className={`neo-result-badge ${completed ? 'is-plus' : 'is-partial'}`}>
+            {completed ? <Trophy size={38} /> : <CircleAlert size={38} />}
           </div>
-          <h1 className={`results-grade ${gradeInfo.color}`}>{summary.grade}</h1>
-          <p className="results-message">
-            Snake cleared. You reached the 10-apple goal and earned a PLUS result.
-          </p>
+          <h1>{summary.grade}</h1>
+          <p>{completed ? 'Goal reached. Great run.' : 'Run saved before completion.'}</p>
 
-          <div className="story-result-chip">
-            <Gamepad2 size={14} />
-            <span>Games · Snake</span>
-          </div>
-
-          <div className="score-panel">
-            <div className="score-labels">
-              <span>Final score</span>
+          <div className="neo-result-score">
+            <div>
+              <span>Score</span>
               <strong>
-                {summary.totalScore} / {summary.maxScore} pts
+                {summary.totalScore} / {summary.maxScore}
               </strong>
             </div>
             <div className="progress-track large">
               <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
             </div>
-            <div className="score-meta">
-              <span>{summary.percentage}%</span>
-              <span>
-                Best streak: {summary.bestAppleStreak ?? 0} apples · {summary.collisionQuestionCount} collision questions · {summary.restartCount} restarts
-              </span>
+            <small>{summary.percentage}%</small>
+          </div>
+
+          <div className="neo-result-grid">
+            <div>
+              <span>Apples</span>
+              <strong>{summary.applesEaten}</strong>
+            </div>
+            <div>
+              <span>Best streak</span>
+              <strong>{summary.bestAppleStreak}</strong>
+            </div>
+            <div>
+              <span>Extra lives</span>
+              <strong>{summary.extraLives}</strong>
+            </div>
+            <div>
+              <span>Crash questions</span>
+              <strong>{summary.collisionQuestionCount}</strong>
             </div>
           </div>
 
-          <div className="study-panels">
-            <div className="study-card">
-              <div className="study-card-header">
-                <BookOpen size={16} />
-                <h3>Questions to review</h3>
-              </div>
-              {reviewList.length === 0 ? (
-                <p className="study-empty">Excellent: there were no failed collision questions.</p>
-              ) : (
-                <div className="exercise-tags">
-                  {reviewList.map((item) => (
-                    <span key={item.key} className="exercise-tag review-long">
-                      {item.label}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div
-            className={`banner ${
-              saveStatus === 'saved'
-                ? 'success'
-                : saveStatus === 'error'
-                  ? 'error'
-                  : 'info'
-            }`}
-          >
-            {saveStatus === 'saved' ? (
-              <CheckCircle2 size={16} />
-            ) : saveStatus === 'error' ? (
-              <CircleAlert size={16} />
-            ) : (
-              <Clock3 size={16} />
-            )}
-            <span>{saveMessage || 'Result ready.'}</span>
-          </div>
+          <p className={`save-status ${saveStatus === 'error' ? 'is-error' : ''}`}>{saveMessage}</p>
 
           <div className="results-actions">
-            <button type="button" className="btn btn-primary" onClick={startGame}>
+            <button type="button" className="btn btn-primary" onClick={() => startFreshSnakeSession()}>
               <RotateCcw size={16} />
-              <span>Play Snake again</span>
+              <span>Play again</span>
             </button>
-            <button type="button" className="btn btn-ghost" onClick={handleBackToHome}>
+            <button type="button" className="btn btn-ghost" onClick={handleBackFromResults}>
               <ArrowLeft size={16} />
-              <span>Back to dashboard</span>
+              <span>Back home</span>
             </button>
           </div>
         </div>
@@ -7463,14 +7185,14 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     )
   }
 
-  const snakeCells = []
-  const snakeCellMap = new Map(snake.map((cell, index) => [`${cell.x},${cell.y}`, index]))
+  const boardCells = []
+  const snakeMap = new Map(snake.map((cell, index) => [`${cell.x},${cell.y}`, index]))
 
-  for (let y = 0; y < SNAKE_BOARD_SIZE; y += 1) {
-    for (let x = 0; x < SNAKE_BOARD_SIZE; x += 1) {
+  for (let y = 0; y < SNAKE_FRESH_BOARD_SIZE; y += 1) {
+    for (let x = 0; x < SNAKE_FRESH_BOARD_SIZE; x += 1) {
       const key = `${x},${y}`
-      const snakeIndex = snakeCellMap.get(key)
-      snakeCells.push({
+      const snakeIndex = snakeMap.get(key)
+      boardCells.push({
         key,
         isHead: snakeIndex === 0,
         isBody: typeof snakeIndex === 'number' && snakeIndex > 0,
@@ -7480,403 +7202,145 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }
 
   return (
-    <section
-      ref={shellRef}
-      className={`game-shell snake-shell ${isFullscreen ? 'is-fullscreen' : ''} ${isMobileConsole ? 'is-mobile-console' : ''} ${isGameboyMode ? 'is-gameboy-mode' : ''}`}
-    >
-      <CoinBurst visible={showCoinAnimation} />
+    <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <div className="neo-snake-topbar">
+        <button type="button" className="btn btn-ghost" onClick={handleExitClick} disabled={saveStatus === 'saving'}>
+          <ArrowLeft size={16} />
+          <span>Exit</span>
+        </button>
 
-      <div ref={topbarRef} className="game-topbar">
-        <div className="hud-pill">
-          <span className="hud-label">Apples</span>
-          <strong>
-            {String(applesEaten).padStart(2, '0')} / {String(goalApples).padStart(2, '0')}
-          </strong>
-        </div>
-
-        <div className="hud-progress">
-          <div className="hud-row">
-            <span>Hello, {studentName || 'Student'}</span>
-            <span>{Math.round((applesEaten / goalApples) * 100)}%</span>
-          </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${(applesEaten / goalApples) * 100}%` }} />
-          </div>
+        <div className="neo-snake-title">
+          <strong>Snake Crash Quiz</strong>
           <small>
-            Games · Snake · Reach {goalApples} apples. Crash questions: {collisionQuestionCount}
+            Hi {studentName || 'Student'} · Goal {goalApples} apples
           </small>
-          <TestLeaderboardChip topRecord={topTestRecord} />
         </div>
 
-        <div className="hud-actions">
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={handlePauseResume}
-            disabled={phase === 'countdown' || phase === 'question' || phase === 'restart' || phase === 'resume'}
-            title={phase === 'paused' ? 'Resume game' : 'Pause game'}
-          >
-            <span>{phase === 'paused' ? 'Resume' : 'Pause'}</span>
+        <div className="neo-snake-top-actions">
+          <button type="button" className="btn btn-ghost icon-only" onClick={() => setSoundEnabled((value) => !value)}>
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
-          <button
-            type="button"
-            className="btn btn-ghost icon-only"
-            onClick={() => void handleFullscreenToggle()}
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost icon-only"
-            onClick={() => setSoundEnabled((value) => !value)}
-            aria-label={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-            title={soundEnabled ? 'Mute sounds' : 'Enable sounds'}
-          >
-            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => setMusicEnabled((value) => !value)}
-            aria-label={musicEnabled ? 'Turn music off' : 'Turn music on'}
-            title={musicEnabled ? 'Turn music off' : 'Turn music on'}
-          >
+          <button type="button" className="btn btn-ghost" onClick={() => setMusicEnabled((value) => !value)}>
             <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
           </button>
-          <button
-            type="button"
-            className="btn btn-danger-soft"
-            onClick={handleLeaveGame}
-            disabled={saveStatus === 'saving'}
-            title="Save progress and leave Snake"
-          >
-            <ArrowLeft size={16} />
-            <span>Save and leave</span>
+          <button type="button" className="btn btn-ghost icon-only" onClick={() => void handleFullscreenToggle()}>
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
         </div>
       </div>
 
-      <div className="game-board snake-layout">
-        <div ref={stageCardRef} className="snake-stage-card">
-          {showOnboarding && (
-            <div className="snake-onboarding-card" role="status" aria-live="polite">
-              <div>
-                <strong>Quick start</strong>
-                <small>Goal: eat {goalApples} apples. Move with arrows or WASD. If you crash, answer to continue.</small>
-              </div>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowOnboarding(false)}>
-                Got it
-              </button>
+      <div className="neo-snake-layout">
+        <aside className="neo-snake-side">
+          <div className="neo-snake-side-card">
+            <span>Progress</span>
+            <strong>
+              {applesEaten}/{goalApples}
+            </strong>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
             </div>
-          )}
-
-          {snakeToast && (
-            <div className={`snake-toast snake-toast-${snakeToast.tone}`} role="status" aria-live="polite">
-              {snakeToast.message}
-            </div>
-          )}
-
-          <div ref={stageHeaderRef} className="snake-stage-header">
-            <div>
-              <strong>Snake</strong>
-              <small>
-                {usesTouchControls
-                  ? 'Use the on-screen controls below to move.'
-                  : 'Use arrow keys or WASD to move.'}
-              </small>
-            </div>
-            <span className="badge badge-live">Goal: {goalApples} apples</span>
+            <small>{progressPercent}% complete</small>
           </div>
 
-          <div className="snake-board-stage">
-            <div
-              className="snake-grid"
-              role="img"
-              aria-label="Snake board"
-              style={usesTouchControls && mobileBoardSize ? { width: `${mobileBoardSize}px`, height: `${mobileBoardSize}px` } : undefined}
-            >
-              {snakeCells.map((cell) => (
+          <div className="neo-snake-side-card">
+            <span>Run stats</span>
+            <strong>{bestAppleStreak} best streak</strong>
+            <small>{collisionCount} crash questions</small>
+            <small>{restartCount} restarts</small>
+            <small>{extraLives} extra lives</small>
+            <small>{getFreshSnakeDirectionLabel(direction)} direction</small>
+            <small>{gameSpeedMs}ms speed</small>
+          </div>
+
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </aside>
+
+        <div className="neo-snake-main">
+          <div className="neo-snake-status">{statusMessage}</div>
+
+          <div className="neo-snake-board-wrap" role="img" aria-label="Snake game board">
+            <div className="neo-snake-board">
+              {boardCells.map((cell) => (
                 <div
                   key={cell.key}
-                  className={`snake-cell ${cell.isHead ? 'is-head' : ''} ${cell.isBody ? 'is-body' : ''} ${cell.isApple ? 'is-apple' : ''}`}
+                  className={`neo-snake-cell ${cell.isHead ? 'is-head' : ''} ${cell.isBody ? 'is-body' : ''} ${cell.isApple ? 'is-apple' : ''}`}
                 />
               ))}
             </div>
 
-            {(phase === 'question' || phase === 'resume' || phase === 'restart') && (
-              <div className="snake-overlay">
-                <div className="snake-overlay-card">
-                  {phase === 'question' && currentQuestion && (
-                    <>
-                      <div className="snake-overlay-header">
-                        <div>
-                          <small>Crash challenge</small>
-                          <h3>{currentQuestion.sourceLabel}</h3>
-                        </div>
-                        <span className="badge badge-live">Answer to continue</span>
-                      </div>
-                      {currentQuestion.context && <p className="snake-context">{currentQuestion.context}</p>}
-                      <p className="snake-prompt">{currentQuestion.prompt}</p>
-                      <div className="answers-grid">
-                        {currentOptions.map((option, index) => (
-                          <button
-                            key={`${currentQuestion.id}_${index}`}
-                            type="button"
-                            className={`answer-btn answer-text ${option.isHidden ? 'is-hidden' : ''}`}
-                            disabled={Boolean(questionFeedback)}
-                            onClick={() => handleQuestionGuess(option.value)}
-                          >
-                            {option.value}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
+            {status === 'countdown' && (
+              <div className="neo-snake-overlay">
+                <div className="neo-snake-overlay-card">
+                  <small>Starting in</small>
+                  <strong>{countdown}</strong>
+                </div>
+              </div>
+            )}
 
-                  {phase === 'resume' && (
-                    <>
-                      <div className="snake-overlay-header">
-                        <div>
-                          <small>Correct answer</small>
-                          <h3>Choose the next direction</h3>
-                        </div>
-                        <span className="badge badge-live">Direction required</span>
-                      </div>
-                      <p className="snake-prompt">
-                        You can keep playing from the same place, but the snake will not move until you choose the direction to continue.
-                      </p>
-                      <div className="snake-resume-row">
-                        <span className="snake-direction-pill">Current direction: {getSnakeDirectionLabel(direction)}</span>
-                      </div>
-                      <div className="snake-direction-grid">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('up')}
-                          disabled={isOppositeSnakeDirection('up', direction)}
-                        >
-                          <span>Up</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('left')}
-                          disabled={isOppositeSnakeDirection('left', direction)}
-                        >
-                          <span>Left</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('right')}
-                          disabled={isOppositeSnakeDirection('right', direction)}
-                        >
-                          <span>Right</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => handleResumeWithDirection('down')}
-                          disabled={isOppositeSnakeDirection('down', direction)}
-                        >
-                          <span>Down</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
+            {status === 'ready' && (
+              <div className="neo-snake-overlay">
+                <div className="neo-snake-overlay-card">
+                  <small>Ready</small>
+                  <strong>Choose a direction</strong>
+                </div>
+              </div>
+            )}
 
-                  {phase === 'restart' && (
-                    <>
-                      <div className="snake-overlay-header">
-                        <div>
-                          <small>Wrong answer</small>
-                          <h3>Restart from zero apples</h3>
-                        </div>
-                        <span className="badge badge-soon">Run reset</span>
-                      </div>
-                      <p className="snake-prompt">
-                        That answer was not correct. The snake must restart from the beginning before reaching {goalApples} apples.
-                      </p>
-                      <button type="button" className="btn btn-primary" onClick={handleRestartRun}>
-                        <RotateCcw size={16} />
-                        <span>Restart run</span>
+            {status === 'question' && questionRound && (
+              <div className="neo-snake-overlay">
+                <div className="neo-snake-overlay-card is-question">
+                  <small>{questionRound.sourceLabel}</small>
+                  {questionRound.context ? <p>{questionRound.context}</p> : null}
+                  <h3>{questionRound.prompt}</h3>
+                  <div className="neo-snake-question-grid">
+                    {questionRound.options.map((option, index) => (
+                      <button
+                        key={`${questionRound.id}_${index}`}
+                        type="button"
+                        className="answer-btn answer-text"
+                        onClick={() => handleQuestionAnswer(option)}
+                        disabled={Boolean(questionResult)}
+                      >
+                        {option}
                       </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {phase === 'paused' && (
-              <div className="snake-overlay">
-                <div className="snake-overlay-card">
-                  <div className="snake-overlay-header">
-                    <div>
-                      <small>Paused</small>
-                      <h3>Take a breath, then continue</h3>
-                    </div>
-                    <span className="badge badge-live">Ready when you are</span>
+                    ))}
                   </div>
-                  <p className="snake-prompt">Press Resume to keep your run with the same score and position.</p>
-                  <button type="button" className="btn btn-primary" onClick={handlePauseResume}>
-                    Resume
-                  </button>
+                  {questionResult === 'wrong' ? <small className="error-copy">Wrong answer. Restarting...</small> : null}
                 </div>
               </div>
             )}
 
-            {phase === 'countdown' && (
-              <div className="snake-overlay snake-countdown-overlay" aria-live="assertive">
-                <div className="snake-countdown-card">
-                  <small>Get ready</small>
-                  <strong>{countdownValue}</strong>
+            {status === 'saving' && (
+              <div className="neo-snake-overlay">
+                <div className="neo-snake-overlay-card">
+                  <small>{saveMessage || 'Saving...'}</small>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="snake-console-footer" aria-hidden="true">
-            <span>JOY BOY</span>
-            <small>Arcade learning mode</small>
-          </div>
-        </div>
-
-        <div className="snake-side-panel">
-          <div className="story-card">
-            <div className="story-card-header">
-              <div className="story-card-title">
-                <Gamepad2 size={18} />
-                <div>
-                  <small>Arcade rules</small>
-                  <h3>How this works</h3>
-                </div>
-              </div>
-            </div>
-            <div className="story-card-body">
-              <p>Eat {goalApples} apples to win.</p>
-              <p>Every crash opens one mixed question from the Full Test pool.</p>
-              <p>If you answer correctly, you continue from the same board position.</p>
-              <p>If you answer incorrectly, the snake restarts from zero apples.</p>
-            </div>
-          </div>
-
-          <div className="study-card">
-            <div className="study-card-header">
-              <Trophy size={16} />
-              <h3>Run stats</h3>
-            </div>
-            <div className="snake-stats">
-              <div className="snake-stat-item">
-                <span>Apples eaten</span>
-                <strong>{applesEaten}</strong>
-              </div>
-              <div className="snake-stat-item">
-                <span>Best streak</span>
-                <strong>{bestAppleStreak}</strong>
-              </div>
-              <div className="snake-stat-item">
-                <span>Current streak</span>
-                <strong>{currentAppleStreak}</strong>
-              </div>
-              <div className="snake-stat-item">
-                <span>Collision questions</span>
-                <strong>{collisionQuestionCount}</strong>
-              </div>
-              <div className="snake-stat-item">
-                <span>Restarts</span>
-                <strong>{restartCount}</strong>
-              </div>
-              <div className="snake-stat-item">
-                <span>Direction</span>
-                <strong>{getSnakeDirectionLabel(direction)}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div ref={controlsRef} className="snake-mobile-controls" aria-label="Snake touch controls">
-          <div className="snake-mobile-controls-header">
-            <strong>Game controls</strong>
-            <span>{phase === 'resume' ? 'Choose a direction to continue' : 'Tap to steer'}</span>
-          </div>
-
-          <div className="snake-mobile-controls-pad">
-            <div className="snake-mobile-dpad">
-              <button
-                type="button"
-                className="snake-mobile-btn up"
-                onClick={() => handleDirectionalInput('up')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('up', direction)}
-                aria-label="Move up"
-              >
-                <ArrowUp size={22} />
-              </button>
-              <button
-                type="button"
-                className="snake-mobile-btn left"
-                onClick={() => handleDirectionalInput('left')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('left', direction)}
-                aria-label="Move left"
-              >
-                <ArrowLeft size={22} />
-              </button>
-              <button
-                type="button"
-                className="snake-mobile-btn center"
-                disabled
-                aria-hidden="true"
-              >
-                <span>+</span>
-              </button>
-              <button
-                type="button"
-                className="snake-mobile-btn right"
-                onClick={() => handleDirectionalInput('right')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('right', direction)}
-                aria-label="Move right"
-              >
-                <ArrowRight size={22} />
-              </button>
-              <button
-                type="button"
-                className="snake-mobile-btn down"
-                onClick={() => handleDirectionalInput('down')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('down', direction)}
-                aria-label="Move down"
-              >
-                <ArrowDown size={22} />
-              </button>
-            </div>
-
-            <div className="snake-mobile-action-buttons" aria-label="Gameboy action buttons">
-              <button
-                type="button"
-                className="snake-action-btn action-a"
-                onClick={() => handleDirectionalInput('right')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('right', direction)}
-                aria-label="Action A move right"
-              >
-                A
-              </button>
-              <button
-                type="button"
-                className="snake-action-btn action-b"
-                onClick={() => handleDirectionalInput('left')}
-                disabled={phase === 'question' || phase === 'restart' || isOppositeSnakeDirection('left', direction)}
-                aria-label="Action B move left"
-              >
-                B
-              </button>
-            </div>
+          <div className="neo-snake-controls" aria-label="Snake controls">
+            <button type="button" className="neo-control up" onClick={() => handleDirectionInput('up')}>
+              <ArrowUp size={20} />
+            </button>
+            <button type="button" className="neo-control left" onClick={() => handleDirectionInput('left')}>
+              <ArrowLeft size={20} />
+            </button>
+            <button type="button" className="neo-control center" onClick={() => startFreshSnakeSession()}>
+              <RotateCcw size={18} />
+            </button>
+            <button type="button" className="neo-control right" onClick={() => handleDirectionInput('right')}>
+              <ArrowRight size={20} />
+            </button>
+            <button type="button" className="neo-control down" onClick={() => handleDirectionInput('down')}>
+              <ArrowDown size={20} />
+            </button>
           </div>
         </div>
       </div>
     </section>
   )
 }
-
 function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const questionCount = FULL_TEST_QUESTION_COUNT
 
