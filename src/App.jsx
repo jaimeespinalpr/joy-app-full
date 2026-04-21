@@ -757,13 +757,15 @@ const SNAKE_FRESH_GOAL_APPLES = 10
 const SNAKE_FRESH_START_SPEED_MS = 190
 const SNAKE_FRESH_MIN_SPEED_MS = 96
 const SNAKE_FRESH_SPEED_STEP_MS = 7
+const SNAKE_FRESH_FAST_TURN_FACTOR = 0.36
+const SNAKE_FRESH_FAST_TURN_MIN_MS = 24
 const SNAKE_FRESH_DIRECTION_VECTORS = {
   up: { x: 0, y: -1 },
   down: { x: 0, y: 1 },
   left: { x: -1, y: 0 },
   right: { x: 1, y: 0 },
 }
-const SNAKE_FRESH_MUSIC_NOTES = [261.63, 329.63, 392, 523.25, 392, 329.63, 440, 659.25]
+const SNAKE_FRESH_MUSIC_MP3 = '/audio/snake-neon-loop.mp3'
 
 const SPELLING_TEST_CONFIGS = {
   'spelling-spanish': {
@@ -1095,33 +1097,6 @@ function playSound(type, enabled) {
     }
   } catch (error) {
     console.warn('Could not play sound:', error)
-  }
-}
-
-function playMusicNote(frequency, startOffsetMs = 0, durationMs = 170, options = {}) {
-  if (!frequency) return
-  if (masterAudioMuted || masterAudioVolume <= 0) return
-  if (!initAudio()) return
-
-  try {
-    const osc = audioCtx.createOscillator()
-    const gainNode = audioCtx.createGain()
-    const now = audioCtx.currentTime + startOffsetMs / 1000
-    const duration = durationMs / 1000
-
-    osc.connect(gainNode)
-    gainNode.connect(audioCtx.destination)
-
-    osc.type = options.type ?? 'triangle'
-    osc.frequency.setValueAtTime(frequency, now)
-    gainNode.gain.setValueAtTime(0.001, now)
-    gainNode.gain.linearRampToValueAtTime((options.volume ?? 0.035) * masterAudioVolume, now + 0.02)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration)
-
-    osc.start(now)
-    osc.stop(now + duration + 0.03)
-  } catch (error) {
-    console.warn('Could not play music note:', error)
   }
 }
 
@@ -6595,13 +6570,16 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const questionDeckRef = useRef([])
   const autoStartRef = useRef(false)
   const finishInProgressRef = useRef(false)
-  const loopTimerRef = useRef(null)
+  const animationFrameRef = useRef(null)
+  const frameLastTimeRef = useRef(0)
+  const frameAccumulatorRef = useRef(0)
+  const lastStepAtRef = useRef(0)
+  const lastInputAtRef = useRef(0)
+  const lastInputDirectionRef = useRef('')
   const countdownTimerRef = useRef(null)
   const questionResetTimerRef = useRef(null)
-  const musicTimerRef = useRef(null)
-  const musicStepRef = useRef(0)
+  const musicAudioRef = useRef(null)
   const soundEnabledRef = useRef(true)
-  const musicEnabledRef = useRef(true)
 
   const [snake, setSnake] = useState(() => snakeRef.current)
   const [apple, setApple] = useState(() => appleRef.current)
@@ -6639,10 +6617,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   }, [soundEnabled])
 
   useEffect(() => {
-    musicEnabledRef.current = musicEnabled
-  }, [musicEnabled])
-
-  useEffect(() => {
     function syncFullscreen() {
       setIsFullscreen(Boolean(document.fullscreenElement))
     }
@@ -6665,6 +6639,22 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     }
   }, [])
 
+  useEffect(() => {
+    const track = new Audio(SNAKE_FRESH_MUSIC_MP3)
+    track.loop = true
+    track.preload = 'auto'
+    track.volume = 0.3
+    musicAudioRef.current = track
+
+    return () => {
+      track.pause()
+      track.src = ''
+      if (musicAudioRef.current === track) {
+        musicAudioRef.current = null
+      }
+    }
+  }, [])
+
   useLayoutEffect(() => {
     if (autoStartRef.current) return
     autoStartRef.current = true
@@ -6676,26 +6666,65 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     if (status !== 'running') return undefined
 
-    loopTimerRef.current = window.setInterval(() => {
-      stepSnake()
-    }, gameSpeedMs)
+    const animate = (timestamp) => {
+      if (statusRef.current !== 'running') return
+
+      if (!frameLastTimeRef.current) {
+        frameLastTimeRef.current = timestamp
+      }
+
+      const delta = Math.min(64, timestamp - frameLastTimeRef.current)
+      frameLastTimeRef.current = timestamp
+      frameAccumulatorRef.current += delta
+
+      while (frameAccumulatorRef.current >= gameSpeedMs) {
+        stepSnake()
+        frameAccumulatorRef.current -= gameSpeedMs
+
+        if (statusRef.current !== 'running') {
+          frameAccumulatorRef.current = 0
+          break
+        }
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(animate)
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(animate)
 
     return () => clearLoopTimer()
   }, [status, gameSpeedMs])
 
   useEffect(() => {
-    stopMusicLoop()
-    if (status === 'running' && musicEnabled) {
-      playMusicTick()
+    const musicTrack = musicAudioRef.current
+    if (!musicTrack) return
+
+    const shouldPlay =
+      status === 'running' &&
+      musicEnabled &&
+      !masterAudioMuted &&
+      masterAudioVolume > 0
+
+    musicTrack.volume = Math.max(0.06, Math.min(0.74, 0.4 * masterAudioVolume))
+    musicTrack.playbackRate = Math.max(0.86, Math.min(1.45, 0.96 + applesEaten * 0.018))
+
+    if (shouldPlay) {
+      const playPromise = musicTrack.play()
+      if (playPromise?.catch) {
+        playPromise.catch(() => {})
+      }
+    } else {
+      musicTrack.pause()
     }
-    return () => stopMusicLoop()
-  }, [status, musicEnabled])
+  }, [status, musicEnabled, applesEaten])
 
   function clearLoopTimer() {
-    if (loopTimerRef.current) {
-      window.clearInterval(loopTimerRef.current)
-      loopTimerRef.current = null
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
     }
+    frameLastTimeRef.current = 0
+    frameAccumulatorRef.current = 0
   }
 
   function clearCountdownTimer() {
@@ -6712,10 +6741,13 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     }
   }
 
-  function stopMusicLoop() {
-    if (musicTimerRef.current) {
-      window.clearTimeout(musicTimerRef.current)
-      musicTimerRef.current = null
+  function stopMusicTrack(resetPosition = false) {
+    const musicTrack = musicAudioRef.current
+    if (!musicTrack) return
+
+    musicTrack.pause()
+    if (resetPosition) {
+      musicTrack.currentTime = 0
     }
   }
 
@@ -6723,7 +6755,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     clearLoopTimer()
     clearCountdownTimer()
     clearQuestionResetTimer()
-    stopMusicLoop()
+    stopMusicTrack()
   }
 
   function refillQuestionDeck(minimum = 8) {
@@ -6827,6 +6859,7 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
   function startFreshSnakeSession({ playStartSound = true } = {}) {
     clearAllTimers()
+    stopMusicTrack(true)
     finishInProgressRef.current = false
 
     if (playStartSound) {
@@ -6837,7 +6870,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     questionDeckRef.current = []
     refillQuestionDeck(12)
-    musicStepRef.current = 0
     bestAppleStreakRef.current = 0
     collisionCountRef.current = 0
     restartCountRef.current = 0
@@ -6852,26 +6884,6 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     setSaveMessage('')
 
     resetRunFromZero({ countRestart: false, announce: 'New game. Reach 10 apples.' })
-  }
-
-  function playMusicTick() {
-    if (statusRef.current !== 'running') return
-    if (!musicEnabledRef.current) return
-
-    const noteIndex = musicStepRef.current % SNAKE_FRESH_MUSIC_NOTES.length
-    const frequency = SNAKE_FRESH_MUSIC_NOTES[noteIndex]
-    const stepMs = Math.max(88, 220 - applesEatenRef.current * 6)
-    const volume = Math.min(0.07, 0.03 + applesEatenRef.current * 0.002)
-
-    playMusicNote(frequency, 0, Math.max(70, stepMs - 25), { type: 'square', volume })
-    if (noteIndex % 4 === 0) {
-      playMusicNote(frequency / 2, 22, Math.max(50, stepMs - 55), { type: 'sine', volume: volume * 0.6 })
-    }
-
-    musicStepRef.current += 1
-    musicTimerRef.current = window.setTimeout(() => {
-      playMusicTick()
-    }, stepMs)
   }
 
   async function finishSnakeSession(options = {}) {
@@ -6940,6 +6952,15 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
   function handleDirectionInput(nextDirection) {
     if (!nextDirection) return
+    const now = window.performance?.now?.() ?? Date.now()
+    if (
+      lastInputDirectionRef.current === nextDirection &&
+      now - lastInputAtRef.current < 45
+    ) {
+      return
+    }
+    lastInputDirectionRef.current = nextDirection
+    lastInputAtRef.current = now
 
     const currentStatus = statusRef.current
     if (currentStatus === 'question' || currentStatus === 'saving' || currentStatus === 'finished') return
@@ -6955,6 +6976,25 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
       setDirection(nextDirection)
       setStatus('running')
       setStatusMessage('')
+      lastStepAtRef.current = now
+
+      const musicTrack = musicAudioRef.current
+      if (musicTrack && musicEnabled && !masterAudioMuted && masterAudioVolume > 0) {
+        musicTrack.volume = Math.max(0.06, Math.min(0.74, 0.4 * masterAudioVolume))
+        musicTrack.playbackRate = Math.max(0.86, Math.min(1.45, 0.96 + applesEatenRef.current * 0.018))
+        const playPromise = musicTrack.play()
+        if (playPromise?.catch) {
+          playPromise.catch(() => {})
+        }
+      }
+      return
+    }
+
+    if (currentStatus === 'running') {
+      const minGap = Math.max(SNAKE_FRESH_FAST_TURN_MIN_MS, gameSpeedMs * SNAKE_FRESH_FAST_TURN_FACTOR)
+      if (now - lastStepAtRef.current >= minGap) {
+        stepSnake()
+      }
     }
   }
 
@@ -6963,6 +7003,8 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
 
     const currentSnake = snakeRef.current
     if (!currentSnake.length) return
+
+    lastStepAtRef.current = window.performance?.now?.() ?? Date.now()
 
     const currentDirection = directionRef.current
     const wantedDirection = queuedDirectionRef.current || currentDirection
@@ -7320,19 +7362,55 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
           </div>
 
           <div className="neo-snake-controls" aria-label="Snake controls">
-            <button type="button" className="neo-control up" onClick={() => handleDirectionInput('up')}>
+            <button
+              type="button"
+              className="neo-control up"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                handleDirectionInput('up')
+              }}
+              onClick={() => handleDirectionInput('up')}
+            >
               <ArrowUp size={20} />
             </button>
-            <button type="button" className="neo-control left" onClick={() => handleDirectionInput('left')}>
+            <button
+              type="button"
+              className="neo-control left"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                handleDirectionInput('left')
+              }}
+              onClick={() => handleDirectionInput('left')}
+            >
               <ArrowLeft size={20} />
             </button>
-            <button type="button" className="neo-control center" onClick={() => startFreshSnakeSession()}>
+            <button
+              type="button"
+              className="neo-control center"
+              onClick={() => startFreshSnakeSession()}
+            >
               <RotateCcw size={18} />
             </button>
-            <button type="button" className="neo-control right" onClick={() => handleDirectionInput('right')}>
+            <button
+              type="button"
+              className="neo-control right"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                handleDirectionInput('right')
+              }}
+              onClick={() => handleDirectionInput('right')}
+            >
               <ArrowRight size={20} />
             </button>
-            <button type="button" className="neo-control down" onClick={() => handleDirectionInput('down')}>
+            <button
+              type="button"
+              className="neo-control down"
+              onPointerDown={(event) => {
+                event.preventDefault()
+                handleDirectionInput('down')
+              }}
+              onClick={() => handleDirectionInput('down')}
+            >
               <ArrowDown size={20} />
             </button>
           </div>
