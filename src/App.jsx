@@ -194,9 +194,27 @@ const FULL_TEST_CARD = {
 }
 
 const GAMES_CARD = {
-  id: 'snake',
+  id: 'games',
   name: 'Games',
-  description: 'Play Snake from zero. Crash = full-test question. Wrong answer restarts, correct answer continues +1 life.',
+  description: 'Open arcade mode and choose a game with crash questions.',
+  available: true,
+  accentClass: 'test-games',
+  icon: Gamepad2,
+}
+
+const SNAKE_GAME_CARD = {
+  id: 'snake',
+  name: 'Snake Crash Quiz',
+  description: 'Classic snake. Crash triggers a quiz question.',
+  available: true,
+  accentClass: 'test-games',
+  icon: Gamepad2,
+}
+
+const CROSS_ROAD_GAME_CARD = {
+  id: 'cross-road',
+  name: 'Cruza o Pierde',
+  description: 'Cross the road and answer a question every time you crash.',
   available: true,
   accentClass: 'test-games',
   icon: Gamepad2,
@@ -766,6 +784,106 @@ const SNAKE_FRESH_DIRECTION_VECTORS = {
   right: { x: 1, y: 0 },
 }
 const SNAKE_FRESH_MUSIC_MP3 = '/audio/snake-neon-loop.mp3'
+const CROSS_ROAD_TILE = 44
+const CROSS_ROAD_COLS = 7
+const CROSS_ROAD_ROWS = 11
+const CROSS_ROAD_WIDTH = CROSS_ROAD_COLS * CROSS_ROAD_TILE
+const CROSS_ROAD_HEIGHT = CROSS_ROAD_ROWS * CROSS_ROAD_TILE
+const CROSS_ROAD_HUD_HEIGHT = 76
+const CROSS_ROAD_GOAL_LEVEL = 4
+const CROSS_ROAD_COUNTDOWN_STEPS = ['3', '2', '1', 'GO']
+const CROSS_ROAD_MESSAGES = [
+  'Look both ways.',
+  'That was close.',
+  'Stay focused and keep moving.',
+  'Crash quiz triggered.',
+]
+const CROSS_ROAD_LANES = [
+  { row: 2, dir: 1, speed: 1.28, gap: 220, type: 'car' },
+  { row: 3, dir: -1, speed: 1.52, gap: 248, type: 'taxi' },
+  { row: 4, dir: 1, speed: 1.15, gap: 286, type: 'van' },
+  { row: 5, dir: -1, speed: 1.82, gap: 232, type: 'car' },
+  { row: 6, dir: 1, speed: 1.02, gap: 318, type: 'bus' },
+  { row: 7, dir: -1, speed: 2.02, gap: 246, type: 'moto' },
+  { row: 8, dir: 1, speed: 1.4, gap: 272, type: 'truck' },
+]
+const CROSS_ROAD_VEHICLE_STYLES = {
+  car: { w: 58, h: 30, color: '#ef4444', roof: '#fda4af' },
+  taxi: { w: 62, h: 30, color: '#facc15', roof: '#fef08a' },
+  van: { w: 74, h: 32, color: '#0ea5e9', roof: '#bae6fd' },
+  bus: { w: 102, h: 34, color: '#14b8a6', roof: '#99f6e4' },
+  moto: { w: 40, h: 20, color: '#8b5cf6', roof: '#c4b5fd' },
+  truck: { w: 86, h: 34, color: '#f97316', roof: '#fdba74' },
+}
+
+function clampCrossRoad(value, min, max) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function getCrossRoadActiveLanes(level) {
+  if (level === 1) return CROSS_ROAD_LANES.slice(0, 4)
+  if (level === 2) return CROSS_ROAD_LANES.slice(0, 5)
+  return CROSS_ROAD_LANES
+}
+
+function getCrossRoadRule(level) {
+  if (level === 1) {
+    return {
+      title: 'Level 1: Classic crossing',
+      short: 'Move in any direction and reach the goal line.',
+    }
+  }
+
+  if (level === 2) {
+    return {
+      title: 'Level 2: No going down',
+      short: 'Down is blocked. Use up, left, or right.',
+    }
+  }
+
+  return {
+    title: `Level ${level}: Forward only`,
+    short: 'Only up is allowed. Wait and move at the right time.',
+  }
+}
+
+function createCrossRoadVehicles(level) {
+  const activeLanes = getCrossRoadActiveLanes(level)
+  const allVehicles = []
+
+  activeLanes.forEach((lane, laneIndex) => {
+    const count = level === 1 ? 2 : 2 + Math.min(4, Math.floor(level / 2))
+    for (let index = 0; index < count; index += 1) {
+      const style = CROSS_ROAD_VEHICLE_STYLES[lane.type]
+      const gap = Math.max(158, lane.gap - level * 8)
+      const base = index * gap + laneIndex * 76
+      const startX = lane.dir === 1 ? -base : CROSS_ROAD_WIDTH + base
+
+      allVehicles.push({
+        id: `${level}_${lane.row}_${index}`,
+        x: startX,
+        y: CROSS_ROAD_HUD_HEIGHT + lane.row * CROSS_ROAD_TILE + 10,
+        w: style.w,
+        h: style.h,
+        dir: lane.dir,
+        speed: lane.speed + level * 0.16 + (level >= 3 ? 0.16 : 0),
+        type: lane.type,
+        gap,
+      })
+    }
+  })
+
+  return allVehicles
+}
+
+function crossRoadRectsIntersect(firstRect, secondRect) {
+  return (
+    firstRect.x < secondRect.x + secondRect.w &&
+    firstRect.x + firstRect.w > secondRect.x &&
+    firstRect.y < secondRect.y + secondRect.h &&
+    firstRect.y + firstRect.h > secondRect.y
+  )
+}
 
 const SPELLING_TEST_CONFIGS = {
   'spelling-spanish': {
@@ -2753,6 +2871,43 @@ function TestCard({ test, onSelect }) {
   )
 }
 
+function GamesHub({ onBack, onStartSnakeGame, onStartCrossRoadGame, snakeTopRecord, crossRoadTopRecord }) {
+  return (
+    <section className="panel-card">
+      <div className="panel-card-header">
+        <div>
+          <h2>Games</h2>
+          <p>Choose an arcade challenge. Crash events open quiz questions just like Snake.</p>
+        </div>
+        <button type="button" className="btn btn-ghost" onClick={onBack}>
+          <ArrowLeft size={16} />
+          <span>Back</span>
+        </button>
+      </div>
+
+      <div className="tests-grid special-modes-grid">
+        <TestCard test={SNAKE_GAME_CARD} onSelect={onStartSnakeGame} />
+        <TestCard test={CROSS_ROAD_GAME_CARD} onSelect={onStartCrossRoadGame} />
+      </div>
+
+      <div className="results-columns" style={{ marginTop: '1rem' }}>
+        <div className="panel-card">
+          <div className="panel-card-header">
+            <h3>Snake record</h3>
+          </div>
+          <TestLeaderboardChip topRecord={snakeTopRecord} />
+        </div>
+        <div className="panel-card">
+          <div className="panel-card-header">
+            <h3>Cruza o Pierde record</h3>
+          </div>
+          <TestLeaderboardChip topRecord={crossRoadTopRecord} />
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function mixHexColors(colorA, colorB, weight = 0.5) {
   const safeWeight = Math.max(0, Math.min(1, weight))
   const normalizeHex = (value) => {
@@ -3570,7 +3725,7 @@ function Dashboard({
   globalResultsLoading,
   globalResultsError,
   onStartFullTest,
-  onStartSnakeGame,
+  onStartGamesHub,
   onSelectSubject,
 }) {
   const usingGlobalPanels = globalResults.length > 0 || !personalResults.length
@@ -3795,7 +3950,7 @@ function Dashboard({
         </div>
         <div className="tests-grid special-modes-grid">
           <TestCard test={FULL_TEST_CARD} onSelect={onStartFullTest} />
-          <TestCard test={GAMES_CARD} onSelect={onStartSnakeGame} />
+          <TestCard test={GAMES_CARD} onSelect={onStartGamesHub} />
         </div>
       </section>
 
@@ -7419,6 +7574,831 @@ function SnakeChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
     </section>
   )
 }
+
+function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+  const shellRef = useRef(null)
+  const statusRef = useRef('countdown')
+  const playerRef = useRef({ col: 3, row: 10 })
+  const vehiclesRef = useRef(createCrossRoadVehicles(1))
+  const livesRef = useRef(3)
+  const levelRef = useRef(1)
+  const scoreRef = useRef(0)
+  const levelsClearedRef = useRef(0)
+  const collisionCountRef = useRef(0)
+  const restartCountRef = useRef(0)
+  const questionDeckRef = useRef([])
+  const autoStartRef = useRef(false)
+  const finishInProgressRef = useRef(false)
+  const countdownTimerRef = useRef(null)
+  const loopTimerRef = useRef(null)
+  const questionResetTimerRef = useRef(null)
+  const soundEnabledRef = useRef(true)
+
+  const [player, setPlayer] = useState(() => playerRef.current)
+  const [vehicles, setVehicles] = useState(() => vehiclesRef.current)
+  const [lives, setLives] = useState(3)
+  const [level, setLevel] = useState(1)
+  const [score, setScore] = useState(0)
+  const [levelsCleared, setLevelsCleared] = useState(0)
+  const [phase, setPhase] = useState('countdown')
+  const [countdownValue, setCountdownValue] = useState('3')
+  const [message, setMessage] = useState('Get ready to cross.')
+  const [questionRound, setQuestionRound] = useState(null)
+  const [questionResult, setQuestionResult] = useState('')
+  const [collisionCount, setCollisionCount] = useState(0)
+  const [restartCount, setRestartCount] = useState(0)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  const isPlaying = phase === 'playing'
+  const progressPercent = Math.min(100, Math.round((levelsCleared / CROSS_ROAD_GOAL_LEVEL) * 100))
+  const rule = getCrossRoadRule(level)
+
+  useEffect(() => {
+    statusRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    playerRef.current = player
+  }, [player])
+
+  useEffect(() => {
+    vehiclesRef.current = vehicles
+  }, [vehicles])
+
+  useEffect(() => {
+    livesRef.current = lives
+  }, [lives])
+
+  useEffect(() => {
+    levelRef.current = level
+  }, [level])
+
+  useEffect(() => {
+    scoreRef.current = score
+  }, [score])
+
+  useEffect(() => {
+    levelsClearedRef.current = levelsCleared
+  }, [levelsCleared])
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
+
+  useEffect(() => {
+    function syncFullscreen() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    function handleKeyDown(event) {
+      const key = event.key.toLowerCase()
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        event.preventDefault()
+      }
+      if (key === 'arrowup' || key === 'w') handleMove(0, -1)
+      if (key === 'arrowdown' || key === 's') handleMove(0, 1)
+      if (key === 'arrowleft' || key === 'a') handleMove(-1, 0)
+      if (key === 'arrowright' || key === 'd') handleMove(1, 0)
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    window.addEventListener('keydown', handleKeyDown)
+    syncFullscreen()
+
+    return () => {
+      clearAllTimers()
+      document.removeEventListener('fullscreenchange', syncFullscreen)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startNewSession({ playStartSound: false })
+  }, [])
+
+  useEffect(() => {
+    clearLoopTimer()
+    if (!isPlaying) return undefined
+
+    loopTimerRef.current = window.setInterval(() => {
+      const currentLevel = levelRef.current
+      setVehicles((previous) =>
+        previous.map((vehicle) => {
+          let nextX = vehicle.x + vehicle.dir * vehicle.speed
+          if (vehicle.dir === 1 && nextX > CROSS_ROAD_WIDTH + 50) nextX = -vehicle.w - vehicle.gap
+          if (vehicle.dir === -1 && nextX < -vehicle.w - 50) nextX = CROSS_ROAD_WIDTH + vehicle.gap
+          return { ...vehicle, x: nextX + Math.min(0.08 * currentLevel, 0.35) * vehicle.dir }
+        }),
+      )
+    }, 16)
+
+    return () => clearLoopTimer()
+  }, [isPlaying])
+
+  useEffect(() => {
+    if (!isPlaying || questionRound) return
+    const playerRect = {
+      x: player.col * CROSS_ROAD_TILE + 11,
+      y: CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 6,
+      w: 22,
+      h: 34,
+    }
+
+    const hitVehicle = vehicles.find((vehicle) =>
+      crossRoadRectsIntersect(playerRect, {
+        x: vehicle.x,
+        y: vehicle.y,
+        w: vehicle.w,
+        h: vehicle.h,
+      }),
+    )
+
+    if (!hitVehicle) return
+
+    const question = takeCollisionQuestion()
+    if (!question) {
+      restartRunFromZero({ countRestart: true, announce: 'No quiz available. Restarting run.' })
+      return
+    }
+
+    playSound('bump', soundEnabledRef.current)
+    setCollisionCount((previous) => {
+      const nextCount = previous + 1
+      collisionCountRef.current = nextCount
+      return nextCount
+    })
+    setQuestionResult('')
+    setQuestionRound(question)
+    setPhase('question')
+    setMessage('Crash question: answer correctly to keep playing.')
+  }, [vehicles, player, isPlaying, questionRound])
+
+  useEffect(() => {
+    if (!isPlaying || player.row !== 0) return
+
+    const nextLevel = levelRef.current + 1
+    const nextLevelsCleared = levelsClearedRef.current + 1
+    const levelBonus = 110 + levelRef.current * 20
+    const nextScore = scoreRef.current + levelBonus
+
+    setScore(nextScore)
+    scoreRef.current = nextScore
+    setLevelsCleared(nextLevelsCleared)
+    levelsClearedRef.current = nextLevelsCleared
+
+    if (nextLevelsCleared >= CROSS_ROAD_GOAL_LEVEL) {
+      void finishCrossRoadSession({
+        attemptStatus: 'completed',
+        saveMessage: 'Saving PLUS result...',
+        successMessage: 'PLUS result saved.',
+      })
+      return
+    }
+
+    playSound('coin', soundEnabledRef.current)
+    setLevel(nextLevel)
+    levelRef.current = nextLevel
+    setVehicles(createCrossRoadVehicles(nextLevel))
+    vehiclesRef.current = createCrossRoadVehicles(nextLevel)
+    resetPlayerToStart()
+    beginCountdown(nextLevel)
+  }, [player, isPlaying])
+
+  function clearLoopTimer() {
+    if (loopTimerRef.current) {
+      window.clearInterval(loopTimerRef.current)
+      loopTimerRef.current = null
+    }
+  }
+
+  function clearCountdownTimer() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
+  }
+
+  function clearQuestionResetTimer() {
+    if (questionResetTimerRef.current) {
+      window.clearTimeout(questionResetTimerRef.current)
+      questionResetTimerRef.current = null
+    }
+  }
+
+  function clearAllTimers() {
+    clearLoopTimer()
+    clearCountdownTimer()
+    clearQuestionResetTimer()
+  }
+
+  function refillQuestionDeck(minimum = 8) {
+    while (questionDeckRef.current.length < minimum) {
+      questionDeckRef.current.push(...generateFullTestQuestions(FULL_TEST_QUESTION_COUNT))
+    }
+  }
+
+  function takeCollisionQuestion() {
+    refillQuestionDeck()
+    while (questionDeckRef.current.length) {
+      const nextQuestion = questionDeckRef.current.shift()
+      if (!nextQuestion) continue
+      const options = (nextQuestion.options ?? []).filter((value) => value !== undefined && value !== null)
+      if (options.length >= 2) {
+        return { ...nextQuestion, options: shuffleArray(options) }
+      }
+    }
+    return null
+  }
+
+  function isMovementAllowed(dx, dy) {
+    if (levelRef.current === 2 && dy > 0) return false
+    if (levelRef.current >= 3 && !(dx === 0 && dy < 0)) return false
+    return true
+  }
+
+  function resetPlayerToStart() {
+    const startPlayer = { col: 3, row: 10 }
+    playerRef.current = startPlayer
+    setPlayer(startPlayer)
+  }
+
+  function beginCountdown(targetLevel) {
+    clearCountdownTimer()
+    const nextRule = getCrossRoadRule(targetLevel)
+    setPhase('countdown')
+    setCountdownValue(CROSS_ROAD_COUNTDOWN_STEPS[0])
+    setMessage(`${nextRule.title}. ${nextRule.short}`)
+    let stepIndex = 0
+
+    countdownTimerRef.current = window.setInterval(() => {
+      stepIndex += 1
+      const nextValue = CROSS_ROAD_COUNTDOWN_STEPS[stepIndex]
+      if (!nextValue) {
+        clearCountdownTimer()
+        setPhase('playing')
+        setMessage(`${nextRule.title}. ${nextRule.short}`)
+        return
+      }
+      setCountdownValue(nextValue)
+    }, 700)
+  }
+
+  function restartRunFromZero({ countRestart = false, announce = 'Run restarted from zero.' } = {}) {
+    resetPlayerToStart()
+    setVehicles(createCrossRoadVehicles(1))
+    vehiclesRef.current = createCrossRoadVehicles(1)
+    setLevel(1)
+    levelRef.current = 1
+    setScore(0)
+    scoreRef.current = 0
+    setLevelsCleared(0)
+    levelsClearedRef.current = 0
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    if (countRestart) {
+      setRestartCount((previous) => {
+        const nextCount = previous + 1
+        restartCountRef.current = nextCount
+        return nextCount
+      })
+    }
+
+    beginCountdown(1)
+    setMessage(announce)
+  }
+
+  function startNewSession({ playStartSound = true } = {}) {
+    clearAllTimers()
+    finishInProgressRef.current = false
+    questionDeckRef.current = []
+    refillQuestionDeck(12)
+
+    if (playStartSound) {
+      playSound('start', soundEnabledRef.current)
+    }
+
+    void enterFullscreenMode()
+
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    setCollisionCount(0)
+    collisionCountRef.current = 0
+    setRestartCount(0)
+    restartCountRef.current = 0
+    setLives(3)
+    livesRef.current = 3
+    restartRunFromZero({ countRestart: false, announce: 'New game. Reach all levels to win.' })
+  }
+
+  async function finishCrossRoadSession(options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+    clearAllTimers()
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    const attemptStatus = options.attemptStatus ?? 'completed'
+    const maxScore = CROSS_ROAD_GOAL_LEVEL * 200
+    const totalScore = Math.min(maxScore, Math.max(0, scoreRef.current))
+    const percentage = Math.min(100, Math.round((totalScore / maxScore) * 100))
+    const gradeInfo = attemptStatus === 'completed' ? { grade: 'PLUS' } : getGrade(percentage)
+
+    const summary = {
+      subjectId: 'games',
+      subjectName: 'Games',
+      testId: 'cross-road',
+      testName: 'Cruza o Pierde',
+      mode: 'cross-road',
+      totalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      questionCount: CROSS_ROAD_GOAL_LEVEL,
+      perfectOriginalCount: levelsClearedRef.current,
+      answeredOriginalCount: levelsClearedRef.current,
+      remainingOriginalCount:
+        attemptStatus === 'completed' ? 0 : Math.max(0, CROSS_ROAD_GOAL_LEVEL - levelsClearedRef.current),
+      remainingQueueCount:
+        attemptStatus === 'completed' ? 0 : Math.max(0, CROSS_ROAD_GOAL_LEVEL - levelsClearedRef.current),
+      attemptStatus,
+      isAbandoned: attemptStatus !== 'completed',
+      reviewExercises: [],
+      pendingExercises: [],
+      levelsGoal: CROSS_ROAD_GOAL_LEVEL,
+      levelsCleared: levelsClearedRef.current,
+      levelReached: levelRef.current,
+      livesLeft: livesRef.current,
+      collisionQuestionCount: collisionCountRef.current,
+      restartCount: restartCountRef.current,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('saving')
+    setSaveStatus('saving')
+    setSaveMessage(options.saveMessage ?? 'Saving result...')
+
+    if (attemptStatus === 'completed') {
+      playSound('win', soundEnabledRef.current)
+    }
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(options.successMessage ?? 'Result saved to Firebase.')
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+      finishInProgressRef.current = false
+    }
+
+    setPhase('finished')
+  }
+
+  function handleMove(dx, dy) {
+    if (statusRef.current !== 'playing') return
+    if (!isMovementAllowed(dx, dy)) {
+      setMessage(getCrossRoadRule(levelRef.current).short)
+      return
+    }
+
+    setPlayer((previous) => {
+      const nextPlayer = {
+        col: clampCrossRoad(previous.col + dx, 0, CROSS_ROAD_COLS - 1),
+        row: clampCrossRoad(previous.row + dy, 0, CROSS_ROAD_ROWS - 1),
+      }
+
+      if (nextPlayer.row < previous.row) {
+        const nextScore = scoreRef.current + 10
+        scoreRef.current = nextScore
+        setScore(nextScore)
+      }
+
+      return nextPlayer
+    })
+  }
+
+  function handleQuestionAnswer(choiceValue) {
+    if (!questionRound || statusRef.current !== 'question') return
+
+    const expected = String(questionRound.answer).trim().toLowerCase()
+    const selected = String(choiceValue).trim().toLowerCase()
+
+    if (selected === expected) {
+      playSound('coin', soundEnabledRef.current)
+      setQuestionResult('correct')
+      setQuestionRound(null)
+      setMessage('Correct answer. Keep crossing.')
+      resetPlayerToStart()
+      setPhase('playing')
+      return
+    }
+
+    playSound('bump', soundEnabledRef.current)
+    setQuestionResult('wrong')
+    setMessage('Wrong answer. Restarting from zero...')
+    clearQuestionResetTimer()
+    questionResetTimerRef.current = window.setTimeout(() => {
+      const nextLives = Math.max(0, livesRef.current - 1)
+      setLives(nextLives)
+      livesRef.current = nextLives
+
+      if (nextLives <= 0) {
+        void finishCrossRoadSession({
+          attemptStatus: 'abandoned',
+          saveMessage: 'Saving partial progress...',
+          successMessage: 'Partial progress saved.',
+        })
+        return
+      }
+
+      restartRunFromZero({ countRestart: true, announce: 'Wrong answer. New run from zero.' })
+    }, 760)
+  }
+
+  async function enterFullscreenMode() {
+    if (!shellRef.current?.requestFullscreen || document.fullscreenElement) return
+    try {
+      await shellRef.current.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+    await enterFullscreenMode()
+  }
+
+  function handleExitClick() {
+    if (statusRef.current === 'saving') return
+
+    const hasProgress = levelsClearedRef.current > 0 || collisionCountRef.current > 0 || restartCountRef.current > 0
+    if (!hasProgress) {
+      void (async () => {
+        await exitFullscreenMode()
+        onBack()
+      })()
+      return
+    }
+
+    const confirmed = window.confirm('Save this run and exit to games menu?')
+    if (!confirmed) return
+
+    void finishCrossRoadSession({
+      attemptStatus: 'abandoned',
+      saveMessage: 'Saving partial progress...',
+      successMessage: 'Partial progress saved.',
+    })
+  }
+
+  function handleBackFromResults() {
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore: 0,
+      maxScore: 100,
+      percentage: 0,
+      grade: 'F',
+      levelsCleared: 0,
+      collisionQuestionCount: 0,
+      restartCount: 0,
+      livesLeft: 0,
+      attemptStatus: 'abandoned',
+    }
+
+    const completed = summary.attemptStatus === 'completed'
+
+    return (
+      <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="neo-snake-results">
+          <div className={`neo-result-badge ${completed ? 'is-plus' : 'is-partial'}`}>
+            {completed ? <Trophy size={38} /> : <CircleAlert size={38} />}
+          </div>
+          <h1>{summary.grade}</h1>
+          <p>{completed ? 'Goal reached. Great crossing run.' : 'Run saved before completion.'}</p>
+
+          <div className="neo-result-score">
+            <div>
+              <span>Score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore}
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <small>{summary.percentage}%</small>
+          </div>
+
+          <div className="neo-result-grid">
+            <div>
+              <span>Levels</span>
+              <strong>{summary.levelsCleared}</strong>
+            </div>
+            <div>
+              <span>Lives left</span>
+              <strong>{summary.livesLeft}</strong>
+            </div>
+            <div>
+              <span>Crash questions</span>
+              <strong>{summary.collisionQuestionCount}</strong>
+            </div>
+            <div>
+              <span>Restarts</span>
+              <strong>{summary.restartCount}</strong>
+            </div>
+          </div>
+
+          <p className={`save-status ${saveStatus === 'error' ? 'is-error' : ''}`}>{saveMessage}</p>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={() => startNewSession()}>
+              <RotateCcw size={16} />
+              <span>Play again</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackFromResults}>
+              <ArrowLeft size={16} />
+              <span>Back games</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <div className="neo-snake-topbar">
+        <button type="button" className="btn btn-ghost" onClick={handleExitClick} disabled={saveStatus === 'saving'}>
+          <ArrowLeft size={16} />
+          <span>Exit</span>
+        </button>
+
+        <div className="neo-snake-title">
+          <strong>Cruza o Pierde</strong>
+          <small>
+            Hi {studentName || 'Student'} · Goal {CROSS_ROAD_GOAL_LEVEL} levels
+          </small>
+        </div>
+
+        <div className="neo-snake-top-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setSoundEnabled((value) => !value)}>
+            <span>{soundEnabled ? 'Sound on' : 'Sound off'}</span>
+          </button>
+          <button type="button" className="btn btn-ghost icon-only" onClick={() => void handleFullscreenToggle()}>
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
+      </div>
+
+      <div className="neo-snake-layout">
+        <aside className="neo-snake-side">
+          <div className="neo-snake-side-card">
+            <span>Progress</span>
+            <strong>
+              {levelsCleared}/{CROSS_ROAD_GOAL_LEVEL}
+            </strong>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <small>{progressPercent}% complete</small>
+          </div>
+
+          <div className="neo-snake-side-card">
+            <span>Run stats</span>
+            <strong>Level {level}</strong>
+            <small>Score {score}</small>
+            <small>Lives {lives}</small>
+            <small>{collisionCount} crash questions</small>
+            <small>{restartCount} restarts</small>
+          </div>
+
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </aside>
+
+        <div className="neo-snake-main">
+          <div className="neo-snake-status">{message || `${rule.title}. ${rule.short}`}</div>
+
+          <div className="neo-snake-board-wrap">
+            <div
+              style={{
+                width: `${CROSS_ROAD_WIDTH}px`,
+                height: `${CROSS_ROAD_HEIGHT + CROSS_ROAD_HUD_HEIGHT}px`,
+                background: '#111827',
+                borderRadius: '1rem',
+                border: '2px solid rgba(59,130,246,0.35)',
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: `${CROSS_ROAD_HUD_HEIGHT}px`,
+                  background: 'linear-gradient(90deg, #020617 0%, #0f172a 100%)',
+                  borderBottom: '2px solid rgba(250,204,21,0.45)',
+                  padding: '0.6rem 0.8rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                  <strong style={{ color: '#fde047', fontSize: '0.95rem' }}>CRUZA O PIERDE</strong>
+                  <small style={{ color: '#cbd5e1' }}>
+                    {'❤️'.repeat(Math.max(0, lives))} · SCORE {String(score).padStart(4, '0')} · LVL {level}
+                  </small>
+                </div>
+                <small style={{ color: '#bae6fd' }}>{rule.short}</small>
+              </div>
+
+              <div
+                style={{
+                  position: 'absolute',
+                  top: `${CROSS_ROAD_HUD_HEIGHT}px`,
+                  left: 0,
+                  right: 0,
+                  height: `${CROSS_ROAD_TILE}px`,
+                  background: '#065f46',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE}px`,
+                  left: 0,
+                  right: 0,
+                  height: `${CROSS_ROAD_TILE}px`,
+                  background: '#6b7280',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE * 2}px`,
+                  left: 0,
+                  right: 0,
+                  height: `${CROSS_ROAD_TILE * 7}px`,
+                  background: '#1f2937',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE * 9}px`,
+                  left: 0,
+                  right: 0,
+                  height: `${CROSS_ROAD_TILE * 2}px`,
+                  background: '#6b7280',
+                }}
+              />
+
+              {vehicles.map((vehicle) => {
+                const style = CROSS_ROAD_VEHICLE_STYLES[vehicle.type]
+                return (
+                  <div
+                    key={vehicle.id}
+                    style={{
+                      position: 'absolute',
+                      left: `${vehicle.x}px`,
+                      top: `${vehicle.y}px`,
+                      width: `${vehicle.w}px`,
+                      height: `${vehicle.h}px`,
+                      borderRadius: '0.35rem',
+                      border: '2px solid rgba(2,6,23,0.35)',
+                      background: style.color,
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: '22%',
+                        top: '10%',
+                        width: '40%',
+                        height: '32%',
+                        borderRadius: '0.2rem',
+                        background: style.roof,
+                      }}
+                    />
+                  </div>
+                )
+              })}
+
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${player.col * CROSS_ROAD_TILE + 8}px`,
+                  top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
+                  width: '28px',
+                  height: '38px',
+                }}
+              >
+                <div style={{ width: '18px', height: '18px', borderRadius: '999px', background: '#fdba74', margin: '0 auto' }} />
+                <div
+                  style={{
+                    width: '28px',
+                    height: '20px',
+                    borderRadius: '0.4rem',
+                    background: '#38bdf8',
+                    marginTop: '2px',
+                    border: '2px solid rgba(2,6,23,0.35)',
+                  }}
+                />
+              </div>
+
+              {(phase === 'countdown' || phase === 'question' || phase === 'saving') && (
+                <div className="neo-snake-overlay">
+                  <div className={`neo-snake-overlay-card ${phase === 'question' ? 'is-question' : ''}`}>
+                    {phase === 'countdown' && (
+                      <>
+                        <small>{rule.title}</small>
+                        <strong>{countdownValue}</strong>
+                        <p>{rule.short}</p>
+                      </>
+                    )}
+
+                    {phase === 'question' && questionRound && (
+                      <>
+                        <small>{questionRound.sourceLabel}</small>
+                        {questionRound.context ? <p>{questionRound.context}</p> : null}
+                        <h3>{questionRound.prompt}</h3>
+                        <div className="neo-snake-question-grid">
+                          {questionRound.options.map((option, index) => (
+                            <button
+                              key={`${questionRound.id}_${index}`}
+                              type="button"
+                              className="answer-btn answer-text"
+                              onClick={() => handleQuestionAnswer(option)}
+                              disabled={Boolean(questionResult)}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                        {questionResult === 'wrong' ? <small className="error-copy">Wrong answer. Restarting...</small> : null}
+                      </>
+                    )}
+
+                    {phase === 'saving' && <small>{saveMessage || 'Saving...'}</small>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="neo-snake-controls" aria-label="Cross road controls">
+            <button type="button" className="neo-control up" onClick={() => handleMove(0, -1)}>
+              <ArrowUp size={20} />
+            </button>
+            <button type="button" className="neo-control left" onClick={() => handleMove(-1, 0)}>
+              <ArrowLeft size={20} />
+            </button>
+            <button type="button" className="neo-control center" onClick={() => startNewSession()}>
+              <RotateCcw size={18} />
+            </button>
+            <button type="button" className="neo-control right" onClick={() => handleMove(1, 0)}>
+              <ArrowRight size={20} />
+            </button>
+            <button type="button" className="neo-control down" onClick={() => handleMove(0, 1)}>
+              <ArrowDown size={20} />
+            </button>
+          </div>
+
+          <div style={{ marginTop: '0.7rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+            Rule now: {rule.short} · Crash questions asked: {collisionCount}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const questionCount = FULL_TEST_QUESTION_COUNT
 
@@ -8272,8 +9252,16 @@ function App() {
     navigateScreen('full-test')
   }
 
+  function openGamesHub() {
+    navigateScreen('games')
+  }
+
   function openSnakeGame() {
     navigateScreen('snake')
+  }
+
+  function openCrossRoadGame() {
+    navigateScreen('cross-road')
   }
 
   function goToDashboard() {
@@ -8282,6 +9270,10 @@ function App() {
 
   function goToSubjectMenu() {
     navigateScreen('subject', { subjectId: selectedSubjectId })
+  }
+
+  function goToGamesHub() {
+    navigateScreen('games')
   }
 
   if (!authReady) {
@@ -8307,6 +9299,7 @@ function App() {
   const rankingSourceResults = globalResults.length ? globalResults : personalResults
   const fullTestTopRecord = getTopRecordForTest(rankingSourceResults, 'full', 'full-test')
   const snakeTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'snake')
+  const crossRoadTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'cross-road')
   const selectedTestTopRecord =
     selectedSubject && selectedTest
       ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
@@ -8375,8 +9368,18 @@ function App() {
               globalResultsLoading={globalResultsLoading}
               globalResultsError={globalResultsError}
               onStartFullTest={openFullTest}
-              onStartSnakeGame={openSnakeGame}
+              onStartGamesHub={openGamesHub}
               onSelectSubject={openSubject}
+            />
+          )}
+
+          {screen === 'games' && (
+            <GamesHub
+              onBack={goToDashboard}
+              onStartSnakeGame={openSnakeGame}
+              onStartCrossRoadGame={openCrossRoadGame}
+              snakeTopRecord={snakeTopRecord}
+              crossRoadTopRecord={crossRoadTopRecord}
             />
           )}
 
@@ -8391,10 +9394,19 @@ function App() {
 
           {screen === 'snake' && (
             <SnakeChallenge
-              onBack={goToDashboard}
+              onBack={goToGamesHub}
               onSaveResult={saveAssessmentResult}
               studentName={studentDisplayName}
               topTestRecord={snakeTopRecord}
+            />
+          )}
+
+          {screen === 'cross-road' && (
+            <CrossRoadChallenge
+              onBack={goToGamesHub}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={crossRoadTopRecord}
             />
           )}
 
