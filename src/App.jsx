@@ -784,6 +784,7 @@ const SNAKE_FRESH_DIRECTION_VECTORS = {
   right: { x: 1, y: 0 },
 }
 const SNAKE_FRESH_MUSIC_MP3 = '/audio/snake-neon-loop.mp3'
+const CROSS_ROAD_MUSIC_MP3 = '/audio/cross-road-neon-loop.mp3'
 const CROSS_ROAD_TILE = 44
 const CROSS_ROAD_COLS = 7
 const CROSS_ROAD_ROWS = 11
@@ -7593,6 +7594,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
   const loopTimerRef = useRef(null)
   const questionResetTimerRef = useRef(null)
   const soundEnabledRef = useRef(true)
+  const musicAudioRef = useRef(null)
 
   const [player, setPlayer] = useState(() => playerRef.current)
   const [vehicles, setVehicles] = useState(() => vehiclesRef.current)
@@ -7612,6 +7614,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
   const [lastResult, setLastResult] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [musicEnabled, setMusicEnabled] = useState(true)
 
   const isPlaying = phase === 'playing'
   const progressPercent = Math.min(100, Math.round((levelsCleared / CROSS_ROAD_GOAL_LEVEL) * 100))
@@ -7648,6 +7651,45 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
   useEffect(() => {
     soundEnabledRef.current = soundEnabled
   }, [soundEnabled])
+
+  useEffect(() => {
+    const track = new Audio(CROSS_ROAD_MUSIC_MP3)
+    track.loop = true
+    track.preload = 'auto'
+    track.volume = 0.26
+    musicAudioRef.current = track
+
+    return () => {
+      track.pause()
+      track.src = ''
+      if (musicAudioRef.current === track) {
+        musicAudioRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const musicTrack = musicAudioRef.current
+    if (!musicTrack) return
+
+    const shouldPlay =
+      (phase === 'playing' || phase === 'countdown') &&
+      musicEnabled &&
+      !masterAudioMuted &&
+      masterAudioVolume > 0
+
+    musicTrack.volume = Math.max(0.05, Math.min(0.68, 0.34 * masterAudioVolume))
+    musicTrack.playbackRate = Math.max(0.88, Math.min(1.36, 0.94 + level * 0.03))
+
+    if (shouldPlay) {
+      const playPromise = musicTrack.play()
+      if (playPromise?.catch) {
+        playPromise.catch(() => {})
+      }
+    } else {
+      musicTrack.pause()
+    }
+  }, [phase, level, musicEnabled])
 
   useEffect(() => {
     function syncFullscreen() {
@@ -7736,7 +7778,9 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
     setQuestionResult('')
     setQuestionRound(question)
     setPhase('question')
-    setMessage('Crash question: answer correctly to keep playing.')
+    setMessage(
+      `${pickRandom(CROSS_ROAD_MESSAGES) || 'Crash question triggered.'} Answer correctly to keep playing.`,
+    )
   }, [vehicles, player, isPlaying, questionRound])
 
   useEffect(() => {
@@ -7791,10 +7835,20 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
     }
   }
 
+  function stopMusicTrack(resetPosition = false) {
+    const musicTrack = musicAudioRef.current
+    if (!musicTrack) return
+    musicTrack.pause()
+    if (resetPosition) {
+      musicTrack.currentTime = 0
+    }
+  }
+
   function clearAllTimers() {
     clearLoopTimer()
     clearCountdownTimer()
     clearQuestionResetTimer()
+    stopMusicTrack()
   }
 
   function refillQuestionDeck(minimum = 8) {
@@ -7876,6 +7930,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
 
   function startNewSession({ playStartSound = true } = {}) {
     clearAllTimers()
+    stopMusicTrack(true)
     finishInProgressRef.current = false
     questionDeckRef.current = []
     refillQuestionDeck(12)
@@ -8171,6 +8226,9 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
           <button type="button" className="btn btn-ghost" onClick={() => setSoundEnabled((value) => !value)}>
             <span>{soundEnabled ? 'Sound on' : 'Sound off'}</span>
           </button>
+          <button type="button" className="btn btn-ghost" onClick={() => setMusicEnabled((value) => !value)}>
+            <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
+          </button>
           <button type="button" className="btn btn-ghost icon-only" onClick={() => void handleFullscreenToggle()}>
             {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
           </button>
@@ -8207,130 +8265,98 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
 
           <div className="neo-snake-board-wrap">
             <div
+              className="cross-road-stage"
               style={{
-                width: `${CROSS_ROAD_WIDTH}px`,
-                height: `${CROSS_ROAD_HEIGHT + CROSS_ROAD_HUD_HEIGHT}px`,
-                background: '#111827',
-                borderRadius: '1rem',
-                border: '2px solid rgba(59,130,246,0.35)',
-                overflow: 'hidden',
-                position: 'relative',
+                '--cross-road-width': `${CROSS_ROAD_WIDTH}px`,
+                '--cross-road-height': `${CROSS_ROAD_HEIGHT + CROSS_ROAD_HUD_HEIGHT}px`,
               }}
             >
+              <div className="cross-road-stage-lights" />
               <div
+                className="cross-road-hud"
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
                   height: `${CROSS_ROAD_HUD_HEIGHT}px`,
-                  background: 'linear-gradient(90deg, #020617 0%, #0f172a 100%)',
-                  borderBottom: '2px solid rgba(250,204,21,0.45)',
-                  padding: '0.6rem 0.8rem',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-                  <strong style={{ color: '#fde047', fontSize: '0.95rem' }}>CRUZA O PIERDE</strong>
-                  <small style={{ color: '#cbd5e1' }}>
-                    {'❤️'.repeat(Math.max(0, lives))} · SCORE {String(score).padStart(4, '0')} · LVL {level}
+                <div className="cross-road-hud-row">
+                  <strong className="cross-road-hud-title">CRUZA O PIERDE</strong>
+                  <small className="cross-road-hud-metrics">
+                    {'❤'.repeat(Math.max(0, lives))} · SCORE {String(score).padStart(4, '0')} · LVL {level}
                   </small>
                 </div>
-                <small style={{ color: '#bae6fd' }}>{rule.short}</small>
+                <small className="cross-road-hud-rule">{rule.short}</small>
               </div>
 
               <div
+                className="cross-road-goal-lane"
                 style={{
-                  position: 'absolute',
                   top: `${CROSS_ROAD_HUD_HEIGHT}px`,
-                  left: 0,
-                  right: 0,
                   height: `${CROSS_ROAD_TILE}px`,
-                  background: '#065f46',
                 }}
               />
               <div
+                className="cross-road-sidewalk-top"
                 style={{
-                  position: 'absolute',
                   top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE}px`,
-                  left: 0,
-                  right: 0,
                   height: `${CROSS_ROAD_TILE}px`,
-                  background: '#6b7280',
                 }}
               />
               <div
+                className="cross-road-main-road"
                 style={{
-                  position: 'absolute',
                   top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE * 2}px`,
-                  left: 0,
-                  right: 0,
                   height: `${CROSS_ROAD_TILE * 7}px`,
-                  background: '#1f2937',
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE * 9}px`,
-                  left: 0,
-                  right: 0,
-                  height: `${CROSS_ROAD_TILE * 2}px`,
-                  background: '#6b7280',
-                }}
-              />
-
-              {vehicles.map((vehicle) => {
-                const style = CROSS_ROAD_VEHICLE_STYLES[vehicle.type]
-                return (
-                  <div
-                    key={vehicle.id}
-                    style={{
-                      position: 'absolute',
-                      left: `${vehicle.x}px`,
-                      top: `${vehicle.y}px`,
-                      width: `${vehicle.w}px`,
-                      height: `${vehicle.h}px`,
-                      borderRadius: '0.35rem',
-                      border: '2px solid rgba(2,6,23,0.35)',
-                      background: style.color,
-                    }}
-                  >
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: '22%',
-                        top: '10%',
-                        width: '40%',
-                        height: '32%',
-                        borderRadius: '0.2rem',
-                        background: style.roof,
-                      }}
-                    />
-                  </div>
-                )
-              })}
-
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${player.col * CROSS_ROAD_TILE + 8}px`,
-                  top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
-                  width: '28px',
-                  height: '38px',
                 }}
               >
-                <div style={{ width: '18px', height: '18px', borderRadius: '999px', background: '#fdba74', margin: '0 auto' }} />
-                <div
-                  style={{
-                    width: '28px',
-                    height: '20px',
-                    borderRadius: '0.4rem',
-                    background: '#38bdf8',
-                    marginTop: '2px',
-                    border: '2px solid rgba(2,6,23,0.35)',
-                  }}
-                />
+                {[0, 1, 2, 3, 4, 5, 6].map((line) => (
+                  <div key={`lane_marker_${line}`} className="cross-road-lane-marker" style={{ top: `${line * CROSS_ROAD_TILE}px` }} />
+                ))}
               </div>
+              <div
+                className="cross-road-sidewalk-bottom"
+                style={{
+                  top: `${CROSS_ROAD_HUD_HEIGHT + CROSS_ROAD_TILE * 9}px`,
+                  height: `${CROSS_ROAD_TILE * 2}px`,
+                }}
+              />
+
+                {vehicles.map((vehicle) => {
+                  const style = CROSS_ROAD_VEHICLE_STYLES[vehicle.type]
+                  return (
+                    <div
+                      key={vehicle.id}
+                      className={`cross-road-vehicle cross-road-vehicle-${vehicle.type} ${vehicle.dir === -1 ? 'is-facing-left' : ''}`}
+                      style={{
+                        '--vehicle-color': style.color,
+                        '--vehicle-roof': style.roof,
+                        left: `${vehicle.x}px`,
+                        top: `${vehicle.y}px`,
+                        width: `${vehicle.w}px`,
+                        height: `${vehicle.h}px`,
+                      }}
+                    >
+                      <div className="cross-road-vehicle-roof" />
+                      <div className="cross-road-vehicle-shine" />
+                      <div className="cross-road-vehicle-headlight" />
+                      <div className="cross-road-vehicle-wheel wheel-left" />
+                      <div className="cross-road-vehicle-wheel wheel-right" />
+                    </div>
+                  )
+                })}
+
+                <div
+                  className="cross-road-player"
+                  style={{
+                    left: `${player.col * CROSS_ROAD_TILE + 8}px`,
+                    top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
+                  }}
+                >
+                  <div className="cross-road-player-shadow" />
+                  <div className="cross-road-player-head" />
+                  <div className="cross-road-player-body" />
+                  <div className="cross-road-player-eye eye-left" />
+                  <div className="cross-road-player-eye eye-right" />
+                </div>
 
               {(phase === 'countdown' || phase === 'question' || phase === 'saving') && (
                 <div className="neo-snake-overlay">
@@ -8390,7 +8416,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
             </button>
           </div>
 
-          <div style={{ marginTop: '0.7rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+          <div className="cross-road-footnote">
             Rule now: {rule.short} · Crash questions asked: {collisionCount}
           </div>
         </div>

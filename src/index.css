@@ -2323,6 +2323,287 @@ button {
   font-weight: 700;
 }
 
+.cross-road-stage {
+  width: var(--cross-road-width);
+  height: var(--cross-road-height);
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 2px solid rgba(76, 121, 219, 0.42);
+  background:
+    radial-gradient(circle at 15% 8%, rgba(255, 255, 255, 0.24), transparent 36%),
+    radial-gradient(circle at 83% 92%, rgba(56, 189, 248, 0.14), transparent 34%),
+    linear-gradient(182deg, #0b1224 0%, #141f36 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.23),
+    inset 0 -18px 30px rgba(0, 0, 0, 0.24),
+    0 22px 34px rgba(15, 25, 60, 0.42);
+}
+
+.cross-road-stage-lights {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 16%, rgba(255, 247, 177, 0.18), transparent 24%),
+    radial-gradient(circle at 78% 18%, rgba(148, 227, 255, 0.14), transparent 22%),
+    linear-gradient(to bottom, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.38));
+  z-index: 1;
+  animation: cross-road-light-sweep 3.6s ease-in-out infinite alternate;
+}
+
+.cross-road-hud,
+.cross-road-goal-lane,
+.cross-road-sidewalk-top,
+.cross-road-main-road,
+.cross-road-sidewalk-bottom,
+.cross-road-vehicle,
+.cross-road-player {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+}
+
+.cross-road-hud {
+  top: 0;
+  padding: 0.62rem 0.76rem;
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 0.96));
+  border-bottom: 2px solid rgba(253, 224, 71, 0.42);
+  box-shadow: inset 0 -6px 14px rgba(6, 10, 28, 0.46);
+}
+
+.cross-road-hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.cross-road-hud-title {
+  color: #fde047;
+  letter-spacing: 0.04em;
+  text-shadow: 0 2px 8px rgba(253, 224, 71, 0.35);
+}
+
+.cross-road-hud-metrics {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
+.cross-road-hud-rule {
+  color: #bae6fd;
+}
+
+.cross-road-goal-lane {
+  left: 0;
+  right: 0;
+  background:
+    linear-gradient(145deg, #065f46, #057857 50%, #065f46 100%);
+  box-shadow: inset 0 -5px 10px rgba(6, 44, 34, 0.45);
+}
+
+.cross-road-sidewalk-top,
+.cross-road-sidewalk-bottom {
+  left: 0;
+  right: 0;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.12) 0,
+      rgba(255, 255, 255, 0.12) 6px,
+      rgba(255, 255, 255, 0.02) 6px,
+      rgba(255, 255, 255, 0.02) 12px
+    ),
+    linear-gradient(150deg, #6b7280, #8b94a5 55%, #626b79);
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.16),
+    inset 0 -4px 8px rgba(2, 6, 23, 0.25);
+}
+
+.cross-road-main-road {
+  left: 0;
+  right: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 20%),
+    linear-gradient(170deg, #1f2937 0%, #111827 70%, #0f172a 100%);
+  box-shadow:
+    inset 0 8px 16px rgba(255, 255, 255, 0.02),
+    inset 0 -16px 22px rgba(2, 6, 23, 0.35);
+}
+
+.cross-road-lane-marker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 44px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.cross-road-lane-marker::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.3rem;
+  right: 0.3rem;
+  border-top: 4px dashed rgba(250, 204, 21, 0.58);
+  transform: translateY(-50%);
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.3));
+}
+
+.cross-road-vehicle {
+  left: auto;
+  right: auto;
+  border-radius: 8px;
+  border: 2px solid rgba(2, 6, 23, 0.36);
+  background: linear-gradient(165deg, var(--vehicle-color), #0b1220);
+  transform: translateZ(0);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -8px 10px rgba(2, 6, 23, 0.28),
+    0 8px 12px rgba(2, 6, 23, 0.45);
+}
+
+.cross-road-vehicle.is-facing-left {
+  transform: scaleX(-1);
+}
+
+.cross-road-vehicle-roof {
+  position: absolute;
+  left: 22%;
+  top: 11%;
+  width: 40%;
+  height: 34%;
+  border-radius: 4px;
+  background: linear-gradient(165deg, var(--vehicle-roof), rgba(255, 255, 255, 0.14));
+  box-shadow: inset 0 -2px 3px rgba(2, 6, 23, 0.25);
+  animation: cross-road-engine-bounce 0.42s ease-in-out infinite alternate;
+}
+
+.cross-road-vehicle-shine {
+  position: absolute;
+  inset: 2px 26% auto 8%;
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.56), transparent);
+  opacity: 0.7;
+}
+
+.cross-road-vehicle-headlight {
+  position: absolute;
+  right: 2px;
+  top: 42%;
+  width: 7px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 248, 212, 0.95);
+  box-shadow: 0 0 10px rgba(255, 236, 149, 0.72);
+}
+
+.cross-road-vehicle-wheel {
+  position: absolute;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #374151, #020617);
+}
+
+.cross-road-vehicle-wheel.wheel-left {
+  left: 14%;
+}
+
+.cross-road-vehicle-wheel.wheel-right {
+  right: 14%;
+}
+
+.cross-road-player {
+  width: 30px;
+  height: 40px;
+  left: auto;
+  right: auto;
+  z-index: 3;
+}
+
+.cross-road-player-shadow {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: -1px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.35);
+  filter: blur(1px);
+}
+
+.cross-road-player-head {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  margin: 0 auto;
+  background: linear-gradient(170deg, #ffd4a9, #f59e0b);
+  border: 1px solid rgba(2, 6, 23, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.cross-road-player-body {
+  width: 30px;
+  height: 20px;
+  border-radius: 8px;
+  margin-top: 2px;
+  background: linear-gradient(170deg, #38bdf8, #0ea5e9 62%, #0284c7);
+  border: 2px solid rgba(2, 6, 23, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.33),
+    inset 0 -3px 4px rgba(2, 6, 23, 0.28);
+}
+
+.cross-road-player-eye {
+  position: absolute;
+  top: 7px;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: #0f172a;
+}
+
+.cross-road-player-eye.eye-left {
+  left: 11px;
+}
+
+.cross-road-player-eye.eye-right {
+  right: 11px;
+}
+
+.cross-road-footnote {
+  margin-top: 0.7rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+@keyframes cross-road-light-sweep {
+  from {
+    opacity: 0.9;
+    transform: translateX(-0.5%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0.5%);
+  }
+}
+
+@keyframes cross-road-engine-bounce {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-0.6px);
+  }
+}
+
 @keyframes neo-snake-head-bob {
   from {
     transform: translateY(0);
