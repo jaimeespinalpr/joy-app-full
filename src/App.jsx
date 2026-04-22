@@ -7691,6 +7691,20 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
     }
   }, [phase, level, musicEnabled])
 
+  function tryPlayCrossRoadMusicFromGesture() {
+    const musicTrack = musicAudioRef.current
+    if (!musicTrack) return
+    if (!musicEnabled || masterAudioMuted || masterAudioVolume <= 0) return
+    if (!(statusRef.current === 'playing' || statusRef.current === 'countdown')) return
+
+    musicTrack.volume = Math.max(0.05, Math.min(0.68, 0.34 * masterAudioVolume))
+    musicTrack.playbackRate = Math.max(0.88, Math.min(1.36, 0.94 + levelRef.current * 0.03))
+    const playPromise = musicTrack.play()
+    if (playPromise?.catch) {
+      playPromise.catch(() => {})
+    }
+  }
+
   useEffect(() => {
     function syncFullscreen() {
       setIsFullscreen(Boolean(document.fullscreenElement))
@@ -7775,6 +7789,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
       collisionCountRef.current = nextCount
       return nextCount
     })
+    resetPlayerToStart()
     setQuestionResult('')
     setQuestionRound(question)
     setPhase('question')
@@ -8019,6 +8034,7 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
   }
 
   function handleMove(dx, dy) {
+    tryPlayCrossRoadMusicFromGesture()
     if (statusRef.current !== 'playing') return
     if (!isMovementAllowed(dx, dy)) {
       setMessage(getCrossRoadRule(levelRef.current).short)
@@ -8226,7 +8242,21 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
           <button type="button" className="btn btn-ghost" onClick={() => setSoundEnabled((value) => !value)}>
             <span>{soundEnabled ? 'Sound on' : 'Sound off'}</span>
           </button>
-          <button type="button" className="btn btn-ghost" onClick={() => setMusicEnabled((value) => !value)}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setMusicEnabled((value) => {
+                const nextValue = !value
+                const track = musicAudioRef.current
+                if (track && !nextValue) {
+                  track.pause()
+                }
+                return nextValue
+              })
+              tryPlayCrossRoadMusicFromGesture()
+            }}
+          >
             <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
           </button>
           <button type="button" className="btn btn-ghost icon-only" onClick={() => void handleFullscreenToggle()}>
