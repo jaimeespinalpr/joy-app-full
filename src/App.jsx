@@ -7691,10 +7691,10 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
     }
   }, [phase, level, musicEnabled])
 
-  function tryPlayCrossRoadMusicFromGesture() {
+  function tryPlayCrossRoadMusicFromGesture(forcePlay = false) {
     const musicTrack = musicAudioRef.current
     if (!musicTrack) return
-    if (!musicEnabled || masterAudioMuted || masterAudioVolume <= 0) return
+    if ((!musicEnabled && !forcePlay) || masterAudioMuted || masterAudioVolume <= 0) return
     if (!(statusRef.current === 'playing' || statusRef.current === 'countdown')) return
 
     musicTrack.volume = Math.max(0.05, Math.min(0.68, 0.34 * masterAudioVolume))
@@ -8246,15 +8246,15 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
             type="button"
             className="btn btn-ghost"
             onClick={() => {
-              setMusicEnabled((value) => {
-                const nextValue = !value
-                const track = musicAudioRef.current
-                if (track && !nextValue) {
-                  track.pause()
-                }
-                return nextValue
-              })
-              tryPlayCrossRoadMusicFromGesture()
+              const nextValue = !musicEnabled
+              setMusicEnabled(nextValue)
+              const track = musicAudioRef.current
+              if (track && !nextValue) {
+                track.pause()
+              }
+              if (nextValue) {
+                tryPlayCrossRoadMusicFromGesture(true)
+              }
             }}
           >
             <span>{musicEnabled ? 'Music on' : 'Music off'}</span>
@@ -8374,19 +8374,21 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
                   )
                 })}
 
-                <div
-                  className="cross-road-player"
-                  style={{
-                    left: `${player.col * CROSS_ROAD_TILE + 8}px`,
-                    top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
-                  }}
-                >
-                  <div className="cross-road-player-shadow" />
-                  <div className="cross-road-player-head" />
-                  <div className="cross-road-player-body" />
-                  <div className="cross-road-player-eye eye-left" />
-                  <div className="cross-road-player-eye eye-right" />
-                </div>
+                {phase !== 'question' && (
+                  <div
+                    className="cross-road-player"
+                    style={{
+                      left: `${player.col * CROSS_ROAD_TILE + 8}px`,
+                      top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
+                    }}
+                  >
+                    <div className="cross-road-player-shadow" />
+                    <div className="cross-road-player-head" />
+                    <div className="cross-road-player-body" />
+                    <div className="cross-road-player-eye eye-left" />
+                    <div className="cross-road-player-eye eye-right" />
+                  </div>
+                )}
 
               {(phase === 'countdown' || phase === 'question' || phase === 'saving') && (
                 <div className="neo-snake-overlay">
