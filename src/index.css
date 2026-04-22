@@ -2524,7 +2524,8 @@ button {
   height: 40px;
   left: auto;
   right: auto;
-  z-index: 5;
+  z-index: 20;
+  pointer-events: none;
 }
 
 .cross-road-player-shadow {
@@ -2586,7 +2587,12 @@ button {
 }
 
 .cross-road-stage .neo-snake-overlay {
-  z-index: 9;
+  z-index: 40;
+}
+
+.cross-road-stage .neo-snake-overlay .neo-snake-overlay-card {
+  position: relative;
+  z-index: 41;
 }
 
 @keyframes cross-road-light-sweep {

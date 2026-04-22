@@ -8374,21 +8374,19 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
                   )
                 })}
 
-                {phase !== 'question' && (
-                  <div
-                    className="cross-road-player"
-                    style={{
-                      left: `${player.col * CROSS_ROAD_TILE + 8}px`,
-                      top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
-                    }}
-                  >
-                    <div className="cross-road-player-shadow" />
-                    <div className="cross-road-player-head" />
-                    <div className="cross-road-player-body" />
-                    <div className="cross-road-player-eye eye-left" />
-                    <div className="cross-road-player-eye eye-right" />
-                  </div>
-                )}
+                <div
+                  className="cross-road-player"
+                  style={{
+                    left: `${player.col * CROSS_ROAD_TILE + 8}px`,
+                    top: `${CROSS_ROAD_HUD_HEIGHT + player.row * CROSS_ROAD_TILE + 4}px`,
+                  }}
+                >
+                  <div className="cross-road-player-shadow" />
+                  <div className="cross-road-player-head" />
+                  <div className="cross-road-player-body" />
+                  <div className="cross-road-player-eye eye-left" />
+                  <div className="cross-road-player-eye eye-right" />
+                </div>
 
               {(phase === 'countdown' || phase === 'question' || phase === 'saving') && (
                 <div className="neo-snake-overlay">
