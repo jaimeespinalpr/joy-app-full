@@ -220,6 +220,15 @@ const CROSS_ROAD_GAME_CARD = {
   icon: Gamepad2,
 }
 
+const PIGEON_FLAP_GAME_CARD = {
+  id: 'pigeon-flap',
+  name: 'Paloma Flappy Quiz',
+  description: 'Flap through city gaps. Buildings rise below and branches hang above.',
+  available: true,
+  accentClass: 'test-games',
+  icon: Gamepad2,
+}
+
 const DAILY_MISSIONS_STORAGE_KEY = 'joyapp_daily_missions_v1'
 const DAILY_MISSIONS = [
   { id: 'mission-1', label: 'Complete 1 math challenge', goal: 1, reward: 10 },
@@ -815,6 +824,54 @@ const CROSS_ROAD_VEHICLE_STYLES = {
   bus: { w: 102, h: 34, color: '#14b8a6', roof: '#99f6e4' },
   moto: { w: 40, h: 20, color: '#8b5cf6', roof: '#c4b5fd' },
   truck: { w: 86, h: 34, color: '#f97316', roof: '#fdba74' },
+}
+
+const PIGEON_FLAP_WIDTH = 360
+const PIGEON_FLAP_HEIGHT = 560
+const PIGEON_FLAP_BIRD_X = 84
+const PIGEON_FLAP_BIRD_SIZE = 34
+const PIGEON_FLAP_GRAVITY = 0.42
+const PIGEON_FLAP_FLAP_VELOCITY = -7.1
+const PIGEON_FLAP_GOAL = 12
+const PIGEON_FLAP_COUNTDOWN_STEPS = ['3', '2', '1', 'GO']
+const PIGEON_FLAP_MESSAGES = [
+  'A branch clipped the wing.',
+  'Too close to the skyline.',
+  'Paloma down. Quiz time.',
+  'Watch the gap and flap sooner.',
+]
+
+function createPigeonObstacle(index, score = 0) {
+  const gapSize = Math.max(150, 178 - Math.min(score, 8) * 4)
+  const branchHeight = 68 + Math.floor(Math.random() * 130)
+  const safeBottomSpace = 96
+  const buildingHeight = Math.max(
+    safeBottomSpace,
+    PIGEON_FLAP_HEIGHT - branchHeight - gapSize,
+  )
+  const baseBuildingHeight = Math.max(safeBottomSpace, buildingHeight + Math.floor((Math.random() - 0.5) * 44))
+  return {
+    id: `pigeon_obstacle_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`,
+    x: PIGEON_FLAP_WIDTH + index * 220,
+    width: 78,
+    gapSize,
+    branchHeight,
+    buildingHeight: Math.min(PIGEON_FLAP_HEIGHT - 84, baseBuildingHeight),
+    passed: false,
+  }
+}
+
+function createInitialPigeonObstacles(score = 0) {
+  return [createPigeonObstacle(0, score), createPigeonObstacle(1, score), createPigeonObstacle(2, score)]
+}
+
+function pigeonFlapRectsIntersect(firstRect, secondRect) {
+  return (
+    firstRect.x < secondRect.x + secondRect.w &&
+    firstRect.x + firstRect.w > secondRect.x &&
+    firstRect.y < secondRect.y + secondRect.h &&
+    firstRect.y + firstRect.h > secondRect.y
+  )
 }
 
 function clampCrossRoad(value, min, max) {
@@ -2872,7 +2929,15 @@ function TestCard({ test, onSelect }) {
   )
 }
 
-function GamesHub({ onBack, onStartSnakeGame, onStartCrossRoadGame, snakeTopRecord, crossRoadTopRecord }) {
+function GamesHub({
+  onBack,
+  onStartSnakeGame,
+  onStartCrossRoadGame,
+  onStartPigeonFlapGame,
+  snakeTopRecord,
+  crossRoadTopRecord,
+  pigeonFlapTopRecord,
+}) {
   return (
     <section className="panel-card">
       <div className="panel-card-header">
@@ -2889,6 +2954,7 @@ function GamesHub({ onBack, onStartSnakeGame, onStartCrossRoadGame, snakeTopReco
       <div className="tests-grid special-modes-grid">
         <TestCard test={SNAKE_GAME_CARD} onSelect={onStartSnakeGame} />
         <TestCard test={CROSS_ROAD_GAME_CARD} onSelect={onStartCrossRoadGame} />
+        <TestCard test={PIGEON_FLAP_GAME_CARD} onSelect={onStartPigeonFlapGame} />
       </div>
 
       <div className="results-columns" style={{ marginTop: '1rem' }}>
@@ -2903,6 +2969,12 @@ function GamesHub({ onBack, onStartSnakeGame, onStartCrossRoadGame, snakeTopReco
             <h3>Cruza o Pierde record</h3>
           </div>
           <TestLeaderboardChip topRecord={crossRoadTopRecord} />
+        </div>
+        <div className="panel-card">
+          <div className="panel-card-header">
+            <h3>Paloma record</h3>
+          </div>
+          <TestLeaderboardChip topRecord={pigeonFlapTopRecord} />
         </div>
       </div>
     </section>
@@ -8455,6 +8527,705 @@ function CrossRoadChallenge({ onBack, onSaveResult, studentName, topTestRecord }
   )
 }
 
+function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
+  const shellRef = useRef(null)
+  const phaseRef = useRef('countdown')
+  const birdYRef = useRef(PIGEON_FLAP_HEIGHT * 0.42)
+  const velocityRef = useRef(0)
+  const obstaclesRef = useRef(createInitialPigeonObstacles())
+  const scoreRef = useRef(0)
+  const collisionCountRef = useRef(0)
+  const restartCountRef = useRef(0)
+  const questionDeckRef = useRef([])
+  const finishInProgressRef = useRef(false)
+  const autoStartRef = useRef(false)
+  const animationFrameRef = useRef(null)
+  const countdownTimerRef = useRef(null)
+  const soundEnabledRef = useRef(true)
+
+  const [birdY, setBirdY] = useState(() => birdYRef.current)
+  const [velocity, setVelocity] = useState(0)
+  const [obstacles, setObstacles] = useState(() => obstaclesRef.current)
+  const [score, setScore] = useState(0)
+  const [phase, setPhase] = useState('countdown')
+  const [countdownValue, setCountdownValue] = useState('3')
+  const [message, setMessage] = useState('Flap to stay above the skyline.')
+  const [questionRound, setQuestionRound] = useState(null)
+  const [questionResult, setQuestionResult] = useState('')
+  const [collisionCount, setCollisionCount] = useState(0)
+  const [restartCount, setRestartCount] = useState(0)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [lastResult, setLastResult] = useState(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  const progressPercent = Math.min(100, Math.round((score / PIGEON_FLAP_GOAL) * 100))
+  const currentSpeed = Math.min(3.5 + score * 0.14, 5.8)
+
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    birdYRef.current = birdY
+  }, [birdY])
+
+  useEffect(() => {
+    velocityRef.current = velocity
+  }, [velocity])
+
+  useEffect(() => {
+    obstaclesRef.current = obstacles
+  }, [obstacles])
+
+  useEffect(() => {
+    scoreRef.current = score
+  }, [score])
+
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled
+  }, [soundEnabled])
+
+  useEffect(() => {
+    function syncFullscreen() {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+
+    function handleKeyDown(event) {
+      const key = event.key.toLowerCase()
+      if ([' ', 'arrowup', 'w'].includes(key)) {
+        event.preventDefault()
+        handleFlap()
+      }
+    }
+
+    document.addEventListener('fullscreenchange', syncFullscreen)
+    window.addEventListener('keydown', handleKeyDown)
+    syncFullscreen()
+
+    return () => {
+      clearAllTimers()
+      document.removeEventListener('fullscreenchange', syncFullscreen)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (autoStartRef.current) return
+    autoStartRef.current = true
+    startNewSession({ playStartSound: false })
+  }, [])
+
+  useEffect(() => {
+    cancelAnimationLoop()
+    if (phase !== 'playing') return undefined
+
+    const tick = () => {
+      const nextVelocity = velocityRef.current + PIGEON_FLAP_GRAVITY
+      const nextBirdY = birdYRef.current + nextVelocity
+      const speed = Math.min(3.5 + scoreRef.current * 0.14, 5.8)
+      let collisionObstacle = null
+      let nextScore = scoreRef.current
+
+      const movedObstacles = obstaclesRef.current
+        .map((obstacle) => {
+          const nextObstacle = { ...obstacle, x: obstacle.x - speed }
+          if (!nextObstacle.passed && nextObstacle.x + nextObstacle.width < PIGEON_FLAP_BIRD_X) {
+            nextObstacle.passed = true
+            nextScore += 1
+          }
+          return nextObstacle
+        })
+        .filter((obstacle) => obstacle.x + obstacle.width > -60)
+
+      while (movedObstacles.length < 3) {
+        movedObstacles.push(createPigeonObstacle(movedObstacles.length + nextScore, nextScore))
+      }
+
+      const birdRect = {
+        x: PIGEON_FLAP_BIRD_X,
+        y: nextBirdY,
+        w: PIGEON_FLAP_BIRD_SIZE,
+        h: PIGEON_FLAP_BIRD_SIZE,
+      }
+
+      collisionObstacle = movedObstacles.find((obstacle) => {
+        const topRect = { x: obstacle.x, y: 0, w: obstacle.width, h: obstacle.branchHeight }
+        const bottomRect = {
+          x: obstacle.x,
+          y: PIGEON_FLAP_HEIGHT - obstacle.buildingHeight,
+          w: obstacle.width,
+          h: obstacle.buildingHeight,
+        }
+        return pigeonFlapRectsIntersect(birdRect, topRect) || pigeonFlapRectsIntersect(birdRect, bottomRect)
+      })
+
+      if (nextBirdY <= 0 || nextBirdY + PIGEON_FLAP_BIRD_SIZE >= PIGEON_FLAP_HEIGHT) {
+        collisionObstacle = collisionObstacle ?? { id: 'bounds', x: PIGEON_FLAP_BIRD_X + 10 }
+      }
+
+      velocityRef.current = nextVelocity
+      birdYRef.current = nextBirdY
+      obstaclesRef.current = movedObstacles
+      scoreRef.current = nextScore
+
+      setVelocity(nextVelocity)
+      setBirdY(nextBirdY)
+      setObstacles(movedObstacles)
+      if (nextScore !== score) {
+        setScore(nextScore)
+      }
+
+      if (nextScore >= PIGEON_FLAP_GOAL) {
+        void finishPigeonSession({
+          attemptStatus: 'completed',
+          saveMessage: 'Saving pigeon run...',
+          successMessage: 'Pigeon result saved.',
+        })
+        return
+      }
+
+      if (collisionObstacle) {
+        triggerCollisionQuestion(collisionObstacle)
+        return
+      }
+
+      animationFrameRef.current = window.requestAnimationFrame(tick)
+    }
+
+    animationFrameRef.current = window.requestAnimationFrame(tick)
+    return () => cancelAnimationLoop()
+  }, [phase, score])
+
+  function cancelAnimationLoop() {
+    if (animationFrameRef.current) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+  }
+
+  function clearCountdownTimer() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current)
+      countdownTimerRef.current = null
+    }
+  }
+
+  function clearAllTimers() {
+    cancelAnimationLoop()
+    clearCountdownTimer()
+  }
+
+  function refillQuestionDeck(minimum = 8) {
+    while (questionDeckRef.current.length < minimum) {
+      questionDeckRef.current.push(...generateFullTestQuestions(FULL_TEST_QUESTION_COUNT))
+    }
+  }
+
+  function takeCollisionQuestion() {
+    refillQuestionDeck()
+    while (questionDeckRef.current.length) {
+      const nextQuestion = questionDeckRef.current.shift()
+      if (!nextQuestion) continue
+      const options = (nextQuestion.options ?? []).filter((value) => value !== undefined && value !== null)
+      if (options.length >= 2) {
+        return { ...nextQuestion, options: shuffleArray(options) }
+      }
+    }
+    return null
+  }
+
+  function beginCountdown() {
+    clearCountdownTimer()
+    setPhase('countdown')
+    setCountdownValue(PIGEON_FLAP_COUNTDOWN_STEPS[0])
+    setMessage('Branches arriba. Buildings abajo. Hit the gap.')
+    let stepIndex = 0
+
+    countdownTimerRef.current = window.setInterval(() => {
+      stepIndex += 1
+      const nextValue = PIGEON_FLAP_COUNTDOWN_STEPS[stepIndex]
+      if (!nextValue) {
+        clearCountdownTimer()
+        setPhase('playing')
+        setMessage('Tap flap and stay centered in the gap.')
+        return
+      }
+      setCountdownValue(nextValue)
+    }, 650)
+  }
+
+  function resetBirdToCenter() {
+    const nextBirdY = PIGEON_FLAP_HEIGHT * 0.42
+    birdYRef.current = nextBirdY
+    velocityRef.current = 0
+    setBirdY(nextBirdY)
+    setVelocity(0)
+  }
+
+  function restartRunFromZero({ countRestart = false, announce = 'Run restarted from zero.' } = {}) {
+    clearAllTimers()
+    resetBirdToCenter()
+    const nextObstacles = createInitialPigeonObstacles(0)
+    obstaclesRef.current = nextObstacles
+    setObstacles(nextObstacles)
+    scoreRef.current = 0
+    setScore(0)
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    if (countRestart) {
+      setRestartCount((previous) => {
+        const nextCount = previous + 1
+        restartCountRef.current = nextCount
+        return nextCount
+      })
+    }
+
+    beginCountdown()
+    setMessage(announce)
+  }
+
+  function continueAfterCorrectCollision(collisionX) {
+    resetBirdToCenter()
+    const trimmedObstacles = obstaclesRef.current
+      .filter((obstacle) => obstacle.x + obstacle.width > collisionX - 36)
+      .map((obstacle) => ({ ...obstacle, passed: obstacle.passed || obstacle.x < PIGEON_FLAP_BIRD_X - 20 }))
+
+    while (trimmedObstacles.length < 3) {
+      trimmedObstacles.push(createPigeonObstacle(trimmedObstacles.length + scoreRef.current, scoreRef.current))
+    }
+
+    obstaclesRef.current = trimmedObstacles
+    setObstacles(trimmedObstacles)
+    setQuestionRound(null)
+    setQuestionResult('')
+    beginCountdown()
+    setMessage('Nice recovery. Keep flapping.')
+  }
+
+  function startNewSession({ playStartSound = true } = {}) {
+    clearAllTimers()
+    finishInProgressRef.current = false
+    questionDeckRef.current = []
+    refillQuestionDeck(12)
+
+    if (playStartSound) {
+      playSound('start', soundEnabledRef.current)
+    }
+
+    void enterFullscreenMode()
+
+    setSaveStatus('idle')
+    setSaveMessage('')
+    setLastResult(null)
+    setCollisionCount(0)
+    collisionCountRef.current = 0
+    setRestartCount(0)
+    restartCountRef.current = 0
+    restartRunFromZero({ countRestart: false, announce: 'New run. Reach 12 clean gaps.' })
+  }
+
+  function triggerCollisionQuestion(collisionObstacle) {
+    if (phaseRef.current !== 'playing') return
+    const question = takeCollisionQuestion()
+    if (!question) {
+      restartRunFromZero({ countRestart: true, announce: 'No quiz available. Restarting run.' })
+      return
+    }
+
+    clearAllTimers()
+    playSound('bump', soundEnabledRef.current)
+    setCollisionCount((previous) => {
+      const nextCount = previous + 1
+      collisionCountRef.current = nextCount
+      return nextCount
+    })
+    setQuestionResult('')
+    setQuestionRound({ ...question, collisionX: collisionObstacle?.x ?? PIGEON_FLAP_BIRD_X + 40 })
+    setPhase('question')
+    setMessage(`${pickRandom(PIGEON_FLAP_MESSAGES) || 'Paloma down. Quiz time.'} Answer correctly to keep flying.`)
+  }
+
+  async function finishPigeonSession(options = {}) {
+    if (finishInProgressRef.current) return
+    finishInProgressRef.current = true
+    clearAllTimers()
+    setQuestionRound(null)
+    setQuestionResult('')
+
+    const attemptStatus = options.attemptStatus ?? 'completed'
+    const maxScore = PIGEON_FLAP_GOAL * 100
+    const totalScore = Math.min(maxScore, scoreRef.current * 100)
+    const percentage = Math.min(100, Math.round((totalScore / maxScore) * 100))
+    const gradeInfo = attemptStatus === 'completed' ? { grade: 'PLUS' } : getGrade(percentage)
+
+    const summary = {
+      subjectId: 'games',
+      subjectName: 'Games',
+      testId: 'pigeon-flap',
+      testName: 'Paloma Flappy Quiz',
+      mode: 'pigeon-flap',
+      totalScore,
+      maxScore,
+      percentage,
+      grade: gradeInfo.grade,
+      questionCount: PIGEON_FLAP_GOAL,
+      perfectOriginalCount: scoreRef.current,
+      answeredOriginalCount: scoreRef.current,
+      remainingOriginalCount: attemptStatus === 'completed' ? 0 : Math.max(0, PIGEON_FLAP_GOAL - scoreRef.current),
+      remainingQueueCount: attemptStatus === 'completed' ? 0 : Math.max(0, PIGEON_FLAP_GOAL - scoreRef.current),
+      attemptStatus,
+      isAbandoned: attemptStatus === 'abandoned',
+      passedGaps: scoreRef.current,
+      collisionQuestionCount: collisionCountRef.current,
+      restartCount: restartCountRef.current,
+      finishedAtMs: Date.now(),
+    }
+
+    setLastResult(summary)
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage(options.saveMessage ?? 'Saving result...')
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('saved')
+      setSaveMessage(options.successMessage ?? 'Result saved to Firebase.')
+    } catch (error) {
+      setSaveStatus('error')
+      setSaveMessage(mapFirebaseError(error, 'save'))
+    }
+  }
+
+  async function enterFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (document.fullscreenElement) return
+    if (!shellRef.current?.requestFullscreen) return
+
+    try {
+      await shellRef.current.requestFullscreen()
+    } catch (error) {
+      console.warn('Could not enter fullscreen mode:', error)
+    }
+  }
+
+  async function exitFullscreenMode() {
+    if (typeof document === 'undefined') return
+    if (!document.fullscreenElement || !document.exitFullscreen) return
+
+    try {
+      await document.exitFullscreen()
+    } catch (error) {
+      console.warn('Could not exit fullscreen mode:', error)
+    }
+  }
+
+  async function handleFullscreenToggle() {
+    if (document.fullscreenElement) {
+      await exitFullscreenMode()
+      return
+    }
+    await enterFullscreenMode()
+  }
+
+  function handleFlap() {
+    if (phaseRef.current === 'countdown') {
+      playSound('click-soft', soundEnabledRef.current)
+      return
+    }
+    if (phaseRef.current !== 'playing') return
+
+    velocityRef.current = PIGEON_FLAP_FLAP_VELOCITY
+    setVelocity(PIGEON_FLAP_FLAP_VELOCITY)
+    playSound('coin', soundEnabledRef.current)
+  }
+
+  async function handleExitClick() {
+    if (saveStatus === 'saving') return
+    if (phaseRef.current === 'finished') {
+      await exitFullscreenMode()
+      onBack()
+      return
+    }
+
+    await finishPigeonSession({
+      attemptStatus: 'abandoned',
+      saveMessage: 'Saving partial pigeon run...',
+      successMessage: 'Partial pigeon run saved.',
+    })
+  }
+
+  function handleQuestionAnswer(option) {
+    if (!questionRound || phaseRef.current !== 'question') return
+    const expected = String(questionRound.answer).trim().toLowerCase()
+    const received = String(option).trim().toLowerCase()
+
+    if (expected === received) {
+      setQuestionResult('correct')
+      playSound('correct', soundEnabledRef.current)
+      continueAfterCorrectCollision(questionRound.collisionX)
+      return
+    }
+
+    setQuestionResult('wrong')
+    playSound('bump', soundEnabledRef.current)
+    window.setTimeout(() => {
+      restartRunFromZero({ countRestart: true, announce: 'Wrong answer. Back to the first gap.' })
+    }, 520)
+  }
+
+  function handleBackFromResults() {
+    void (async () => {
+      await exitFullscreenMode()
+      onBack()
+    })()
+  }
+
+  if (phase === 'finished') {
+    const summary = lastResult ?? {
+      totalScore: 0,
+      maxScore: PIGEON_FLAP_GOAL * 100,
+      percentage: 0,
+      grade: 'F',
+      passedGaps: 0,
+      collisionQuestionCount: 0,
+      restartCount: 0,
+      attemptStatus: 'abandoned',
+    }
+    const completed = summary.attemptStatus === 'completed'
+
+    return (
+      <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+        <div className="neo-snake-results">
+          <div className={`neo-result-badge ${completed ? 'is-plus' : 'is-partial'}`}>
+            {completed ? <Trophy size={38} /> : <CircleAlert size={38} />}
+          </div>
+          <h1>{summary.grade}</h1>
+          <p>{completed ? 'Skyline cleared. Great flying.' : 'Run saved before the full route was cleared.'}</p>
+
+          <div className="neo-result-score">
+            <div>
+              <span>Score</span>
+              <strong>
+                {summary.totalScore} / {summary.maxScore}
+              </strong>
+            </div>
+            <div className="progress-track large">
+              <div className="progress-fill" style={{ width: `${summary.percentage}%` }} />
+            </div>
+            <small>{summary.percentage}%</small>
+          </div>
+
+          <div className="neo-result-grid">
+            <div>
+              <span>Gaps cleared</span>
+              <strong>{summary.passedGaps}</strong>
+            </div>
+            <div>
+              <span>Crash questions</span>
+              <strong>{summary.collisionQuestionCount}</strong>
+            </div>
+            <div>
+              <span>Restarts</span>
+              <strong>{summary.restartCount}</strong>
+            </div>
+            <div>
+              <span>Route goal</span>
+              <strong>{PIGEON_FLAP_GOAL}</strong>
+            </div>
+          </div>
+
+          <p className={`save-status ${saveStatus === 'error' ? 'is-error' : ''}`}>{saveMessage}</p>
+
+          <div className="results-actions">
+            <button type="button" className="btn btn-primary" onClick={() => startNewSession()}>
+              <RotateCcw size={16} />
+              <span>Play again</span>
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={handleBackFromResults}>
+              <ArrowLeft size={16} />
+              <span>Back home</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section ref={shellRef} className={`neo-snake-shell ${isFullscreen ? 'is-fullscreen' : ''}`}>
+      <div className="neo-snake-topbar">
+        <button type="button" className="btn btn-ghost" onClick={handleExitClick} disabled={saveStatus === 'saving'}>
+          <ArrowLeft size={16} />
+          <span>Exit</span>
+        </button>
+
+        <div className="neo-snake-title">
+          <strong>Paloma Flappy Quiz</strong>
+          <small>
+            Hi {studentName || 'Student'} · Goal {PIGEON_FLAP_GOAL} gaps
+          </small>
+        </div>
+
+        <div className="neo-snake-top-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setSoundEnabled((value) => !value)}>
+            <span>{soundEnabled ? 'Sound on' : 'Sound off'}</span>
+          </button>
+          <button type="button" className="btn btn-ghost icon-only" onClick={() => void handleFullscreenToggle()}>
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
+      </div>
+
+      <div className="neo-snake-layout">
+        <aside className="neo-snake-side">
+          <div className="neo-snake-side-card">
+            <span>Progress</span>
+            <strong>
+              {score}/{PIGEON_FLAP_GOAL}
+            </strong>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <small>{progressPercent}% complete</small>
+          </div>
+
+          <div className="neo-snake-side-card">
+            <span>Run stats</span>
+            <strong>{score} clean gaps</strong>
+            <small>Speed {currentSpeed.toFixed(1)}</small>
+            <small>{collisionCount} crash questions</small>
+            <small>{restartCount} restarts</small>
+            <small>Velocity {velocity.toFixed(1)}</small>
+          </div>
+
+          <TestLeaderboardChip topRecord={topTestRecord} />
+        </aside>
+
+        <div className="neo-snake-main">
+          <div className="neo-snake-status">{message}</div>
+
+          <div className="neo-snake-board-wrap">
+            <div className="pigeon-flap-stage" onPointerDown={(event) => {
+              event.preventDefault()
+              handleFlap()
+            }}>
+              <div className="pigeon-flap-sky" />
+              <div className="pigeon-flap-sun" />
+              <div className="pigeon-flap-cloud cloud-one" />
+              <div className="pigeon-flap-cloud cloud-two" />
+              <div className="pigeon-flap-cloud cloud-three" />
+
+              <div className="pigeon-flap-hud">
+                <strong>PALOMA RUN</strong>
+                <small>Score {String(score).padStart(2, '0')} · Goal {PIGEON_FLAP_GOAL}</small>
+              </div>
+
+              {obstacles.map((obstacle) => {
+                const topBranchStyle = {
+                  left: `${obstacle.x}px`,
+                  width: `${obstacle.width}px`,
+                  height: `${obstacle.branchHeight}px`,
+                }
+                const bottomBuildingStyle = {
+                  left: `${obstacle.x}px`,
+                  width: `${obstacle.width}px`,
+                  height: `${obstacle.buildingHeight}px`,
+                }
+
+                return (
+                  <div key={obstacle.id}>
+                    <div className="pigeon-branch-column" style={topBranchStyle}>
+                      <span className="pigeon-branch branch-a" />
+                      <span className="pigeon-branch branch-b" />
+                      <span className="pigeon-leaf leaf-a" />
+                      <span className="pigeon-leaf leaf-b" />
+                      <span className="pigeon-leaf leaf-c" />
+                    </div>
+                    <div className="pigeon-building-column" style={bottomBuildingStyle}>
+                      <span className="pigeon-building-top" />
+                      <span className="pigeon-window row-a" />
+                      <span className="pigeon-window row-b" />
+                      <span className="pigeon-window row-c" />
+                    </div>
+                  </div>
+                )
+              })}
+
+              <div
+                className="pigeon-bird"
+                style={{
+                  left: `${PIGEON_FLAP_BIRD_X}px`,
+                  top: `${birdY}px`,
+                  transform: `rotate(${Math.max(-22, Math.min(28, velocity * 4))}deg)`,
+                }}
+              >
+                <div className="pigeon-bird-wing" />
+                <div className="pigeon-bird-body" />
+                <div className="pigeon-bird-eye" />
+                <div className="pigeon-bird-beak" />
+              </div>
+
+              {(phase === 'countdown' || phase === 'question' || phase === 'saving') && (
+                <div className="neo-snake-overlay">
+                  <div className={`neo-snake-overlay-card ${phase === 'question' ? 'is-question' : ''}`}>
+                    {phase === 'countdown' && (
+                      <>
+                        <small>Sky route loading</small>
+                        <strong>{countdownValue}</strong>
+                        <p>Buildings abajo. Branches arriba. Tap or press ↑ / W / Space to flap.</p>
+                      </>
+                    )}
+
+                    {phase === 'question' && questionRound && (
+                      <>
+                        <small>{questionRound.sourceLabel}</small>
+                        {questionRound.context ? <p>{questionRound.context}</p> : null}
+                        <h3>{questionRound.prompt}</h3>
+                        <div className="neo-snake-question-grid">
+                          {questionRound.options.map((option, index) => (
+                            <button
+                              key={`${questionRound.id}_${index}`}
+                              type="button"
+                              className="answer-btn answer-text"
+                              onClick={() => handleQuestionAnswer(option)}
+                              disabled={Boolean(questionResult)}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                        {questionResult === 'wrong' ? <small className="error-copy">Wrong answer. Restarting...</small> : null}
+                      </>
+                    )}
+
+                    {phase === 'saving' && <small>{saveMessage || 'Saving...'}</small>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pigeon-flap-controls" aria-label="Pigeon controls">
+            <button type="button" className="neo-control left" onClick={handleFlap}>
+              <ArrowUp size={20} />
+            </button>
+            <button type="button" className="neo-control center" onClick={() => startNewSession()}>
+              <RotateCcw size={18} />
+            </button>
+          </div>
+
+          <div className="cross-road-footnote">
+            Tap the stage to flap. Clear gaps without touching the skyline or branches.
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord }) {
   const questionCount = FULL_TEST_QUESTION_COUNT
 
@@ -9320,6 +10091,10 @@ function App() {
     navigateScreen('cross-road')
   }
 
+  function openPigeonFlapGame() {
+    navigateScreen('pigeon-flap')
+  }
+
   function goToDashboard() {
     navigateScreen('dashboard')
   }
@@ -9356,6 +10131,7 @@ function App() {
   const fullTestTopRecord = getTopRecordForTest(rankingSourceResults, 'full', 'full-test')
   const snakeTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'snake')
   const crossRoadTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'cross-road')
+  const pigeonFlapTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'pigeon-flap')
   const selectedTestTopRecord =
     selectedSubject && selectedTest
       ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
@@ -9434,8 +10210,10 @@ function App() {
               onBack={goToDashboard}
               onStartSnakeGame={openSnakeGame}
               onStartCrossRoadGame={openCrossRoadGame}
+              onStartPigeonFlapGame={openPigeonFlapGame}
               snakeTopRecord={snakeTopRecord}
               crossRoadTopRecord={crossRoadTopRecord}
+              pigeonFlapTopRecord={pigeonFlapTopRecord}
             />
           )}
 
@@ -9463,6 +10241,15 @@ function App() {
               onSaveResult={saveAssessmentResult}
               studentName={studentDisplayName}
               topTestRecord={crossRoadTopRecord}
+            />
+          )}
+
+          {screen === 'pigeon-flap' && (
+            <PigeonFlapChallenge
+              onBack={goToGamesHub}
+              onSaveResult={saveAssessmentResult}
+              studentName={studentDisplayName}
+              topTestRecord={pigeonFlapTopRecord}
             />
           )}
 
