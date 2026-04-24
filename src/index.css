@@ -2974,6 +2974,26 @@ button {
     gap: 0.75rem;
   }
 
+  .app-main,
+  .screen-transition-layer,
+  .page-stack,
+  .panel-card,
+  .hero-panel,
+  .hero-panel > div,
+  .panel-card-header > div,
+  .mission-card,
+  .mini-stat,
+  .test-card,
+  .subject-card,
+  .leaderboard-row,
+  .record-highlight,
+  .avatar-panel,
+  .avatar-stage,
+  .avatar-catalog-surface {
+    width: 100%;
+    min-width: 0;
+  }
+
   .top-nav {
     border-radius: 20px;
     padding: 0.7rem;
@@ -2992,6 +3012,7 @@ button {
     width: 100%;
     flex-wrap: wrap;
     justify-content: center;
+    overflow: hidden;
   }
 
   .audio-master-controls {
@@ -3013,6 +3034,10 @@ button {
     font-size: 0.95rem;
   }
 
+  .page-stack {
+    gap: 0.75rem;
+  }
+
   .hero-panel {
     flex-direction: column;
     align-items: stretch;
@@ -3028,17 +3053,96 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .mini-stat {
+    padding: 0.75rem;
+  }
+
   .panel-card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .kids-stars {
+    align-self: flex-start;
   }
 
   .kids-guide-grid,
   .mission-grid,
   .results-columns,
   .special-modes-grid,
-  .tests-grid {
+  .tests-grid,
+  .subject-grid,
+  .avatar-summary-grid,
+  .avatar-catalog-grid,
+  .avatar-catalog-grid-characters,
+  .avatar-store-grid {
     grid-template-columns: 1fr;
+  }
+
+  .test-card {
+    grid-template-columns: auto 1fr;
+    align-items: start;
+  }
+
+  .test-card > :last-child {
+    display: none;
+  }
+
+  .avatar-panel-top,
+  .avatar-layout,
+  .avatar-layout-showroom,
+  .avatar-slot-header,
+  .avatar-store-wallet {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .avatar-stage {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    padding: 0.9rem;
+  }
+
+  .avatar-figure-wrap,
+  .avatar-quick-column,
+  .avatar-stage-caption {
+    grid-column: 1;
+  }
+
+  .avatar-quick-column {
+    grid-row: 2;
+  }
+
+  .avatar-stage-caption {
+    grid-row: 3;
+  }
+
+  .avatar-chalkboard {
+    inset: 74px 18px 172px 18px;
+  }
+
+  .avatar-classroom-shelf {
+    left: 14px;
+    bottom: 90px;
+    width: 74px;
+    padding: 10px 9px 8px;
+  }
+
+  .avatar-bunting {
+    right: 12px;
+    gap: 8px;
+  }
+
+  .avatar-bunting span {
+    border-left-width: 10px;
+    border-right-width: 10px;
+    border-top-width: 18px;
+  }
+
+  .avatar-canvas {
+    max-width: min(260px, 70vw);
   }
 
   .mission-progress-chip {
@@ -3051,6 +3155,32 @@ button {
 
   .mission-row .btn {
     width: 100%;
+  }
+
+  .mission-footer {
+    justify-content: stretch;
+  }
+
+  .mission-footer .btn,
+  .avatar-store-wallet .btn,
+  .avatar-inline-actions .btn,
+  .avatar-slot-header .btn,
+  .avatar-panel-top .btn {
+    width: 100%;
+  }
+
+  .record-highlight-meta {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .leaderboard-row > :last-child {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .neo-snake-shell {
@@ -3128,6 +3258,85 @@ button {
 
   .neo-result-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell {
+    padding: 0.55rem;
+  }
+
+  .top-nav,
+  .panel-card,
+  .hero-panel,
+  .release-banner {
+    border-radius: 18px;
+  }
+
+  .brand-brand {
+    gap: 0.5rem;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .hero-panel h1 {
+    font-size: clamp(1.3rem, 7vw, 1.7rem);
+  }
+
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .audio-master-controls {
+    padding-inline: 0.35rem;
+  }
+
+  .audio-master-controls input[type='range'] {
+    width: min(130px, 34vw);
+  }
+
+  .user-chip,
+  .btn {
+    max-width: 100%;
+  }
+
+  .btn {
+    padding: 0.68rem 0.82rem;
+    flex-wrap: wrap;
+  }
+
+  .mission-progress-chip,
+  .avatar-progress-chip,
+  .avatar-progress-chip-large,
+  .user-chip,
+  .brand-pill {
+    align-self: flex-start;
+  }
+
+  .panel-card-header h2 {
+    font-size: 1.03rem;
+  }
+
+  .panel-card-header p,
+  .hero-panel p,
+  .kids-tip-copy,
+  .mission-card small,
+  .test-card p,
+  .subject-card p {
+    font-size: 0.88rem;
+  }
+
+  .avatar-stage {
+    padding: 0.8rem;
+  }
+
+  .avatar-chalkboard {
+    inset: 72px 12px 162px 12px;
+    border-width: 8px;
   }
 }
 
