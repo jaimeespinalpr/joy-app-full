@@ -2595,6 +2595,38 @@ button {
   z-index: 41;
 }
 
+.pigeon-flap-stage .neo-snake-overlay {
+  z-index: 60;
+  background: rgba(10, 18, 36, 0.68);
+  backdrop-filter: blur(3px);
+}
+
+.pigeon-flap-stage .neo-snake-overlay .neo-snake-overlay-card {
+  position: relative;
+  z-index: 61;
+  width: min(320px, calc(100% - 0.6rem));
+  max-height: calc(100% - 0.6rem);
+  overflow: auto;
+}
+
+.pigeon-flap-stage .neo-snake-question-grid {
+  grid-template-columns: 1fr;
+}
+
+.pigeon-flap-stage.is-paused > :not(.neo-snake-overlay) {
+  filter: blur(2px) brightness(0.82);
+}
+
+.pigeon-flap-stage.is-paused .pigeon-flap-hud {
+  filter: none;
+}
+
+.pigeon-flap-stage.is-paused .pigeon-bird,
+.pigeon-flap-stage.is-paused .pigeon-branch-column,
+.pigeon-flap-stage.is-paused .pigeon-building-column {
+  transition: filter 0.18s ease;
+}
+
 .pigeon-flap-stage {
   width: min(92vw, 360px);
   height: min(78vh, 560px);
@@ -2813,6 +2845,11 @@ button {
   height: 34px;
   z-index: 5;
   transform-origin: center;
+}
+
+.pigeon-question-reward {
+  display: block;
+  margin-top: 0.1rem;
 }
 
 .pigeon-bird-body {

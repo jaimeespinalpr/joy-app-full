@@ -9137,10 +9137,13 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
           <div className="neo-snake-status">{message}</div>
 
           <div className="neo-snake-board-wrap">
-            <div className="pigeon-flap-stage" onPointerDown={(event) => {
-              event.preventDefault()
-              handleFlap()
-            }}>
+            <div
+              className={`pigeon-flap-stage ${phase !== 'playing' ? 'is-paused' : ''}`}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                handleFlap()
+              }}
+            >
               <div className="pigeon-flap-sky" />
               <div className="pigeon-flap-sun" />
               <div className="pigeon-flap-cloud cloud-one" />
@@ -9226,7 +9229,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
                             </button>
                           ))}
                         </div>
-                        <small>Correct answer = +1 extra life.</small>
+                        <small className="pigeon-question-reward">Correct answer = +1 extra life.</small>
                         {questionResult === 'wrong' ? <small className="error-copy">Wrong answer. Restarting...</small> : null}
                       </>
                     )}
