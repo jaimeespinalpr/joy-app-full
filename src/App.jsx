@@ -8534,6 +8534,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
   const velocityRef = useRef(0)
   const obstaclesRef = useRef(createInitialPigeonObstacles())
   const scoreRef = useRef(0)
+  const livesRef = useRef(0)
   const collisionCountRef = useRef(0)
   const restartCountRef = useRef(0)
   const questionDeckRef = useRef([])
@@ -8547,6 +8548,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
   const [velocity, setVelocity] = useState(0)
   const [obstacles, setObstacles] = useState(() => obstaclesRef.current)
   const [score, setScore] = useState(0)
+  const [lives, setLives] = useState(0)
   const [phase, setPhase] = useState('countdown')
   const [countdownValue, setCountdownValue] = useState('3')
   const [message, setMessage] = useState('Flap to stay above the skyline.')
@@ -8582,6 +8584,10 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
   useEffect(() => {
     scoreRef.current = score
   }, [score])
+
+  useEffect(() => {
+    livesRef.current = lives
+  }, [lives])
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled
@@ -8687,6 +8693,19 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
       }
 
       if (collisionObstacle) {
+        if (livesRef.current > 0) {
+          playSound('coin', soundEnabledRef.current)
+          setLives((previous) => {
+            const nextLives = Math.max(0, previous - 1)
+            livesRef.current = nextLives
+            return nextLives
+          })
+          resetBirdToCenter()
+          setMessage('Extra life used. Keep flying.')
+          animationFrameRef.current = window.requestAnimationFrame(tick)
+          return
+        }
+
         triggerCollisionQuestion(collisionObstacle)
         return
       }
@@ -8802,7 +8821,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
     setQuestionRound(null)
     setQuestionResult('')
     beginCountdown()
-    setMessage('Nice recovery. Keep flapping.')
+    setMessage('Correct. You earned an extra life — keep flapping.')
   }
 
   function startNewSession({ playStartSound = true } = {}) {
@@ -8820,6 +8839,8 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
     setSaveStatus('idle')
     setSaveMessage('')
     setLastResult(null)
+    setLives(0)
+    livesRef.current = 0
     setCollisionCount(0)
     collisionCountRef.current = 0
     setRestartCount(0)
@@ -8879,6 +8900,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
       attemptStatus,
       isAbandoned: attemptStatus === 'abandoned',
       passedGaps: scoreRef.current,
+      extraLives: livesRef.current,
       collisionQuestionCount: collisionCountRef.current,
       restartCount: restartCountRef.current,
       finishedAtMs: Date.now(),
@@ -8965,6 +8987,11 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
     if (expected === received) {
       setQuestionResult('correct')
       playSound('correct', soundEnabledRef.current)
+      setLives((previous) => {
+        const nextLives = previous + 1
+        livesRef.current = nextLives
+        return nextLives
+      })
       continueAfterCorrectCollision(questionRound.collisionX)
       return
     }
@@ -8990,6 +9017,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
       percentage: 0,
       grade: 'F',
       passedGaps: 0,
+      extraLives: 0,
       collisionQuestionCount: 0,
       restartCount: 0,
       attemptStatus: 'abandoned',
@@ -9028,12 +9056,12 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
               <strong>{summary.collisionQuestionCount}</strong>
             </div>
             <div>
-              <span>Restarts</span>
-              <strong>{summary.restartCount}</strong>
+              <span>Extra lives</span>
+              <strong>{summary.extraLives}</strong>
             </div>
             <div>
-              <span>Route goal</span>
-              <strong>{PIGEON_FLAP_GOAL}</strong>
+              <span>Restarts</span>
+              <strong>{summary.restartCount}</strong>
             </div>
           </div>
 
@@ -9096,6 +9124,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
             <span>Run stats</span>
             <strong>{score} clean gaps</strong>
             <small>Speed {currentSpeed.toFixed(1)}</small>
+            <small>Lives {lives}</small>
             <small>{collisionCount} crash questions</small>
             <small>{restartCount} restarts</small>
             <small>Velocity {velocity.toFixed(1)}</small>
@@ -9197,6 +9226,7 @@ function PigeonFlapChallenge({ onBack, onSaveResult, studentName, topTestRecord 
                             </button>
                           ))}
                         </div>
+                        <small>Correct answer = +1 extra life.</small>
                         {questionResult === 'wrong' ? <small className="error-copy">Wrong answer. Restarting...</small> : null}
                       </>
                     )}
