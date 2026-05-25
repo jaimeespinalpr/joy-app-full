@@ -3224,3 +3224,811 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
+/* Premium Avatar Animations */
+@keyframes avatarBreathe {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-1.5px) scaleY(1.02); }
+}
+@keyframes avatarBlink {
+  0%, 46%, 48%, 100% { transform: scaleY(1); }
+  47% { transform: scaleY(0.1); }
+}
+@keyframes avatarFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes avatarPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+@keyframes stagePulse {
+  0%, 100% { opacity: 0.28; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.05); }
+}
+
+.avatar-animate-breathe {
+  transform-origin: center 180px;
+  animation: avatarBreathe 4s ease-in-out infinite;
+}
+.avatar-animate-blink {
+  transform-origin: center 86px;
+  animation: avatarBlink 6s infinite;
+}
+.avatar-animate-float {
+  animation: avatarFloat 6s ease-in-out infinite;
+}
+.avatar-animate-pop {
+  animation: avatarPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.avatar-stage-glow {
+  animation: stagePulse 4s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Games Hub Styles
+   ========================================================================== */
+.games-hub-shell {
+  width: min(840px, 100%);
+  margin: 0 auto;
+  padding: 0.5rem;
+}
+
+.games-hub-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  padding: 1.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(25, 40, 96, 0.06);
+  box-shadow: 0 10px 30px rgba(16, 28, 66, 0.04);
+}
+
+.games-hub-header h1 {
+  margin: 0 0 0.4rem;
+  font-size: 2.2rem;
+  color: #1a2556;
+}
+
+.games-hub-header p {
+  margin: 0;
+  color: #5f6c95;
+  font-size: 1.05rem;
+}
+
+.games-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.game-hub-card {
+  position: relative;
+  background: white;
+  border-radius: 28px;
+  border: 1px solid rgba(25, 40, 96, 0.08);
+  box-shadow: 0 16px 36px rgba(16, 27, 69, 0.06);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.2rem;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+}
+
+.game-hub-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.game-hub-card.card-snake::before {
+  background: linear-gradient(90deg, #70d39a, #4a8f2d);
+}
+
+.game-hub-card.card-tower::before {
+  background: linear-gradient(90deg, #ffd166, #ff8a3d);
+}
+
+.game-hub-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 24px 48px rgba(16, 27, 69, 0.12);
+  border-color: rgba(25, 40, 96, 0.16);
+}
+
+.game-hub-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(255, 189, 87, 0.15);
+  color: #c17a00;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 189, 87, 0.28);
+}
+
+.game-hub-icon-wrap {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.03);
+}
+
+.card-snake .game-hub-icon-wrap {
+  background: rgba(112, 211, 154, 0.12);
+  color: #3f8325;
+}
+
+.card-tower .game-hub-icon-wrap {
+  background: rgba(255, 209, 102, 0.12);
+  color: #d67a1c;
+}
+
+.game-hub-card h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1a2456;
+}
+
+.game-hub-card p {
+  margin: 0;
+  color: #5f6b92;
+  line-height: 1.45;
+  font-size: 0.95rem;
+  flex: 1;
+}
+
+.game-hub-card .btn {
+  width: 100%;
+}
+
+/* ==========================================================================
+   Math Tower Challenge Styles
+   ========================================================================== */
+.math-tower-shell {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #ebf3ff 0%, #d8e6ff 100%);
+  border: 1px solid rgba(25, 40, 96, 0.08);
+  box-shadow: 0 20px 45px rgba(16, 27, 69, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tower-setup-panel {
+  padding: 3rem 2rem;
+  background: white;
+  border-radius: 28px;
+  max-width: 600px;
+  margin: 2rem auto;
+  border: 1px solid rgba(25, 40, 96, 0.06);
+  box-shadow: 0 15px 35px rgba(16, 28, 66, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  text-align: center;
+}
+
+.tower-setup-header h2 {
+  margin: 0 0 0.5rem;
+  font-size: 2.1rem;
+  color: #1c2553;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.tower-setup-header p {
+  margin: 0;
+  color: #63709a;
+  font-size: 1rem;
+}
+
+.tower-options-group {
+  display: grid;
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.tower-options-group label {
+  font-weight: 700;
+  color: #2b3974;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tower-selector-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+}
+
+.tower-selector-row.difficulty {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.tower-select-btn {
+  border: 2px solid rgba(26, 41, 100, 0.08);
+  background: #f8fbff;
+  color: #2b3974;
+  font-weight: 700;
+  padding: 0.85rem 0.5rem;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.tower-select-btn:hover {
+  background: #f0f5ff;
+  border-color: rgba(26, 41, 100, 0.16);
+}
+
+.tower-select-btn.is-active {
+  background: #5b8cff;
+  border-color: #5b8cff;
+  color: white;
+  box-shadow: 0 8px 20px rgba(91, 140, 255, 0.24);
+}
+
+.tower-game-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  min-height: 520px;
+  background: white;
+}
+
+/* Climbing Stage Column */
+.tower-climb-stage {
+  position: relative;
+  background: linear-gradient(180deg, #1b387c 0%, #3e6bbd 70%, #85b0f4 100%);
+  border-right: 1px solid rgba(25, 40, 96, 0.1);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  color: white;
+  padding: 1rem;
+}
+
+.tower-clouds-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tower-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(2px);
+  border-radius: 999px;
+  filter: blur(1px);
+}
+
+.tower-cloud.c1 { width: 140px; height: 32px; top: 12%; left: -20px; animation: floaty 8s ease-in-out infinite; }
+.tower-cloud.c2 { width: 180px; height: 42px; top: 48%; right: -30px; animation: floaty 11s ease-in-out infinite; }
+.tower-cloud.c3 { width: 120px; height: 28px; bottom: 15%; left: 20%; animation: floaty 7s ease-in-out infinite; }
+
+.tower-climb-hud {
+  position: relative;
+  z-index: 5;
+  background: rgba(16, 27, 69, 0.35);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tower-hud-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.tower-hud-item span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.tower-hud-item strong {
+  font-size: 1.25rem;
+  color: white;
+  font-weight: 800;
+}
+
+.tower-climb-arena {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+
+/* Floating Platforms and Character */
+.tower-platform {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 30px;
+  background: linear-gradient(180deg, #7da560 0%, #567e3a 100%);
+  border-radius: 12px;
+  border-bottom: 8px solid #365022;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: bottom 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.tower-platform::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: #9be37c;
+  border-radius: 6px 6px 0 0;
+}
+
+.tower-platform.current {
+  background: linear-gradient(180deg, #ffd166 0%, #d88918 100%);
+  border-bottom: 8px solid #a86200;
+}
+
+.tower-platform.current::before {
+  background: #ffea9e;
+}
+
+.tower-avatar-wrapper {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 160px;
+  height: 180px;
+  z-index: 5;
+  transition: bottom 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.tower-avatar-wrapper.jumping {
+  animation: towerJump 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.tower-avatar-wrapper .avatar-stage {
+  min-height: auto;
+  height: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.tower-avatar-wrapper .avatar-canvas {
+  height: 100%;
+  width: 100%;
+}
+
+.tower-avatar-wrapper .avatar-floor,
+.tower-avatar-wrapper .avatar-classroom-bg,
+.tower-avatar-wrapper .avatar-stage-glow {
+  display: none !important;
+}
+
+@keyframes towerJump {
+  0% { transform: translateX(-50%) translateY(0) scaleY(0.9); }
+  35% { transform: translateX(-50%) translateY(-65px) scaleY(1.08); }
+  75% { transform: translateX(-50%) translateY(5px) scaleY(0.95); }
+  100% { transform: translateX(-50%) translateY(0) scaleY(1); }
+}
+
+/* Whiteboard Board Column */
+.tower-board-stage {
+  padding: 1.5rem;
+  background: #fdfdfd;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  position: relative;
+}
+
+.vertical-math-board {
+  flex: 1;
+  background: white;
+  border-radius: 24px;
+  border: 1px dashed rgba(26, 41, 100, 0.15);
+  box-shadow: 0 10px 25px rgba(16, 27, 69, 0.03);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-height: 260px;
+}
+
+.vertical-math-board::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 111, 97, 0.15);
+}
+
+/* Vertical Math Operation Presentation */
+.vertical-operation {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  position: relative;
+  gap: 0;
+}
+
+.math-col-digits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  position: relative;
+}
+
+.math-col-digits.units {
+  background: rgba(91, 140, 255, 0.02);
+  border-radius: 8px;
+}
+
+.math-col-digits.tens {
+  background: rgba(112, 211, 154, 0.02);
+  border-radius: 8px;
+}
+
+.math-col-digits.hundreds {
+  background: rgba(255, 209, 102, 0.02);
+  border-radius: 8px;
+}
+
+/* Carry Boxes Above */
+.math-carry-box {
+  width: 32px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1.5px dashed rgba(26, 41, 100, 0.22);
+  margin-bottom: 0.6rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #ff8a3d;
+  background: #fffaf6;
+  opacity: 0.85;
+}
+
+.math-carry-box.active {
+  border-color: #ff8a3d;
+  border-style: solid;
+  background: #fff3ea;
+  opacity: 1;
+}
+
+.math-digit-box {
+  font-family: 'Courier New', Courier, monospace, sans-serif;
+  font-size: 3.2rem;
+  font-weight: 800;
+  color: #1a2556;
+  height: 64px;
+  line-height: 64px;
+  text-align: center;
+  user-select: none;
+}
+
+.math-line-operator {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 5px;
+  background: #1a2556;
+  border-radius: 4px;
+  margin: 0.4rem 0 0.8rem;
+  position: relative;
+}
+
+.math-operator-symbol {
+  position: absolute;
+  left: -48px;
+  bottom: 24px;
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #ff6f61;
+  font-family: sans-serif;
+}
+
+.math-col-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #8c98c2;
+  margin-top: 0.4rem;
+  text-transform: uppercase;
+}
+
+/* Input Fields and Numeric Keypad */
+.math-input-wrapper {
+  display: flex;
+  gap: 0;
+  margin-top: 0.2rem;
+}
+
+.math-answer-digit-box {
+  width: 52px;
+  height: 68px;
+  border-radius: 12px;
+  border: 2.5px solid rgba(26, 41, 100, 0.14);
+  background: #f8faff;
+  font-family: 'Courier New', Courier, monospace, sans-serif;
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: #5b8cff;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.math-answer-digit-box.is-focused {
+  border-color: #5b8cff;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.16);
+}
+
+.math-answer-digit-box.has-value {
+  color: #1a2556;
+}
+
+.vertical-math-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  width: min(320px, 100%);
+  margin: 0 auto;
+}
+
+.math-keypad-btn {
+  border: 0;
+  background: white;
+  border: 1px solid rgba(26, 41, 100, 0.08);
+  box-shadow: 0 4px 10px rgba(16, 27, 69, 0.03);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #1c2553;
+  padding: 0.85rem 0.5rem;
+  border-radius: 18px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.math-keypad-btn:active,
+.math-keypad-btn.pressed {
+  transform: scale(0.92);
+  background: #f0f4ff;
+  border-color: #5b8cff;
+  color: #5b8cff;
+}
+
+.math-keypad-btn.action-clear {
+  color: #ff6f61;
+  background: #fff8f7;
+  font-size: 1.15rem;
+}
+
+.math-keypad-btn.action-enter {
+  color: white;
+  background: #70d39a;
+  grid-column: span 2;
+  font-size: 1.15rem;
+  box-shadow: 0 6px 15px rgba(112, 211, 154, 0.3);
+}
+
+.math-keypad-btn.action-enter:active {
+  background: #5eb382;
+}
+
+/* Visual Educational Hint Columns Overlay */
+.math-hint-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.98);
+  z-index: 10;
+  padding: 1.5rem;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: rewardPop 0.35s ease-out;
+  overflow: auto;
+}
+
+.math-hint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid rgba(26, 41, 100, 0.08);
+  padding-bottom: 0.65rem;
+}
+
+.math-hint-header h3 {
+  margin: 0;
+  color: #ff6f61;
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.math-hint-columns {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin: 0.5rem 0;
+  background: #f9faff;
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(26, 41, 100, 0.04);
+}
+
+.math-hint-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 12px;
+  background: white;
+  border: 1.5px solid transparent;
+}
+
+.math-hint-col.units { border-color: rgba(91, 140, 255, 0.25); background: rgba(91, 140, 255, 0.02); }
+.math-hint-col.tens { border-color: rgba(112, 211, 154, 0.25); background: rgba(112, 211, 154, 0.02); }
+.math-hint-col.hundreds { border-color: rgba(255, 209, 102, 0.25); background: rgba(255, 209, 102, 0.02); }
+
+.math-hint-col span.lbl {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #8c98c2;
+  text-transform: uppercase;
+}
+
+.math-hint-col strong {
+  font-size: 1.8rem;
+  color: #1a2556;
+}
+
+.math-hint-col.active {
+  box-shadow: 0 4px 12px rgba(16, 27, 69, 0.05);
+}
+
+.math-hint-col.units.active { background: rgba(91, 140, 255, 0.08); }
+.math-hint-col.tens.active { background: rgba(112, 211, 154, 0.08); }
+.math-hint-col.hundreds.active { background: rgba(255, 209, 102, 0.08); }
+
+.math-hint-text {
+  font-size: 0.95rem;
+  color: #42507f;
+  line-height: 1.5;
+  background: rgba(255, 111, 97, 0.03);
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  border-left: 4px solid #ff6f61;
+}
+
+/* Finished Game View */
+.tower-finished-panel {
+  text-align: center;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+.tower-trophy {
+  width: 78px;
+  height: 78px;
+  border-radius: 24px;
+  background: rgba(255, 209, 102, 0.12);
+  color: #d67a1c;
+  display: grid;
+  place-items: center;
+  animation: floaty 1.8s ease-in-out infinite;
+}
+
+.tower-finished-panel h2 {
+  font-size: 2.3rem;
+  color: #1c2553;
+  margin: 0;
+}
+
+.tower-finished-panel p {
+  color: #5f6b92;
+  font-size: 1.05rem;
+  margin: -0.4rem 0 0;
+}
+
+.tower-height-stat {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: #5b8cff;
+  line-height: 1;
+}
+
+/* Responsive Overrides */
+@media (max-width: 980px) {
+  .games-hub-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tower-game-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 240px 1fr;
+  }
+
+  .tower-climb-stage {
+    border-right: 0;
+    border-bottom: 1px solid rgba(25, 40, 96, 0.1);
+  }
+
+  .tower-avatar-wrapper {
+    width: 100px;
+    height: 110px;
+  }
+
+  .math-digit-box {
+    font-size: 2.5rem;
+    height: 50px;
+    line-height: 50px;
+  }
+
+  .math-col-digits {
+    width: 40px;
+  }
+
+  .math-answer-digit-box {
+    width: 40px;
+    height: 52px;
+    font-size: 2.1rem;
+  }
+}
+

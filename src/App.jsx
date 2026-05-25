@@ -675,6 +675,14 @@ function getCoinsForAssessment(summary) {
     return baseSnakeReward + streakBonus + reachedGoalBonus
   }
 
+  if (summary?.mode === 'math-tower') {
+    const heightReached = Math.max(0, Number(summary?.heightReached ?? 0))
+    const reachedGoalBonus = heightReached >= 10 ? 18 : 0
+    const baseTowerReward = 20
+    const heightBonus = heightReached * 3
+    return baseTowerReward + heightBonus + reachedGoalBonus
+  }
+
   const totalScore = Math.max(0, Number(summary?.totalScore ?? 0))
   const percentage = Math.max(0, Number(summary?.percentage ?? 0))
   const baseReward = summary?.attemptStatus === 'abandoned' ? 1 : 4
@@ -2884,7 +2892,7 @@ function AvatarPreview({ avatar, studentName }) {
 
       <div className="avatar-figure-wrap">
         <div className="avatar-stage-glow" aria-hidden="true" />
-        <svg className="avatar-canvas" viewBox="0 0 220 260" role="img" aria-label={`${studentName} avatar`}>
+        <svg key={`${gradientSeed}_${hatItem?.id}_${accessoryItem?.id}`} className="avatar-canvas avatar-animate-pop" viewBox="0 0 220 260" role="img" aria-label={`${studentName} avatar`}>
           <defs>
             <linearGradient id={`${gradientSeed}_skin`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={skinLight} />
@@ -2914,11 +2922,13 @@ function AvatarPreview({ avatar, studentName }) {
           <ellipse cx="110" cy="228" rx="58" ry="14" fill={stageShadow} />
 
           {accessoryItem?.id === 'accessory-gold-cape' && (
-            <path
-              d="M75 116 C78 160, 82 194, 66 216 L100 207 L120 219 L142 207 L174 216 C159 194, 162 160, 145 116 Z"
-              fill={accessoryItem.style.fill}
-              opacity="0.96"
-            />
+            <g className="avatar-animate-float">
+              <path
+                d="M75 116 C78 160, 82 194, 66 216 L100 207 L120 219 L142 207 L174 216 C159 194, 162 160, 145 116 Z"
+                fill={accessoryItem.style.fill}
+                opacity="0.96"
+              />
+            </g>
           )}
 
           {accessoryItem?.id === 'accessory-school-backpack' && (
@@ -2929,7 +2939,7 @@ function AvatarPreview({ avatar, studentName }) {
             </>
           )}
 
-          <g filter={`url(#${gradientSeed}_shadow)`}>
+          <g filter={`url(#${gradientSeed}_shadow)`} className="avatar-animate-breathe">
             <path d="M80 85 C76 56, 92 40, 111 40 C132 40, 146 55, 142 88 L136 134 H84 Z" fill={`url(#${gradientSeed}_hair)`} />
             <path d="M98 104 H122 V120 H98 Z" fill={`url(#${gradientSeed}_skin)`} />
             <ellipse cx="82" cy="87" rx="6" ry="9" fill={`url(#${gradientSeed}_skin)`} />
@@ -2973,10 +2983,12 @@ function AvatarPreview({ avatar, studentName }) {
 
             <path d="M90 82 C93 79, 98 79, 101 82" stroke="#25315d" strokeWidth="2.4" strokeLinecap="round" fill="none" />
             <path d="M119 82 C122 79, 127 79, 130 82" stroke="#25315d" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-            <ellipse cx="98" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
-            <ellipse cx="122" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
-            <circle cx="99.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
-            <circle cx="123.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
+            <g className="avatar-animate-blink">
+              <ellipse cx="98" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
+              <ellipse cx="122" cy="86" rx="4.2" ry="4.6" fill="#20305b" />
+              <circle cx="99.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
+              <circle cx="123.4" cy="84.8" r="1.1" fill="rgba(255,255,255,0.8)" />
+            </g>
             <ellipse cx="91" cy="97" rx="5" ry="4.2" fill={character.style.blush} opacity="0.38" />
             <ellipse cx="129" cy="97" rx="5" ry="4.2" fill={character.style.blush} opacity="0.38" />
             <path d="M109 89 C108 95, 108 99, 112 102" stroke={skinShade} strokeWidth="2.1" strokeLinecap="round" fill="none" opacity="0.7" />
@@ -3065,7 +3077,9 @@ function AvatarPreview({ avatar, studentName }) {
             )}
 
             {accessoryItem?.id === 'accessory-lightning-badge' && (
-              <path d="M111 139 L103 153 H110 L106 165 L120 149 H113 L118 139 Z" fill={accessoryItem.style.fill} />
+              <g className="avatar-animate-float">
+                <path d="M111 139 L103 153 H110 L106 165 L120 149 H113 L118 139 Z" fill={accessoryItem.style.fill} />
+              </g>
             )}
 
             {accessoryItem?.id === 'accessory-water-bottle' && (
@@ -3076,10 +3090,10 @@ function AvatarPreview({ avatar, studentName }) {
             )}
 
             {accessoryItem?.id === 'accessory-story-book' && (
-              <>
+              <g className="avatar-animate-float">
                 <rect x="67" y="146" width="18" height="24" rx="4" fill={accessoryItem.style.fill} />
                 <path d="M76 149 V166" stroke={accessoryItem.style.trim} strokeWidth="2" strokeLinecap="round" />
-              </>
+              </g>
             )}
 
             <path d="M84 180 C92 176, 100 176, 108 180 L104 226 C97 229, 90 229, 86 225 Z" fill={`url(#${gradientSeed}_skin)`} />
@@ -4285,10 +4299,40 @@ function MultiplicationChallenge({ onBack, onSaveResult, studentName, topTestRec
             )}
           </div>
 
-          <div className={`question-card ${feedback ? `feedback-${feedback}` : ''}`}>
-            <div className="question-number">{currentQuestion.n1}</div>
-            <X size={36} className="question-symbol" />
-            <div className="question-number">{currentQuestion.n2}</div>
+          <div className={`question-card ${feedback ? `feedback-${feedback}` : ''}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '220px', padding: '1.5rem' }}>
+            <div className="vertical-operation" style={{ transform: 'scale(1.25)' }}>
+              <div className="math-operator-symbol" style={{ color: 'white', left: '-36px', bottom: '16px', fontSize: '2.2rem' }}>×</div>
+              
+              {/* Tens Column */}
+              <div className="math-col-digits tens">
+                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                  {currentQuestion.n1.toString().padStart(2, ' ')[0].trim()}
+                </div>
+                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                  {currentQuestion.n2.toString().padStart(2, ' ')[0].trim()}
+                </div>
+                <div className="math-line-operator" style={{ backgroundColor: 'white', margin: '0.2rem 0 0.4rem' }} />
+                <div className="math-answer-digit-box" style={{ borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', color: 'white', borderStyle: 'dashed', width: '48px', height: '48px', fontSize: '2rem' }}>
+                  ?
+                </div>
+                <span className="math-col-label" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem' }}>D</span>
+              </div>
+
+              {/* Units Column */}
+              <div className="math-col-digits units">
+                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                  {currentQuestion.n1.toString().padStart(2, ' ')[1]}
+                </div>
+                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                  {currentQuestion.n2.toString().padStart(2, ' ')[1]}
+                </div>
+                <div className="math-line-operator" style={{ backgroundColor: 'white', margin: '0.2rem 0 0.4rem' }} />
+                <div className="math-answer-digit-box" style={{ borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', color: 'white', borderStyle: 'dashed', width: '48px', height: '48px', fontSize: '2rem' }}>
+                  ?
+                </div>
+                <span className="math-col-label" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem' }}>U</span>
+              </div>
+            </div>
           </div>
 
           <div className="answers-grid">
@@ -8287,6 +8331,614 @@ function FullTestChallenge({ onBack, onSaveResult, studentName, topTestRecord })
   )
 }
 
+/* ==========================================================================
+   GamesHub Component
+   ========================================================================== */
+function GamesHub({ onBack, onSelectSnake, onSelectMathTower, studentName }) {
+  return (
+    <div className="games-hub-shell">
+      <div className="games-hub-header">
+        <h1>Arcade Educativo 🎮</h1>
+        <p>¡Elige un juego divertido y pon a prueba tu mente para ganar monedas para tu avatar, {studentName}!</p>
+      </div>
+      <div className="games-hub-grid">
+        <div className="game-hub-card card-snake" onClick={onSelectSnake}>
+          <div className="game-hub-badge">Arcade</div>
+          <div className="game-hub-icon-wrap">
+            <Gamepad2 size={36} />
+          </div>
+          <h3>Serpiente (Snake)</h3>
+          <p>Esquiva las paredes y come manzanas. Cada vez que choques, resuelve un reto de materias mixtas para continuar.</p>
+          <button className="btn btn-secondary">Jugar ahora</button>
+        </div>
+
+        <div className="game-hub-card card-tower" onClick={onSelectMathTower}>
+          <div className="game-hub-badge">Matemáticas</div>
+          <div className="game-hub-icon-wrap">
+            <Calculator size={36} />
+          </div>
+          <h3>Torre Matemática</h3>
+          <p>Resuelve sumas y restas de forma vertical para subir peldaños y construir una torre flotante en el cielo.</p>
+          <button className="btn btn-secondary">Jugar ahora</button>
+        </div>
+      </div>
+      
+      <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
+        <button className="btn btn-ghost" onClick={onBack}>
+          <ArrowLeft size={16} />
+          <span>Volver al Dashboard</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   MathTowerChallenge Component
+   ========================================================================== */
+function MathTowerChallenge({ onBack, onSaveResult, onOpenStore, studentName, avatar, topTestRecord }) {
+  const [phase, setPhase] = useState('setup') // 'setup' | 'playing' | 'correct' | 'incorrect' | 'finished'
+  const [operation, setOperation] = useState('mixed') // 'addition' | 'subtraction' | 'mixed'
+  const [level, setLevel] = useState(2) // 1 | 2 | 3 | 4
+  const [height, setHeight] = useState(0)
+  const [totalAnswered, setTotalAnswered] = useState(0)
+  const [totalCorrect, setTotalCorrect] = useState(0)
+  const [currentQuestion, setCurrentQuestion] = useState(null)
+  const [userInput, setUserInput] = useState('')
+  const [isJumping, setIsJumping] = useState(false)
+  const [showHint, setShowHint] = useState(false)
+  const [wrongAttempts, setWrongAttempts] = useState(0)
+  const [coinsAwarded, setCoinsAwarded] = useState(0)
+  const [saveStatus, setSaveStatus] = useState('idle')
+  const [saveMessage, setSaveMessage] = useState('')
+  const [reviewExercises, setReviewExercises] = useState([])
+  const [carries, setCarries] = useState({ tens: '', hundreds: '' })
+
+  // Generate vertical arithmetic questions based on level and operation
+  function generateQuestion(opType, lvl) {
+    let op = opType
+    if (opType === 'mixed') {
+      op = Math.random() < 0.5 ? '+' : '-'
+    }
+
+    let num1 = 0
+    let num2 = 0
+
+    if (lvl === 1) {
+      if (op === '+') {
+        num1 = Math.floor(Math.random() * 9) + 1
+        num2 = Math.floor(Math.random() * 9) + 1
+      } else {
+        num1 = Math.floor(Math.random() * 10) + 6 // 6 to 15
+        num2 = Math.floor(Math.random() * (num1 - 2)) + 2 // 2 to num1 - 1
+      }
+    } else if (lvl === 2) {
+      if (op === '+') {
+        // 2 digits without carrying
+        const u1 = Math.floor(Math.random() * 5) + 1
+        const u2 = Math.floor(Math.random() * (9 - u1))
+        const t1 = Math.floor(Math.random() * 5) + 1
+        const t2 = Math.floor(Math.random() * (9 - t1 - 1)) + 1
+        num1 = t1 * 10 + u1
+        num2 = t2 * 10 + u2
+      } else {
+        // 2 digits without borrowing
+        const u1 = Math.floor(Math.random() * 7) + 2
+        const u2 = Math.floor(Math.random() * (u1 - 1)) + 1
+        const t1 = Math.floor(Math.random() * 7) + 3
+        const t2 = Math.floor(Math.random() * (t1 - 2)) + 1
+        num1 = t1 * 10 + u1
+        num2 = t2 * 10 + u2
+      }
+    } else if (lvl === 3) {
+      if (op === '+') {
+        // 2 digits with carrying
+        const u1 = Math.floor(Math.random() * 8) + 2
+        const u2 = Math.floor(Math.random() * (19 - u1 - 10)) + (10 - u1) // u1 + u2 >= 10
+        const t1 = Math.floor(Math.random() * 6) + 1
+        const t2 = Math.floor(Math.random() * 6) + 1
+        num1 = t1 * 10 + u1
+        num2 = t2 * 10 + u2
+      } else {
+        // 2 digits with borrowing
+        const u1 = Math.floor(Math.random() * 8) // 0 to 7
+        const u2 = Math.floor(Math.random() * (9 - (u1 + 1))) + u1 + 1 // u1 < u2
+        const t1 = Math.floor(Math.random() * 7) + 3
+        const t2 = Math.floor(Math.random() * (t1 - 2)) + 1 // num1 > num2
+        num1 = t1 * 10 + u1
+        num2 = t2 * 10 + u2
+      }
+    } else {
+      // Level 4: 3 digits
+      if (op === '+') {
+        num1 = Math.floor(Math.random() * 800) + 100
+        num2 = Math.floor(Math.random() * (900 - num1)) + 100
+      } else {
+        num1 = Math.floor(Math.random() * 800) + 200
+        num2 = Math.floor(Math.random() * (num1 - 101)) + 100
+      }
+    }
+
+    const answer = op === '+' ? num1 + num2 : num1 - num2
+
+    // Simple explanation building
+    let explanation = ''
+    if (op === '+') {
+      explanation = `Sumamos por columnas de derecha a izquierda. `
+      explanation += `Columna de Unidades: ${num1 % 10} + ${num2 % 10} = ${(num1 % 10) + (num2 % 10)}. `
+      if (lvl >= 3 && (num1 % 10) + (num2 % 10) >= 10) {
+        explanation += `¡Llevamos 1 a las decenas! `
+        explanation += `Columna de Decenas: 1 (que llevamos) + ${Math.floor(num1 / 10) % 10} + ${Math.floor(num2 / 10) % 10} = ${Math.floor(answer / 10) % 10}. `
+      } else {
+        explanation += `Columna de Decenas: ${Math.floor(num1 / 10) % 10} + ${Math.floor(num2 / 10) % 10} = ${Math.floor(answer / 10) % 10}. `
+      }
+      if (lvl === 4) {
+        explanation += `Columna de Centenas: ${Math.floor(num1 / 100)} + ${Math.floor(num2 / 100)} = ${Math.floor(answer / 100)}. `
+      }
+    } else {
+      explanation = `Restamos por columnas de derecha a izquierda. `
+      if (lvl >= 3 && (num1 % 10) < (num2 % 10)) {
+        explanation += `Como ${num1 % 10} es menor que ${num2 % 10}, le prestamos 1 decena a las decenas del ${num1}. Se convierte en ${10 + (num1 % 10)} - ${num2 % 10} = ${10 + (num1 % 10) - (num2 % 10)} unidades. `
+        explanation += `Las decenas de arriba disminuyen en 1, así que restamos decenas: ${Math.floor(num1 / 10) - 1} - ${Math.floor(num2 / 10)} = ${Math.floor(answer / 10) % 10}. `
+      } else {
+        explanation += `Columna de Unidades: ${num1 % 10} - ${num2 % 10} = ${(num1 % 10) - (num2 % 10)}. `
+        explanation += `Columna de Decenas: ${Math.floor(num1 / 10) % 10} - ${Math.floor(num2 / 10) % 10} = ${Math.floor(answer / 10) % 10}. `
+      }
+      if (lvl === 4) {
+        explanation += `Columna de Centenas: ${Math.floor(num1 / 100)} - ${Math.floor(num2 / 100)} = ${Math.floor(answer / 100)}. `
+      }
+    }
+    explanation += ` ¡El resultado es ${answer}!`
+
+    return { num1, num2, op, answer, explanation }
+  }
+
+  function handleStartClimb() {
+    setHeight(0)
+    setTotalAnswered(0)
+    setTotalCorrect(0)
+    setUserInput('')
+    setCoinsAwarded(0)
+    setReviewExercises([])
+    setCarries({ tens: '', hundreds: '' })
+    const q = generateQuestion(operation, level)
+    setCurrentQuestion(q)
+    setPhase('playing')
+  }
+
+  function handleKeyPress(num) {
+    const maxLen = level >= 2 ? 3 : 2
+    if (userInput.length < maxLen) {
+      setUserInput((prev) => prev + num)
+    }
+  }
+
+  function handleClear() {
+    setUserInput('')
+  }
+
+  function handleSubmitAnswer() {
+    if (!userInput) return
+
+    const parsedInput = parseInt(userInput, 10)
+    const isCorrect = parsedInput === currentQuestion.answer
+    setTotalAnswered((prev) => prev + 1)
+    
+    // Add to review deck
+    setReviewExercises((prev) => [
+      ...prev,
+      {
+        question: `${currentQuestion.num1} ${currentQuestion.op} ${currentQuestion.num2}`,
+        studentAnswer: userInput,
+        correctAnswer: currentQuestion.answer.toString(),
+        isCorrect,
+      },
+    ])
+
+    if (isCorrect) {
+      setTotalCorrect((prev) => prev + 1)
+      setIsJumping(true)
+      setCoinsAwarded((prev) => prev + 3) // 3 coins per correct answer
+      setWrongAttempts(0)
+
+      setTimeout(() => {
+        setIsJumping(false)
+        setHeight((prev) => prev + 1)
+        setUserInput('')
+        setCarries({ tens: '', hundreds: '' })
+        const nextQ = generateQuestion(operation, level)
+        setCurrentQuestion(nextQ)
+      }, 700)
+    } else {
+      setWrongAttempts((prev) => prev + 1)
+      setShowHint(true)
+    }
+  }
+
+  function handleCloseHint() {
+    setShowHint(false)
+    setUserInput('')
+    if (wrongAttempts >= 2) {
+      const nextQ = generateQuestion(operation, level)
+      setCurrentQuestion(nextQ)
+      setWrongAttempts(0)
+    }
+  }
+
+  async function handleFinishClimb() {
+    setPhase('finished')
+    setSaveStatus('saving')
+    setSaveMessage('Saving climb results...')
+
+    const summary = {
+      testId: 'math-tower',
+      testName: 'Torre Matemática',
+      mode: 'math-tower',
+      heightReached: height,
+      totalScore: height,
+      questionCount: totalAnswered,
+      answeredOriginalCount: totalAnswered,
+      perfectOriginalCount: totalCorrect,
+      correctCount: totalCorrect,
+      incorrectCount: totalAnswered - totalCorrect,
+      percentage: totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0,
+      attemptStatus: height > 0 ? 'completed' : 'abandoned',
+      wrongExercises: reviewExercises.filter(e => !e.isCorrect).map(e => e.question),
+    }
+
+    try {
+      await onSaveResult(summary)
+      setSaveStatus('success')
+      setSaveMessage('Climb results saved successfully! 🎉')
+    } catch (error) {
+      console.error(error)
+      setSaveStatus('error')
+      setSaveMessage('Could not save your progress. Make sure Firestore rules allow writes.')
+    }
+  }
+
+  // Format numbers dynamically
+  const numStr1 = currentQuestion 
+    ? (level >= 2 ? currentQuestion.num1.toString().padStart(3, ' ') : currentQuestion.num1.toString().padStart(2, ' ')) 
+    : (level >= 2 ? '   ' : '  ')
+  const numStr2 = currentQuestion 
+    ? (level >= 2 ? currentQuestion.num2.toString().padStart(3, ' ') : currentQuestion.num2.toString().padStart(2, ' ')) 
+    : (level >= 2 ? '   ' : '  ')
+
+  const displayVal = currentQuestion
+    ? (level >= 2 ? userInput.padStart(3, ' ') : userInput.padStart(2, ' '))
+    : ''
+
+  return (
+    <div className="math-tower-shell">
+      {phase === 'setup' && (
+        <div className="tower-setup-panel">
+          <div className="tower-setup-header">
+            <h2><Sparkles size={24} color="#ffd166" /> Torre Matemática <Sparkles size={24} color="#ffd166" /></h2>
+            <p>¡Elige tu nivel y operación para comenzar a escalar la torre flotante en el cielo!</p>
+          </div>
+
+          <div className="tower-options-group">
+            <div>
+              <label>Operación</label>
+              <div className="tower-selector-row">
+                <button
+                  type="button"
+                  className={`tower-select-btn ${operation === 'addition' ? 'is-active' : ''}`}
+                  onClick={() => setOperation('addition')}
+                >
+                  Suma (+)
+                </button>
+                <button
+                  type="button"
+                  className={`tower-select-btn ${operation === 'subtraction' ? 'is-active' : ''}`}
+                  onClick={() => setOperation('subtraction')}
+                >
+                  Resta (-)
+                </button>
+                <button
+                  type="button"
+                  className={`tower-select-btn ${operation === 'mixed' ? 'is-active' : ''}`}
+                  onClick={() => setOperation('mixed')}
+                >
+                  Mixto (+ / -)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label>Nivel de Dificultad</label>
+              <div className="tower-selector-row difficulty">
+                <button
+                  type="button"
+                  className={`tower-select-btn ${level === 1 ? 'is-active' : ''}`}
+                  onClick={() => setLevel(1)}
+                >
+                  Fácil (1 dígito)
+                </button>
+                <button
+                  type="button"
+                  className={`tower-select-btn ${level === 2 ? 'is-active' : ''}`}
+                  onClick={() => setLevel(2)}
+                >
+                  Medio (sin llevar)
+                </button>
+                <button
+                  type="button"
+                  className={`tower-select-btn ${level === 3 ? 'is-active' : ''}`}
+                  onClick={() => setLevel(3)}
+                >
+                  Avanzado (llevando)
+                </button>
+                <button
+                  type="button"
+                  className={`tower-select-btn ${level === 4 ? 'is-active' : ''}`}
+                  onClick={() => setLevel(4)}
+                >
+                  Experto (3 dígitos)
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
+            <button type="button" className="btn btn-primary" onClick={handleStartClimb}>
+              ¡Comenzar Escalada! 🚀
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={onBack}>
+              Volver al Centro de Juegos
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === 'playing' && currentQuestion && (
+        <div className="tower-game-layout">
+          {/* Climbing view */}
+          <div className="tower-climb-stage">
+            <div className="tower-clouds-bg" aria-hidden="true">
+              <div className="tower-cloud c1" />
+              <div className="tower-cloud c2" />
+              <div className="tower-cloud c3" />
+            </div>
+
+            <div className="tower-climb-hud">
+              <div className="tower-hud-item">
+                <span>Altura</span>
+                <strong>{height} m ☁️</strong>
+              </div>
+              <div className="tower-hud-item">
+                <span>Monedas</span>
+                <strong>🪙 {coinsAwarded}</strong>
+              </div>
+              <div className="tower-hud-item">
+                <span>Correctas</span>
+                <strong>{totalCorrect} / {totalAnswered}</strong>
+              </div>
+            </div>
+
+            <div className="tower-climb-arena">
+              {/* Target platform */}
+              <div className="tower-platform" style={{ bottom: '260px' }}>
+                Piso {height + 1}
+              </div>
+
+              {/* Current platform */}
+              <div className="tower-platform current" style={{ bottom: '110px' }}>
+                Piso {height}
+              </div>
+
+              {/* Avatar figure container */}
+              <div className={`tower-avatar-wrapper ${isJumping ? 'jumping' : ''}`} style={{ bottom: '135px' }}>
+                <AvatarPreview avatar={avatar} studentName={studentName} />
+              </div>
+            </div>
+          </div>
+
+          {/* Vertical Math Board View */}
+          <div className="tower-board-stage">
+            <div className="vertical-math-board">
+              {showHint && (
+                <div className="math-hint-overlay">
+                  <div className="math-hint-header">
+                    <h3><CircleAlert size={20} /> Explicación Matemática</h3>
+                    <button type="button" className="btn btn-ghost btn-icon-only" onClick={handleCloseHint}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="math-hint-columns">
+                    {level === 4 && (
+                      <div className="math-hint-col hundreds">
+                        <span className="lbl">C</span>
+                        <strong>{Math.floor(currentQuestion.num1 / 100)}</strong>
+                        <strong>{Math.floor(currentQuestion.num2 / 100)}</strong>
+                      </div>
+                    )}
+                    <div className="math-hint-col tens">
+                      <span className="lbl">D</span>
+                      <strong>{Math.floor(currentQuestion.num1 / 10) % 10}</strong>
+                      <strong>{Math.floor(currentQuestion.num2 / 10) % 10}</strong>
+                    </div>
+                    <div className="math-hint-col units active">
+                      <span className="lbl">U</span>
+                      <strong>{currentQuestion.num1 % 10}</strong>
+                      <strong>{currentQuestion.num2 % 10}</strong>
+                    </div>
+                  </div>
+                  <div className="math-hint-text">
+                    <p>{currentQuestion.explanation}</p>
+                  </div>
+                  <button type="button" className="btn btn-secondary" onClick={handleCloseHint}>
+                    {wrongAttempts >= 2 ? '¡Intentar nueva pregunta!' : 'Entendido, ¡intentar otra vez!'}
+                  </button>
+                </div>
+              )}
+
+              {/* Dotted carry columns above */}
+              <div className="vertical-operation">
+                {/* Operator Symbol */}
+                <div className="math-operator-symbol">{currentQuestion.op}</div>
+
+                {/* Columns */}
+                {level >= 2 && (
+                  <div className="math-col-digits hundreds">
+                    <div
+                      className={`math-carry-box ${carries.hundreds ? 'active' : ''}`}
+                      onClick={() => setCarries(prev => ({ ...prev, hundreds: prev.hundreds === '1' ? '' : '1' }))}
+                      title="Llevamos (Centenas)"
+                    >
+                      {carries.hundreds}
+                    </div>
+                    <div className="math-digit-box">{numStr1[0]}</div>
+                    <div className="math-digit-box">{numStr2[0]}</div>
+                    <div className="math-line-operator" />
+                    <div className={`math-answer-digit-box ${userInput.length >= 3 ? 'has-value' : ''}`}>
+                      {displayVal[0].trim()}
+                    </div>
+                    <span className="math-col-label">C</span>
+                  </div>
+                )}
+
+                <div className="math-col-digits tens">
+                  <div
+                    className={`math-carry-box ${carries.tens ? 'active' : ''}`}
+                    onClick={() => setCarries(prev => ({ ...prev, tens: prev.tens === '1' ? '' : '1' }))}
+                    title="Llevamos (Decenas)"
+                  >
+                    {carries.tens}
+                  </div>
+                  <div className="math-digit-box">{level >= 2 ? numStr1[1] : numStr1[0]}</div>
+                  <div className="math-digit-box">{level >= 2 ? numStr2[1] : numStr2[0]}</div>
+                  <div className="math-line-operator" />
+                  <div className={`math-answer-digit-box ${userInput.length >= (level >= 2 ? 2 : 1) ? 'has-value' : ''}`}>
+                    {level >= 2 ? displayVal[1].trim() : displayVal[0].trim()}
+                  </div>
+                  <span className="math-col-label">D</span>
+                </div>
+
+                <div className="math-col-digits units">
+                  <div className="math-carry-box" style={{ opacity: 0, pointerEvents: 'none' }} />
+                  <div className="math-digit-box">{level >= 2 ? numStr1[2] : numStr1[1]}</div>
+                  <div className="math-digit-box">{level >= 2 ? numStr2[2] : numStr2[1]}</div>
+                  <div className="math-line-operator" />
+                  <div className="math-answer-digit-box has-value is-focused">
+                    {level >= 2 ? displayVal[2].trim() : displayVal[1].trim()}
+                  </div>
+                  <span className="math-col-label">U</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Numeric Juicy Keypad */}
+            <div className="vertical-math-keypad">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  className="math-keypad-btn"
+                  onClick={() => handleKeyPress(num.toString())}
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="math-keypad-btn action-clear"
+                onClick={handleClear}
+              >
+                C
+              </button>
+              <button
+                type="button"
+                className="math-keypad-btn"
+                onClick={() => handleKeyPress('0')}
+              >
+                0
+              </button>
+              <button
+                type="button"
+                className="math-keypad-btn action-enter"
+                onClick={handleSubmitAnswer}
+              >
+                Validar ✓
+              </button>
+            </div>
+
+            {/* General Actions */}
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
+              <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={handleFinishClimb}>
+                Terminar y Guardar
+              </button>
+              <button type="button" className="btn btn-ghost btn-icon-only" onClick={onBack} title="Abandonar">
+                <LogOut size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {phase === 'finished' && (
+        <div className="tower-finished-panel">
+          <div className="tower-trophy">
+            <Trophy size={46} />
+          </div>
+
+          <h2>¡Excelente Escalada! 🏅</h2>
+          <p>Has alcanzado una gran altura y acumulado muchas monedas para tu closet.</p>
+
+          <div className="score-panel" style={{ width: '100%', margin: '1rem 0' }}>
+            <div className="score-labels">
+              <span>Altura Alcanzada:</span>
+              <strong className="tower-height-stat">{height} metros</strong>
+            </div>
+            <div className="score-labels" style={{ marginTop: '0.5rem' }}>
+              <span>Monedas Ganadas:</span>
+              <strong style={{ fontSize: '1.4rem', color: '#c28700' }}>🪙 +{coinsAwarded}</strong>
+            </div>
+            <div className="score-labels" style={{ marginTop: '0.5rem' }}>
+              <span>Rendimiento:</span>
+              <strong>{totalCorrect} correctas de {totalAnswered} totales</strong>
+            </div>
+          </div>
+
+          {saveStatus === 'saving' && (
+            <div className="banner info" style={{ width: '100%' }}>
+              <div className="spinner" style={{ marginRight: '0.5rem' }} />
+              <span>{saveMessage}</span>
+            </div>
+          )}
+
+          {saveStatus === 'success' && (
+            <div className="banner success" style={{ width: '100%' }}>
+              <CheckCircle2 size={16} style={{ marginRight: '0.5rem' }} stroke="#567e3a" />
+              <span>{saveMessage}</span>
+            </div>
+          )}
+
+          {saveStatus === 'error' && (
+            <div className="banner error" style={{ width: '100%' }}>
+              <CircleAlert size={16} style={{ marginRight: '0.5rem' }} />
+              <span>{saveMessage}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', width: '100%', flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-primary" style={{ flex: 1, minWidth: '140px' }} onClick={handleStartClimb}>
+              Volver a Jugar 🚀
+            </button>
+            <button type="button" className="btn btn-secondary" style={{ flex: 1, minWidth: '140px' }} onClick={onOpenStore}>
+              Ir a la Tienda 🪙
+            </button>
+            <button type="button" className="btn btn-ghost" style={{ flex: 1, minWidth: '140px' }} onClick={onBack}>
+              Menú Principal
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function App() {
   const [authReady, setAuthReady] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
@@ -8749,7 +9401,7 @@ function App() {
     setStoreNotice(null)
     setSelectedSubjectId(null)
     setSelectedTestId(null)
-    setScreen('snake')
+    setScreen('games-hub')
   }
 
   function openAvatarStoreDashboard(notice = null) {
@@ -8798,6 +9450,7 @@ function App() {
   const rankingSourceResults = globalResults.length ? globalResults : personalResults
   const fullTestTopRecord = getTopRecordForTest(rankingSourceResults, 'full', 'full-test')
   const snakeTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'snake')
+  const mathTowerTopRecord = getTopRecordForTest(rankingSourceResults, 'games', 'math-tower')
   const selectedTestTopRecord =
     selectedSubject && selectedTest
       ? getTopRecordForTest(rankingSourceResults, selectedSubject.id, selectedTest.id)
@@ -8864,13 +9517,33 @@ function App() {
           />
         )}
 
+        {screen === 'games-hub' && (
+          <GamesHub
+            onBack={goToDashboard}
+            onSelectSnake={() => setScreen('snake')}
+            onSelectMathTower={() => setScreen('math-tower')}
+            studentName={studentDisplayName}
+          />
+        )}
+
         {screen === 'snake' && (
           <SnakeChallenge
-            onBack={goToDashboard}
+            onBack={() => setScreen('games-hub')}
             onSaveResult={saveAssessmentResult}
             onOpenStore={openAvatarStoreDashboard}
             studentName={studentDisplayName}
             topTestRecord={snakeTopRecord}
+          />
+        )}
+
+        {screen === 'math-tower' && (
+          <MathTowerChallenge
+            onBack={() => setScreen('games-hub')}
+            onSaveResult={saveAssessmentResult}
+            onOpenStore={openAvatarStoreDashboard}
+            studentName={studentDisplayName}
+            avatar={studentProfile?.avatar}
+            topTestRecord={mathTowerTopRecord}
           />
         )}
 
