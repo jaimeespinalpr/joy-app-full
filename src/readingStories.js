@@ -22,7 +22,7 @@ export const READING_STORY_BANKS = {
           'The park',
           'The library',
           'The beach',
-          'The store',
+          'The garden',
         ]),
         q('q2', 'What color was Mia\'s kite?', 'Red', ['Blue', 'Red', 'Green', 'Yellow']),
         q('q3', 'Why did the kite go high?', 'The wind was strong', [
@@ -210,27 +210,27 @@ export const READING_STORY_BANKS = {
     ),
     story(
       'en-market-list',
-      'Noah at the Market',
+      'Noah\'s Picnic',
       [
-        'Noah and his mom walked to the farmers market.',
-        'They brought a cloth bag and a short shopping list.',
-        'They bought carrots, tomatoes, and sweet corn.',
+        'Noah and his mom walked to the park for a picnic.',
+        'They brought a cloth bag and a soft blanket.',
+        'They packed carrots, tomatoes, and sweet corn.',
         'Noah carried the corn because it was the lightest item.',
       ],
       [
-        q('q1', 'Where did Noah go with his mom?', 'The farmers market', [
+        q('q1', 'Where did Noah go with his mom?', 'The park', [
           'The zoo',
-          'The farmers market',
+          'The park',
           'The movie theater',
           'The post office',
         ]),
-        q('q2', 'What did they bring?', 'A cloth bag and a shopping list', [
+        q('q2', 'What did they bring?', 'A cloth bag and a blanket', [
           'A toy truck and a hat',
-          'A cloth bag and a shopping list',
+          'A cloth bag and a blanket',
           'A soccer ball and juice',
           'A backpack and paint',
         ]),
-        q('q3', 'Which food did they buy?', 'Carrots, tomatoes, and corn', [
+        q('q3', 'Which food did they pack?', 'Carrots, tomatoes, and corn', [
           'Apples, milk, and bread',
           'Carrots, tomatoes, and corn',
           'Rice, beans, and cheese',
@@ -419,7 +419,7 @@ export const READING_STORY_BANKS = {
           'A la playa',
           'Al parque',
           'A la biblioteca',
-          'A la tienda',
+          'Al jardin',
         ]),
         q('q2', 'De que color era la cometa?', 'Roja', ['Azul', 'Verde', 'Roja', 'Amarilla']),
         q('q3', 'Por que la cometa subio muy alto?', 'Porque el viento estaba fuerte', [
@@ -607,27 +607,27 @@ export const READING_STORY_BANKS = {
     ),
     story(
       'es-mercado-lista',
-      'Mateo en el mercado',
+      'Mateo y la merienda',
       [
-        'Mateo y su mama caminaron al mercado de agricultores.',
-        'Llevaron una bolsa de tela y una lista corta.',
-        'Compraron zanahorias, tomates y maiz dulce.',
+        'Mateo y su mama caminaron al parque para una merienda.',
+        'Llevaron una bolsa de tela y una manta suave.',
+        'Empacaron zanahorias, tomates y maiz dulce.',
         'Mateo cargo el maiz porque era lo mas liviano.',
       ],
       [
-        q('q1', 'A donde fue Mateo con su mama?', 'Al mercado de agricultores', [
+        q('q1', 'A donde fue Mateo con su mama?', 'Al parque', [
           'Al cine',
           'Al zoologico',
-          'Al mercado de agricultores',
+          'Al parque',
           'A la oficina de correo',
         ]),
-        q('q2', 'Que llevaron?', 'Una bolsa de tela y una lista', [
+        q('q2', 'Que llevaron?', 'Una bolsa de tela y una manta', [
           'Un balon y jugo',
           'Una mochila y pintura',
-          'Una bolsa de tela y una lista',
+          'Una bolsa de tela y una manta',
           'Un juguete y una gorra',
         ]),
-        q('q3', 'Que compraron?', 'Zanahorias, tomates y maiz', [
+        q('q3', 'Que empacaron?', 'Zanahorias, tomates y maiz', [
           'Manzanas, pan y leche',
           'Zanahorias, tomates y maiz',
           'Arroz, queso y habichuelas',
@@ -802,4 +802,3 @@ export const READING_STORY_BANKS = {
     ),
   ],
 }
-
