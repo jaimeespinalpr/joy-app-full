@@ -3528,22 +3528,29 @@ button {
   max-width: 1080px;
   margin: 0 auto;
   border-radius: 28px;
-  background: linear-gradient(180deg, #ebf3ff 0%, #d8e6ff 100%);
-  border: 1px solid rgba(25, 40, 96, 0.08);
-  box-shadow: 0 20px 45px rgba(16, 27, 69, 0.06);
-  overflow: hidden;
+  padding: clamp(0.8rem, 1.5vw, 1.1rem);
   display: flex;
   flex-direction: column;
+  gap: 0.9rem;
+  background:
+    radial-gradient(circle at 16% 14%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.32) 26%, transparent 44%),
+    linear-gradient(140deg, #fef7ff 0%, #e5f1ff 45%, #eefbff 100%);
+  border: 1px solid rgba(136, 159, 210, 0.34);
+  box-shadow:
+    0 18px 36px rgba(61, 88, 150, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  overflow: hidden;
 }
 
 .tower-setup-panel {
-  padding: 3rem 2rem;
-  background: white;
-  border-radius: 28px;
+  padding: 2.5rem 1.75rem;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
   max-width: 600px;
   margin: 2rem auto;
-  border: 1px solid rgba(25, 40, 96, 0.06);
-  box-shadow: 0 15px 35px rgba(16, 28, 66, 0.04);
+  border: 1px solid rgba(136, 159, 210, 0.3);
+  box-shadow: 0 16px 40px rgba(61, 88, 150, 0.08);
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -3553,11 +3560,12 @@ button {
 .tower-setup-header h2 {
   margin: 0 0 0.5rem;
   font-size: 2.1rem;
-  color: #1c2553;
+  color: #1f2d59;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
+  font-weight: 800;
 }
 
 .tower-setup-header p {
@@ -3592,42 +3600,44 @@ button {
 }
 
 .tower-select-btn {
-  border: 2px solid rgba(26, 41, 100, 0.08);
-  background: #f8fbff;
-  color: #2b3974;
+  border: 1.5px solid rgba(136, 159, 210, 0.4);
+  background: rgba(255, 255, 255, 0.7);
+  color: #1f2d59;
   font-weight: 700;
   padding: 0.85rem 0.5rem;
-  border-radius: 16px;
+  border-radius: 14px;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: all 0.22s ease;
   font-size: 0.95rem;
   text-align: center;
 }
 
 .tower-select-btn:hover {
-  background: #f0f5ff;
-  border-color: rgba(26, 41, 100, 0.16);
+  background: white;
+  border-color: rgba(63, 105, 255, 0.4);
+  transform: translateY(-1px);
 }
 
 .tower-select-btn.is-active {
-  background: #5b8cff;
-  border-color: #5b8cff;
+  background: linear-gradient(135deg, #3f69ff, #45b2ff);
+  border-color: transparent;
   color: white;
-  box-shadow: 0 8px 20px rgba(91, 140, 255, 0.24);
+  box-shadow: 0 8px 20px rgba(63, 105, 255, 0.24);
 }
 
 .tower-game-layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  min-height: 520px;
-  background: white;
+  grid-template-columns: 380px 1fr;
+  gap: 1rem;
+  flex: 1;
 }
 
 /* Climbing Stage Column */
 .tower-climb-stage {
   position: relative;
-  background: linear-gradient(180deg, #1b387c 0%, #3e6bbd 70%, #85b0f4 100%);
-  border-right: 1px solid rgba(25, 40, 96, 0.1);
+  background: linear-gradient(180deg, #1e285a 0%, #2f448c 60%, #4f6fb3 100%);
+  border-radius: 22px;
+  border: 1px solid rgba(136, 159, 210, 0.25);
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr;
@@ -3657,14 +3667,15 @@ button {
 .tower-climb-hud {
   position: relative;
   z-index: 5;
-  background: rgba(16, 27, 69, 0.35);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 0.65rem 0.9rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .tower-hud-item {
@@ -3726,8 +3737,8 @@ button {
 }
 
 .tower-platform.current {
-  background: linear-gradient(180deg, #ffd166 0%, #d88918 100%);
-  border-bottom: 8px solid #a86200;
+  background: linear-gradient(135deg, #ffba4a, #ff7b7b);
+  border-bottom: 8px solid #cc5252;
 }
 
 .tower-platform.current::before {
@@ -3778,28 +3789,30 @@ button {
 
 /* Whiteboard Board Column */
 .tower-board-stage {
-  padding: 1.5rem;
-  background: #fdfdfd;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1.25rem;
   position: relative;
 }
 
 .vertical-math-board {
   flex: 1;
-  background: white;
-  border-radius: 24px;
-  border: 1px dashed rgba(26, 41, 100, 0.15);
-  box-shadow: 0 10px 25px rgba(16, 27, 69, 0.03);
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.08), transparent 14%),
+    linear-gradient(180deg, #4d8b7a 0%, #416f63 100%);
+  border-radius: 22px;
+  border: 8px solid #c18458;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.16),
+    0 12px 30px rgba(0, 0, 0, 0.15);
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
-  min-height: 260px;
+  min-height: 270px;
 }
 
 .vertical-math-board::before {
@@ -3809,7 +3822,7 @@ button {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 111, 97, 0.15);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 /* Vertical Math Operation Presentation */
@@ -3830,17 +3843,17 @@ button {
 }
 
 .math-col-digits.units {
-  background: rgba(91, 140, 255, 0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
 }
 
 .math-col-digits.tens {
-  background: rgba(112, 211, 154, 0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
 }
 
 .math-col-digits.hundreds {
-  background: rgba(255, 209, 102, 0.02);
+  background: rgba(255, 255, 255, 0.02);
   border-radius: 8px;
 }
 
@@ -3848,30 +3861,33 @@ button {
 .math-carry-box {
   width: 32px;
   height: 28px;
-  border-radius: 6px;
-  border: 1.5px dashed rgba(26, 41, 100, 0.22);
+  border-radius: 8px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.4);
   margin-bottom: 0.6rem;
   display: grid;
   place-items: center;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #ff8a3d;
-  background: #fffaf6;
+  color: #ffd166;
+  background: rgba(255, 255, 255, 0.10);
   opacity: 0.85;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .math-carry-box.active {
-  border-color: #ff8a3d;
+  border-color: #ffd166;
   border-style: solid;
-  background: #fff3ea;
+  background: rgba(255, 209, 102, 0.22);
   opacity: 1;
 }
 
 .math-digit-box {
-  font-family: 'Courier New', Courier, monospace, sans-serif;
+  font-family: 'Trebuchet MS', 'Comic Sans MS', sans-serif;
   font-size: 3.2rem;
   font-weight: 800;
-  color: #1a2556;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
   height: 64px;
   line-height: 64px;
   text-align: center;
@@ -3881,11 +3897,12 @@ button {
 .math-line-operator {
   grid-column: 1 / -1;
   width: 100%;
-  height: 5px;
-  background: #1a2556;
-  border-radius: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
   margin: 0.4rem 0 0.8rem;
   position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .math-operator-symbol {
@@ -3894,14 +3911,15 @@ button {
   bottom: 24px;
   font-size: 2.8rem;
   font-weight: 800;
-  color: #ff6f61;
+  color: #ffd166;
   font-family: sans-serif;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .math-col-label {
   font-size: 0.72rem;
   font-weight: 800;
-  color: #8c98c2;
+  color: rgba(255, 255, 255, 0.55);
   margin-top: 0.4rem;
   text-transform: uppercase;
 }
@@ -3917,12 +3935,12 @@ button {
   width: 52px;
   height: 68px;
   border-radius: 12px;
-  border: 2.5px solid rgba(26, 41, 100, 0.14);
-  background: #f8faff;
-  font-family: 'Courier New', Courier, monospace, sans-serif;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+  font-family: 'Trebuchet MS', 'Comic Sans MS', sans-serif;
   font-size: 2.8rem;
   font-weight: 800;
-  color: #5b8cff;
+  color: #ffd166;
   display: grid;
   place-items: center;
   transition: all 0.2s ease;
@@ -3930,13 +3948,17 @@ button {
 }
 
 .math-answer-digit-box.is-focused {
-  border-color: #5b8cff;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(91, 140, 255, 0.16);
+  border-color: #ffd166;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.25);
 }
 
 .math-answer-digit-box.has-value {
-  color: #1a2556;
+  color: rgba(255, 255, 255, 0.95);
+  border-style: solid;
+  border-color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .vertical-math-keypad {
@@ -3949,45 +3971,58 @@ button {
 
 .math-keypad-btn {
   border: 0;
-  background: white;
-  border: 1px solid rgba(26, 41, 100, 0.08);
-  box-shadow: 0 4px 10px rgba(16, 27, 69, 0.03);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(136, 159, 210, 0.25);
+  box-shadow: 0 6px 14px rgba(61, 88, 150, 0.05);
   font-size: 1.45rem;
   font-weight: 700;
-  color: #1c2553;
+  color: #1f2d59;
   padding: 0.85rem 0.5rem;
-  border-radius: 18px;
+  border-radius: 14px;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: all 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.math-keypad-btn:hover {
+  background: white;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(61, 88, 150, 0.08);
 }
 
 .math-keypad-btn:active,
 .math-keypad-btn.pressed {
-  transform: scale(0.92);
-  background: #f0f4ff;
-  border-color: #5b8cff;
-  color: #5b8cff;
+  transform: scale(0.94);
+  background: #f0f5ff;
+  border-color: #3f69ff;
+  color: #3f69ff;
 }
 
 .math-keypad-btn.action-clear {
-  color: #ff6f61;
-  background: #fff8f7;
+  color: white;
+  background: linear-gradient(135deg, #ff6f61, #ff8e7b);
+  border: 0;
+  box-shadow: 0 6px 15px rgba(255, 111, 97, 0.25);
   font-size: 1.15rem;
+}
+
+.math-keypad-btn.action-clear:hover {
+  background: linear-gradient(135deg, #ff7e71, #ff9e8b);
 }
 
 .math-keypad-btn.action-enter {
   color: white;
-  background: #70d39a;
+  background: linear-gradient(135deg, #64d58b, #34b567);
+  border: 0;
   grid-column: span 2;
   font-size: 1.15rem;
-  box-shadow: 0 6px 15px rgba(112, 211, 154, 0.3);
+  box-shadow: 0 6px 15px rgba(52, 181, 103, 0.25);
 }
 
-.math-keypad-btn.action-enter:active {
-  background: #5eb382;
+.math-keypad-btn.action-enter:hover {
+  background: linear-gradient(135deg, #74e59b, #44c577);
 }
 
 /* Visual Educational Hint Columns Overlay */
@@ -3997,12 +4032,13 @@ button {
   background: rgba(255, 255, 255, 0.98);
   z-index: 10;
   padding: 1.5rem;
-  border-radius: 24px;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   gap: 1rem;
   animation: rewardPop 0.35s ease-out;
   overflow: auto;
+  border: 1px solid rgba(136, 159, 210, 0.3);
 }
 
 .math-hint-header {
@@ -4088,6 +4124,10 @@ button {
   gap: 1.5rem;
   max-width: 580px;
   margin: 0 auto;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  border: 1px solid rgba(136, 159, 210, 0.25);
+  box-shadow: 0 16px 40px rgba(61, 88, 150, 0.08);
 }
 
 .tower-trophy {
@@ -4116,7 +4156,7 @@ button {
 .tower-height-stat {
   font-size: 3.5rem;
   font-weight: 800;
-  color: #5b8cff;
+  color: #3f69ff;
   line-height: 1;
 }
 

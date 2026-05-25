@@ -4617,40 +4617,40 @@ function MultiplicationChallenge({
             )}
           </div>
 
-          <div className={`question-card ${feedback ? `feedback-${feedback}` : ''}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '220px', padding: '1.5rem' }}>
-            <div className="vertical-operation" style={{ transform: 'scale(1.25)' }}>
-              <div className="math-operator-symbol" style={{ color: 'white', left: '-36px', bottom: '16px', fontSize: '2.2rem' }}>
+          <div className="vertical-math-board" style={{ maxWidth: '340px', margin: '0 auto 1.5rem', minHeight: 'auto', padding: '1.25rem 2rem' }}>
+            <div className="vertical-operation" style={{ transform: 'scale(1.15)', transformOrigin: 'bottom center' }}>
+              <div className="math-operator-symbol">
                 {operation === 'add' ? '+' : operation === 'subtract' ? '-' : '×'}
               </div>
               
               {/* Tens Column */}
               <div className="math-col-digits tens">
-                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                <div className="math-digit-box">
                   {currentQuestion.n1.toString().padStart(2, ' ')[0].trim()}
                 </div>
-                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                <div className="math-digit-box">
                   {currentQuestion.n2.toString().padStart(2, ' ')[0].trim()}
                 </div>
-                <div className="math-line-operator" style={{ backgroundColor: 'white', margin: '0.2rem 0 0.4rem' }} />
-                <div className="math-answer-digit-box" style={{ borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', color: 'white', borderStyle: 'dashed', width: '48px', height: '48px', fontSize: '2rem' }}>
+                <div className="math-line-operator" />
+                <div className="math-answer-digit-box">
                   ?
                 </div>
-                <span className="math-col-label" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem' }}>D</span>
+                <span className="math-col-label">D</span>
               </div>
 
               {/* Units Column */}
               <div className="math-col-digits units">
-                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                <div className="math-digit-box">
                   {currentQuestion.n1.toString().padStart(2, ' ')[1]}
                 </div>
-                <div className="math-digit-box" style={{ color: 'white', fontSize: '2.6rem', height: '48px', lineHeight: '48px' }}>
+                <div className="math-digit-box">
                   {currentQuestion.n2.toString().padStart(2, ' ')[1]}
                 </div>
-                <div className="math-line-operator" style={{ backgroundColor: 'white', margin: '0.2rem 0 0.4rem' }} />
-                <div className="math-answer-digit-box" style={{ borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.1)', color: 'white', borderStyle: 'dashed', width: '48px', height: '48px', fontSize: '2rem' }}>
+                <div className="math-line-operator" />
+                <div className="math-answer-digit-box">
                   ?
                 </div>
-                <span className="math-col-label" style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.65rem' }}>U</span>
+                <span className="math-col-label">U</span>
               </div>
             </div>
           </div>
