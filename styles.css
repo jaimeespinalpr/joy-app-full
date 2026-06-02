@@ -1,143 +1,139 @@
 :root {
-  --bg-top: #fff7d6;
-  --bg-bottom: #d8f3ff;
-  --ink: #1b1f3a;
-  --card: #ffffffcc;
-  --accent: #ff7a59;
-  --accent-2: #28c2b8;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+  --bg-dark: #0f172a;
+  --card-bg: #1e293b;
+  --accent-primary: #8b5cf6; /* Violet */
+  --accent-secondary: #06b6d4; /* Cyan */
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --neon-glow: 0 0 15px rgba(139, 92, 246, 0.5);
 }
 
 * {
   box-sizing: border-box;
+  transition: all 0.3s ease;
 }
 
 body {
   margin: 0;
-  font-family: "Trebuchet MS", "Comic Sans MS", sans-serif;
-  color: var(--ink);
-  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-main);
+  background-color: var(--bg-dark);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Luxury Banner V.01 */
+body::before {
+  content: "ARCADE PREMIUM V.01";
+  display: block;
+  width: 100%;
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+  text-align: center;
+  padding: 8px 0;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: white;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
 }
 
 .page {
-  width: min(1100px, 100%);
-  margin: 0 auto;
-  padding: 24px;
+  width: min(1000px, 95%);
+  margin: 40px auto;
   display: grid;
-  gap: 24px;
+  gap: 32px;
 }
 
 .hero {
-  background:
-    radial-gradient(circle at 10% 10%, #ffffff 0 10%, transparent 11%),
-    radial-gradient(circle at 92% 18%, #ffd6a5 0 12%, transparent 13%),
-    radial-gradient(circle at 85% 80%, #c7f9cc 0 14%, transparent 15%),
-    #ffffffa6;
-  border: 3px solid #ffffff;
-  border-radius: 28px;
-  box-shadow: var(--shadow);
-  padding: 28px;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  font-weight: 700;
-  color: #665;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.85rem;
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(30, 41, 59, 0.5);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
 }
 
 h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  background: linear-gradient(to right, #fff, var(--accent-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 3rem);
-  line-height: 1.1;
+  font-weight: 900;
 }
 
 .subtitle {
-  margin: 12px 0 0;
-  max-width: 60ch;
-  font-size: 1.05rem;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  margin-top: 10px;
 }
 
-.actions {
-  margin-top: 20px;
-}
-
-button {
-  border: 0;
-  background: linear-gradient(135deg, var(--accent), #ffb347);
-  color: white;
-  font-weight: 700;
-  padding: 12px 18px;
-  border-radius: 999px;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(255, 122, 89, 0.35);
-}
-
-button:hover {
-  transform: translateY(-1px);
-}
-
-button:focus-visible {
-  outline: 3px solid var(--accent-2);
-  outline-offset: 3px;
-}
-
-.message {
-  margin: 14px 0 0;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #ffffff;
-  display: inline-block;
-}
-
+/* Grid de Juegos Profesional */
 .cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
 }
 
 .card {
-  background: var(--card);
-  border: 2px solid #ffffff;
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: var(--shadow);
+  background: var(--card-bg);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 24px;
+  padding: 30px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.card:hover {
+  transform: translateY(-10px);
+  border-color: var(--accent-primary);
+  box-shadow: var(--neon-glow);
+}
+
+/* Destacar Cotorra Flap */
+.card:first-child {
+  border: 2px solid var(--accent-primary);
+  grid-column: span 1;
+}
+
+.card:first-child h2 {
+  font-size: 2rem;
+  color: var(--accent-secondary);
 }
 
 .card h2 {
-  margin-top: 0;
-  font-size: 1.1rem;
+  margin: 0 0 12px;
+  font-size: 1.5rem;
 }
 
 .card p {
-  margin-bottom: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
 }
 
-@media (max-width: 760px) {
-  .page {
-    padding: 16px;
-  }
-
-  .hero {
-    padding: 20px;
-    border-radius: 22px;
-  }
-
-  .cards {
-    grid-template-columns: 1fr;
-  }
+button {
+  margin-top: 20px;
+  padding: 12px 30px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent-primary);
+  color: white;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * {
-    scroll-behavior: auto;
-  }
-
-  button {
-    transition: none;
-  }
+button:hover {
+  background: var(--accent-secondary);
+  transform: scale(1.05);
 }
 
+@media (max-width: 600px) {
+  h1 { font-size: 2rem; }
+  .page { margin: 20px auto; }
+}
